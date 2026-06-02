@@ -27,39 +27,23 @@ def load_data():
         return pd.DataFrame()
 
 # 💡 விகிதாச்சாரத் தானியங்கிப் பாதுகாப்பு இன்ஜின் (Proportion Auto-Scaler)
-def get_blueprint_defaults(total_marks):
-    # Fallback Standard (100 Marks)
+def get_blueprint_defaults(total_marks, is_social=False):
+    # சமூக அறிவியல் பாடம் தேர்ந்தெடுக்கப்பட்டால் சிவபிரகாஷ் ஜியின் அசல் 20-12-10-4 ப்ளூபிரின்ட் லாக்
+    if is_social:
+        return {"p1": 20, "p2g": 12, "p2a": 10, "p3g": 10, "p3a": 8, "p4v": 8, "p4g": 4, "p4a": 2}
+        
+    # இதர பாடங்களுக்கான இயல்புநிலை எண்கள்
     defaults = {"p1": 14, "p2g": 12, "p2a": 10, "p3g": 14, "p3a": 10, "p4v": 8, "p4g": 4, "p4a": 2}
-    
     if total_marks == 106:
         defaults = {"p1": 20, "p2g": 12, "p2a": 10, "p3g": 14, "p3a": 10, "p4v": 8, "p4g": 4, "p4a": 2}
-    elif total_marks == 100:
-        defaults = {"p1": 14, "p2g": 12, "p2a": 10, "p3g": 14, "p3a": 10, "p4v": 8, "p4g": 4, "p4a": 2}
-    elif total_marks == 90:
-        defaults = {"p1": 14, "p2g": 11, "p2a": 9, "p3g": 14, "p3a": 10, "p4v": 8, "p4g": 2, "p4a": 1}
-    elif total_marks == 80:
-        defaults = {"p1": 12, "p2g": 11, "p2a": 9, "p3g": 14, "p3a": 10, "p4v": 8, "p4g": 0, "p4a": 0}
-    elif total_marks == 75:
-        defaults = {"p1": 11, "p2g": 9, "p2a": 7, "p3g": 14, "p3a": 10, "p4v": 8, "p4g": 0, "p4a": 0}
     elif total_marks == 50:
         defaults = {"p1": 10, "p2g": 8, "p2a": 6, "p3g": 6, "p3a": 4, "p4v": 8, "p4g": 2, "p4a": 1}
     elif total_marks == 25:
         defaults = {"p1": 5, "p2g": 6, "p2a": 5, "p3g": 3, "p3a": 2, "p4v": 8, "p4g": 0, "p4a": 0}
-    else:
-        # எந்தவொரு புதிய எண்ணுக்கும் துல்லியமான விகிதப் பகிர்வு அல்காரிதம்
-        rem = total_marks
-        p4a = max(0, int((total_marks * 0.15) / 8))
-        rem -= (p4a * 8)
-        p3a = max(0, int((rem * 0.60) / 5))
-        rem -= (p3a * 5)
-        p2a = max(0, int(rem / 3))
-        rem -= (p2a * 2)
-        p1 = rem
-        defaults = {"p1": p1, "p2g": p2a + 2, "p2a": p2a, "p3g": p3a + 4, "p3a": p3a, "p4v": 8, "p4g": p4a + 2, "p4a": p4a}
     return defaults
 
 # ==========================================
-# 3. Adaptive Language Prompt Engine 
+# 3. Adaptive Language & Subject Prompt Engine
 # ==========================================
 def generate_prompt_v16(subject, lessons_list, exam_type, exam_time, total_marks, exam_mode, blueprint_desc, custom_q, book_back_perf, interior_perf):
     lessons_str = ", ".join(lessons_list)
@@ -67,46 +51,64 @@ def generate_prompt_v16(subject, lessons_list, exam_type, exam_time, total_marks
     
     is_english = "english" in sub_lower or "ஆங்கிலம்" in sub_lower
     is_tamil = "tamil" in sub_lower or "தமிழ்" in sub_lower
+    is_social = "social" in sub_lower or "சமூக" in sub_lower
+    is_math = "math" in sub_lower or "கணிதம்" in sub_lower
     
     if is_english:
         lang_instruction = "5. Language: The ENTIRE question paper text, headers, instructions, questions, and options MUST be in pure ENGLISH language only."
         header_format = "PART [ROMAN_NUM] - [Section Description] (No_of_Qs x Marks = Total_Marks)"
-        option_format = "For every MCQ question, write the 4 options on a single new line using standard markers: a) , b) , c) , d)"
-        
+        option_format = "Options marker: a) , b) , c) , d)"
         subject_blueprint_rules = """
-        [STRICT TN BOARD ENGLISH BLUEPRINT - MANDATORY]
-        1. PART I (1-MARK MCQs): Dynamically distribute the generated questions following this strict ratio:
-           - Vocabulary: Synonyms, Antonyms, Idiom, Phrasal Verb.
-           - Word Formation: Prefix, Suffix, Compound Word, British/American English.
-           - Grammar: Tense, Modal, Preposition, Question Tag, Sentence Pattern, Figure of Speech.
-           - Textbook: Core Lesson Facts.
-        2. PART II (2-MARK QUESTIONS): Strictly split into 3 core professional tiers:
-           - Tier 1: Lesson Recall (Comprehension checks).
-           - Tier 2: Lesson Understanding (Reasoning/Contextual depth).
-           - Tier 3: Grammar Application (Voice, Reported Speech, Punctuation, Combining sentences).
-           - Cognitive Target: 40% Recall, 40% Understanding, 20% Life Application.
+        [STRICT TN BOARD ENGLISH BLUEPRINT]
+        - PART I (20 MCQs): 1-3 Synonyms, 4-6 Antonyms, 7 Idiom, 8 Phrasal Verb, 9 Prefix, 10 Suffix, 11 Compound Word, 12 British/American, 13-18 Grammar, 19-20 Textbook Facts.
+        - PART II (12 Qs, Answer 10): 4 Recall, 4 Understanding, 4 Grammar Application (Voice, Speech, Punctuation).
         """
-        
     elif is_tamil:
-        lang_instruction = "5. Language: The ENTIRE question paper text, headers, instructions, questions, and options MUST be in pure TAMIL language only."
+        lang_instruction = "5. Language: The ENTIRE question paper text MUST be in pure TAMIL only."
         header_format = "பகுதி [ROMAN_NUM] - [பிரிவின் விளக்கம்] (வினாக்கள் எண்ணிக்கை x மதிப்பெண் = மொத்த மதிப்பெண்கள்)"
-        option_format = "ஒவ்வொரு கொள்குறி வினாவிற்கும் 4 விடைகளையும் ஒரே வரியில் இந்த குறியீடுகளைப் பயன்படுத்தி எழுதவும்: அ) , ஆ) , இ) , ஈ)"
-        
+        option_format = "Options marker: அ) , ஆ) , இ) , ஈ)"
         subject_blueprint_rules = """
-        [அசல் கொள்குறி வகை மற்றும் குறுவினா தமிழ் ப்ளூபிரின்ட் - கட்டாயம்]
-        1. பகுதி I (பலவுள் தெரிக): வினாக்களை இந்த விகிதாச்சாரப்படி துல்லியமாகப் பிரித்து வழங்கவும்:
-           - சொல்வளம்: சொல் பொருள், எதிர்ச்சொல், இணைச்சொற்கள்.
-           - இலக்கணம்: பெயரெச்சம், வினையெச்சம், வினையாலணையும் பெயர், இடைச்சொல், உரிச்சொல், இலக்கணக் குறிப்புகள்.
-           - இலக்கியம் & பாடப்பகுதி: நூல்-ஆசிரியர், வரலாற்றுத் தகவல்கள், உவமை/அணி இலக்கணம், பழமொழி நிரப்புதல்.
-        2. பகுதி II (2-மதிப்பெண் குறுவினாக்கள்):
-           - வினாக்களை 3 பிரிவுகளாகப் பிரிக்கவும்: பாடப்பகுதி வினாக்கள் (உரைநடை/செய்யுள்/துணைப்பாடம் - 40% Recall, 40% Understanding, 20% Application), இலக்கிய வினாக்கள் (நூல்/ஆசிரியர்), இலக்கணப் பயன்பாடு (மொழிப்பயிற்சி/பிழை திருத்தம்).
+        [அசல் தமிழ் பாடத்திட்ட ப்ளூபிரின்ட்]
+        - பகுதி I (20 பலவுள் தெரிக): Q1-7 சொல்வளம் (பொருள்/எதிர்ச்சொல்/இணைச்சொல்), Q8-14 இலக்கணம் (பெயரெச்சம்/வினையெச்சம்/இலக்கணக்குறிப்பு), Q15-20 இலக்கியம் (நூல்-ஆசிரியர்/பழமொழி).
+        - பகுதி II (12 குறுவினாக்கள், எழுதுக 10): 6 பாடப்பகுதி வினாக்கள் (Recall/Understanding/Application கலவை), 2 இலக்கிய வினாக்கள், 4 இலக்கணப் பயன்பாட்டு மொழிப்பயிற்சிகள்.
         """
+    elif is_social:
+        lang_instruction = "5. Language: The ENTIRE question paper text MUST be in pure TAMIL only."
+        header_format = "பகுதி [ROMAN_NUM] - [பிரிவின் விளக்கம்] (வினாக்கள் எண்ணிக்கை x மதிப்பெண் = மொத்த மதிப்பெண்கள்)"
+        option_format = "Options marker: அ) , ஆ) , இ) , ஈ)"
         
+        # 💡 சிவபிரகாஷ் ஜியின் அசல் 9.5+/10 சமூக அறிவியல் புரட்சிகரமான ப்ளூபிரின்ட் லாக்
+        subject_blueprint_rules = """
+        [MANDATORY CRITICAL SOCIAL SCIENCE BOARD EXPERT BLUEPRINT]
+        1. பகுதி I (20 பலவுள் தெரிக - MCQs):
+           - 15 வினாக்கள் அசல் வரலாற்று/புவியியல்/குடிமையியல் நினைவு கூறுதல் வினாக்கள் (Recall Questions).
+           - 5 வினாக்கள் உயர்நிலை பயன்பாட்டு வினாக்கள் (Application). இதில் கட்டாயமாக 'கூற்று-காரணம் (Assertion-Reason)', 'பொருத்துக (Match)', மற்றும் 'காலவரிசைப்படி ஒழுங்குபடுத்துக (Chronological Order)' வினாக்கள் இடம் பெற வேண்டும்.
+        2. பகுதி II (12 குறுவினாக்கள், எழுதுக 10):
+           - 40% Recall (எ.கா: ஹென்றி மாஸ்டர் யார்?), 40% Understanding (காரணம் கூறுக/புரிதல் வினாக்கள்), 20% உயர்சிந்தனை வாழ்வியல் பயன்பாட்டு வினாக்கள் (Application/HOTS) எனப் பிரிக்கப்பட வேண்டும். வெறும் 'என்ன/யார்' வினாக்களைத் தவிர்க்கவும்.
+        3. பகுதி III (10 சிறுவினாக்கள், எழுதுக 8) - மேப் மற்றும் ஆதார வினாக்கள் லாக்:
+           - கட்டாயமாக 2 வினாக்கள் 'ஆதார வினாக்களாக (Source-Based / Passage Comprehension)' வரலாற்றுப் பத்தியைக் கொடுத்து வினா கேட்க வேண்டும்.
+           - கட்டாயமாக 2 வினாக்கள் 'வரைபடம் சார்ந்த வினாக்களாக (Text-Based Map Marking Lists)' அமைய வேண்டும். (எ.கா: 'வழங்கப்பட்டுள்ள இந்திய வரைபடத்தில் குறிக்க வேண்டிய 5 முக்கிய இடங்களின் பட்டியலைத் தருக').
+           - 2 வினாக்கள் தூய உயர்சிந்தனை வினாக்களாக (HOTS) இருக்க வேண்டும்.
+        4. பகுதி IV (4 பெருவினாக்கள், எழுதுக 2):
+           - 2 வினாக்கள் பாரம்பரிய வினாக்கள் (Traditional descriptive essays).
+           - 2 வினாக்கள் தகுதி அடிப்படையிலான பயன்பாட்டு வினாக்கள் (Competency-Based / Case study style). எ.கா: 'உலகமயமாக்கல் இந்திய சிறு தொழில்களுக்கு நன்மையா? தீமையா? காரணம் கூறுக.'
+        """
+    elif is_math:
+        lang_instruction = "5. Language: The ENTIRE question paper text MUST be in pure TAMIL only."
+        header_format = "பகுதி [ROMAN_NUM] - [பிரிவின் விளக்கம்] (No_of_Qs x Marks = Total_Marks)"
+        option_format = "Options marker: அ) , ஆ) , இ) , ஈ)"
+        
+        # 💡 கணித வரைபடங்களுக்கான (Math Graphs) பிரத்யேக அட்டவணை விதிமுறை லாக்
+        subject_blueprint_rules = """
+        [STRICT MATHEMATICS MAP & GRAPH PAPER RULE]
+        - For Graph and Practical Geometry questions (usually in Part IV), you MUST generate a clear 'Data/Coordinate Points Table' (மதிப்பு அட்டவணை) showing x and y values for the equation (e.g., y = x^2 - 4x + 3) so that students can easily plot it on a separate physical graph sheet.
+        - Always append this explicit instruction text below graph questions: '[மாணவர்களுக்கான குறிப்பு: இக்கேள்விக்கான வரைபடத்தை உங்களிடம் வழங்கப்பட்டுள்ள வரைபடத் தாளில் (Graph Sheet) புள்ளிகளைக் குறித்து வரையவும்]'.
+        """
     else:
         lang_instruction = "5. Language: Pure TAMIL language only."
-        header_format = "பகுதி [ROMAN_NUM] - [பிரிவின் விளக்கம்] (No_of_Qs x Marks = Total_Marks)"
-        option_format = "For every MCQ question, write the 4 options on a single new line using standard markers: அ) , ஆ) , இ) , ஈ)"
-        subject_blueprint_rules = "[CORE SUBJECTS BLUEPRINT] Split into Part I (MCQs), Part II (2-Marks), Part III (5-Marks), Part IV (Long Qs)."
+        header_format = "பகுதி [ROMAN_NUM] - [பிரிவின் விளக்கம்]"
+        option_format = "Options marker: அ) , ஆ) , இ) , ஈ)"
+        subject_blueprint_rules = "[CORE BLUEPRINT] Split evenly across standard textbook parts."
 
     return f"""
     You are an Expert Question Paper Setter for TN Board Class 10. 
@@ -223,7 +225,6 @@ def create_professional_docx(ai_response, school_name, class_val, subject_val, e
     
     style = doc.styles['Normal']
     style.font.name = 'Nirmala UI'
-    style.font.size = Pt(11)
     
     h_school = doc.add_paragraph(style='Normal')
     h_school.alignment = WD_ALIGN_PARAGRAPH.CENTER
@@ -275,7 +276,7 @@ tab1, tab2 = st.tabs(["🎓 வினாத்தாள் தயாரிப்
 # TAB 1: Question Paper Generator
 # ------------------------------------------
 with tab1:
-    st.title("🎓 PMP Question Paper AI (V17.5 AUTO-PROPORTION)")
+    st.title("🎓 PMP Question Paper AI (V17.6 PRO BLUEPRINT)")
     df = load_data()
     if df.empty:
         st.error("Database (lesson_master_v1_5.csv) கிடைக்கவில்லை!")
@@ -291,7 +292,6 @@ with tab1:
         with col3:
             time_val = st.selectbox("Time (நேரம்)", ["1.00 Hour", "1.30 Hours", "2.00 Hours", "2.30 Hours", "3.00 Hours"], index=3)
         with col4:
-            # 💡 ஆசிரியர் இங்கே எண்களை மாற்றினால் கீழே விகிதாச்சாரம் தானாக மாறும்!
             marks_val = st.number_input("Total Marks (மொத்த மதிப்பெண்கள்)", value=106, step=1)
             exam_mode = st.selectbox("Exam Mode", ["🏛️ Public Exam Mode", "🏫 School Elite Mode"])
             
@@ -300,11 +300,11 @@ with tab1:
         
         st.markdown("---")
         
-        # 💡 விகிதாச்சாரப் பாதுகாப்பு இன்ஜினை UI உடன் இணைத்தல்
-        bp = get_blueprint_defaults(marks_val)
+        # 💡 பாடம் சமூக அறிவியல் தானா என சோதித்தல்
+        is_soc = "social" in subject_val.lower() or "சமூக" in subject_val.lower()
+        bp = get_blueprint_defaults(marks_val, is_social=is_soc)
         
         st.markdown("### 📋 வினா வடிவமைப்பு தானியங்கிப் பிரிவு (Auto-Adjusted Blueprint Options)")
-        st.caption("💡 குறிப்பு: நீங்கள் மேலே உள்ள 'Total Marks'-ஐ மாற்றும்போது, கீழே உள்ள வினாக்களின் எண்ணிக்கை அசல் விகிதப்படி தானாகவே மாறிக்கொள்ளும்.")
         
         b_col1, b_col2, b_col3, b_col4 = st.columns(4)
         with b_col1:
@@ -330,7 +330,7 @@ with tab1:
             st.success(f"✅ வெற்றிகரமாகப் பொருந்தியது! விகிதாச்சாரக் கணக்கீடு: {total_calculated} மார்க் = மொத்த மதிப்பெண்: {marks_val} மார்க்.")
             can_generate = True
         else:
-            st.warning(f"⚠️ கைகளால் எண்களை மாற்றியுள்ளீர்கள்! கணக்கீடு: {total_calculated} மார்க் | மொத்த மதிப்பெண்: {marks_val} மார்க். (சமமாக மாற்றவும்).")
+            st.warning(f"⚠️ கணக்கீடு: {total_calculated} மார்க் | மொத்த மதிப்பெண்: {marks_val} மார்க். (சமமாக மாற்றவும்).")
             can_generate = False
             
         st.markdown("---")
