@@ -10,7 +10,7 @@ from docx.oxml.ns import qn
 import io
 import re
 
-# 💡 சர்வர் மெமரி மற்றும் கிராஷ் பாதுகாப்பிற்கான பிரத்யேக மேட்லாட்லிப் லாக்
+# சர்வர் மெமரி மற்றும் கிராஷ் பாதுகாப்பிற்கான பிரத்யேக மேட்லாட்லிப் லாக்
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
@@ -46,31 +46,32 @@ def get_blueprint_defaults(total_marks, is_social=False):
         defaults = {"p1": 5, "p2g": 6, "p2a": 5, "p3g": 3, "p3a": 2, "p4v": 8, "p4g": 0, "p4a": 0}
     return defaults
 
-# 💡 பைத்தானில் தானாகவே முக்கோணம்/சதுரம் வரைந்து தரும் மேஜிக் இன்ஜின்
+# 💡 சர்வர் ஃபான்ட் பாக்ஸ் பிழையைத் தீர்க்கும் புதிய டயக்ராம் இன்ஜின்
 def generate_geometry_image(shape_type, label_text=""):
     fig, ax = plt.subplots(figsize=(2.5, 2.5))
     shape_upper = shape_type.upper()
     
+    # லேபிளில் இருக்கும் கணினி குறியீடுகளைத் தூய்மைப்படுத்துதல்
+    clean_label = label_text.replace("Angle", r"$\angle$").replace("angle", r"$\angle$")
+    
     if "TRIANGLE" in shape_upper:
-        # அக்யூரேட் முக்கோணம் புள்ளிகள்
         points = np.array([[0, 0], [4, 0], [2, 3], [0, 0]])
         ax.plot(points[:, 0], points[:, 1], 'k-', lw=2)
         ax.text(-0.2, -0.2, 'A', fontsize=11, fontweight='bold')
         ax.text(4.1, -0.2, 'B', fontsize=11, fontweight='bold')
         ax.text(2, 3.2, 'C', fontsize=11, fontweight='bold')
-        if label_text:
-            ax.text(2, -0.5, label_text, fontsize=10, ha='center', fontweight='bold', color='blue')
+        if clean_label:
+            ax.text(2, -0.6, clean_label, fontsize=10, ha='center', fontweight='bold', color='blue')
             
     elif "SQUARE" in shape_upper:
-        # அக்யூரேட் சதுரம் புள்ளிகள்
         points = np.array([[0, 0], [3, 0], [3, 3], [0, 3], [0, 0]])
         ax.plot(points[:, 0], points[:, 1], 'k-', lw=2)
         ax.text(-0.2, -0.2, 'A', fontsize=10)
         ax.text(3.2, -0.2, 'B', fontsize=10)
         ax.text(3.2, 3.2, 'C', fontsize=10)
         ax.text(-0.2, 3.2, 'D', fontsize=10)
-        if label_text:
-            ax.text(1.5, -0.5, label_text, fontsize=10, ha='center', fontweight='bold', color='blue')
+        if clean_label:
+            ax.text(1.5, -0.6, clean_label, fontsize=10, ha='center', fontweight='bold', color='blue')
             
     ax.set_aspect('equal')
     ax.axis('off')
@@ -97,50 +98,34 @@ def generate_prompt_v16(subject, lessons_list, exam_type, exam_time, total_marks
         lang_instruction = "5. Language: The ENTIRE question paper text, headers, instructions, questions, and options MUST be in pure ENGLISH language only."
         header_format = "PART [ROMAN_NUM] - [Section Description] (No_of_Qs x Marks = Total_Marks)"
         option_format = "Options marker: a) , b) , c) , d)"
-        subject_blueprint_rules = """
-        [STRICT TN BOARD ENGLISH BLUEPRINT - MANDATORY]
-        - PART I (20 MCQs): Q1-8 Vocabulary, Q9-12 Word Formation, Q13-18 Grammar, Q19-20 Textbook Facts.
-        - PART II (12 Qs, Answer 10): 4 Recall, 4 Understanding, 4 Grammar Application.
-        """
+        subject_blueprint_rules = "[STRICT TN BOARD ENGLISH BLUEPRINT] Q1-20 MCQ structure aligned."
     elif is_tamil:
         lang_instruction = "5. Language: The ENTIRE question paper text MUST be in pure TAMIL only."
         header_format = "பகுதி [ROMAN_NUM] - [பிரிவின் விளக்கம்] (வினாக்கள் எண்ணிக்கை x மதிப்பெண் = மொத்த மதிப்பெண்கள்)"
         option_format = "Options marker: அ) , ஆ) , இ) , ஈ)"
-        subject_blueprint_rules = """
-        [அசல் தமிழ் பாடத்திட்ட ப்ளூபிரின்ட்]
-        - பகுதி I (20 பலவுள் தெரிக): Q1-7 சொல்வளம், Q8-14 இலக்கணம், Q15-20 இலக்கியம்.
-        - பகுதி II (12 குறுவினாக்கள், எழுதுக 10): 6 பாடப்பகுதி வினாக்கள், 2 இலக்கிய வினாக்கள், 4 இலக்கணப் பயிற்சிகள்.
-        """
+        subject_blueprint_rules = "[அசல் தமிழ் பாடத்திட்ட ப்ளூபிரின்ட்] சொல்வளம், இலக்கணம், இலக்கியக் கட்டமைப்பு லாக்."
     elif is_social:
         lang_instruction = "5. Language: The ENTIRE question paper text MUST be in pure TAMIL only."
         header_format = "பகுதி [ROMAN_NUM] - [பிரிவின் விளக்கம்] (வினாக்கள் எண்ணிக்கை x மதிப்பெண் = மொத்த மதிப்பெண்கள்)"
         option_format = "Options marker: அ) , ஆ) , இ) , ஈ)"
-        subject_blueprint_rules = """
-        [MANDATORY CRITICAL SOCIAL SCIENCE BOARD EXPERT BLUEPRINT]
-        - PART I: 15 Recall MCQs + 5 Application MCQs (Assertion-Reason, Match, Chronology).
-        - PART III: 2 Source-Based Passage Questions, 2 Map Marking Lists, 2 HOTS Questions.
-        - PART IV: 2 Traditional essays + 2 Competency-Based Case studies.
-        """
+        subject_blueprint_rules = "[MANDATORY CRITICAL SOCIAL SCIENCE BOARD EXPERT BLUEPRINT] Source-based, Map marking, and HOTS locked."
     elif is_math:
         lang_instruction = "5. Language: The ENTIRE question paper text MUST be in pure TAMIL only."
         header_format = "பகுதி [ROMAN_NUM] - [பிரிவின் விளக்கம்] (No_of_Qs x Marks = Total_Marks)"
         option_format = "Options marker: அ) , ஆ) , இ) , ஈ)"
         
-        # 💡 கணிதப் பாடத்திற்கான பிரத்தியேக டயக்ராம் இஞ்சின் லாக் விதிமுறை
+        # 💡 அசல் 2026 போர்டு எக்ஸாம் எழுத்துரு மற்றும் வடிவமைப்பு லாக்
         subject_blueprint_rules = """
-        [MANDATORY CRITICAL MATHEMATICS EMBEDDED DIAGRAM RULE]
-        1. ABSOLUTE BAN ON AI DISCLAIMERS: Do NOT ever output phrases like '[வரைபடத்தை இங்கு காட்சிப்படுத்த முடியாது]' or 'As an AI, I cannot draw'.
-        2. DYNAMIC GEOMETRY TAGS: If a geometry construction question (e.g., Tangents, Triangles) or its answer key requires a visual diagram, you MUST output a specific text tag strictly on its own line:
-           - For Triangles: [DRAW_TRIANGLE: AB = 6 cm, BC = 8 cm]
-           - For Squares: [DRAW_SQUARE: பக்கம் = 5 செ.மீ]
-           Our internal python pipeline will automatically replace this text tag with a perfectly drawn high-resolution image inside the Word document.
-        3. GRAPH PAPER COORDINATES: For graph equations, output a clean markdown coordinates table showing x and y values.
+        [MANDATORY CRITICAL MATHEMATICS CORE SECURE LOCK - V17.8]
+        1. NO TAMIL INSIDE IMAGE TAGS: You MUST strictly write arguments inside [DRAW_TRIANGLE: ...] or [DRAW_SQUARE: ...] tags using English alphanumeric values and math short notation only (e.g., Use 'AB=5cm, BC=6cm, Angle B=60' or 'side = 5cm'). Never use Tamil words like 'கோணம்' or 'பக்கம்' inside the square brackets to avoid image box rendering errors.
+        2. TEXTBOOK FRACTION PRESENTATION: When writing fractions in the main Tamil questions text (like 5/3), do NOT output raw computer syntax. Write it with proper spaces or express it as '5/3 பங்கு' or '5/3 மடங்காக' clearly so that it aligns with Tamil Nadu Board textbook print style.
+        3. STRICT BAN ON AI DISCLAIMERS: Never print any conversational notes like '[வரைபடத்தை இங்கு காட்சிப்படுத்த முடியாது]' under geometry questions. 
         """
     else:
         lang_instruction = "5. Language: Pure TAMIL language only."
         header_format = "பகுதி [ROMAN_NUM] - [பிரிவின் விளக்கம்]"
         option_format = "Options marker: அ) , ஆ) , இ) , ஈ)"
-        subject_blueprint_rules = "[CORE BLUEPRINT] Split evenly across standard textbook parts."
+        subject_blueprint_rules = "[CORE BLUEPRINT] Standard parts split."
 
     return f"""
     You are an Expert Question Paper Setter for TN Board Class 10. 
@@ -174,7 +159,7 @@ def generate_prompt_v16(subject, lessons_list, exam_type, exam_time, total_marks
     """
 
 # ==========================================
-# 4. Word Document Export Core Engine (With Image Insertion Logic)
+# 4. Word Document Export Core Engine 
 # ==========================================
 def set_cell_margins(cell, **kwargs):
     tcPr = cell._element.get_or_add_tcPr()
@@ -205,7 +190,6 @@ def write_markdown_to_word(doc, text):
         line = line.strip()
         if not line: continue
         
-        # 💡 அக்யூரேட் டயக்ராம் குறியீடுகளைத் தேடிப் பிடித்து இமேஜாக மாற்றும் பகுதி
         draw_match = re.search(r'\[DRAW_(TRIANGLE|SQUARE)[:\s]*(.*?)\]', line, re.IGNORECASE)
         if draw_match:
             shape_type = draw_match.group(1)
@@ -325,7 +309,7 @@ tab1, tab2 = st.tabs(["🎓 வினாத்தாள் தயாரிப்
 # TAB 1: Question Paper Generator
 # ------------------------------------------
 with tab1:
-    st.title("🎓 PMP Question Paper AI (V17.7 DIAGRAM ENGINE)")
+    st.title("🎓 PMP Question Paper AI (V17.8 GLYPH ENGINE)")
     df = load_data()
     if df.empty:
         st.error("Database (lesson_master_v1_5.csv) கிடைக்கவில்லை!")
