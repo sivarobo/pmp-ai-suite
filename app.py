@@ -1,4 +1,4 @@
-import streamlit as st
+st.download_button(label="📥 Download app.py File Directly", data="""import streamlit as st
 import pandas as pd
 from google import genai
 from PIL import Image
@@ -53,7 +53,6 @@ return {"p1": 14, "p2g": 12, "p2a": 10, "p3g": 14, "p3a": 10, "p4v": 8, "p4g": 4
 def generate_geometry_image(shape_type, label_text=""):
 fig, ax = plt.subplots(figsize=(2.5, 2.5))
 shape_upper = shape_type.upper()
-clean_label = label_text.replace("Angle", "angle")
 if "TRIANGLE" in shape_upper:
 points = np.array([[0, 0], [4, 0], [2, 3], [0, 0]])
 ax.plot(points[:, 0], points[:, 1], 'k-', lw=2)
@@ -116,9 +115,9 @@ def write_markdown_to_word(doc, text):
 for line in text.split('\n'):
 line = line.strip()
 if not line: continue
-clean_line = line.replace('*', '').replace('$', '').strip()
+clean_line = line.replace('', '').replace('$', '').strip()
 if "பகுதி" in clean_line or "PART" in clean_line.upper():
-marks_match = re.search(r'$?\d+\s*[xX*]\s*\d+\s*=\s*\d+$?', clean_line)
+marks_match = re.search(r'\(?\d+\s[xX*]\s*\d+\s*=\s*\d+\)?', clean_line)
 if marks_match:
 calc_str = marks_match.group(0)
 title_str = clean_line.replace(calc_str, "").strip(":- ")
@@ -128,7 +127,7 @@ c1.paragraphs[0].add_run(title_str).bold = True
 c2.paragraphs[0].add_run(calc_str).bold = True
 continue
 p = doc.add_paragraph()
-if re.match(r'^\d+.', clean_line):
+if re.match(r'^\d+\.', clean_line):
 p.paragraph_format.left_indent = Inches(0.25)
 p.paragraph_format.first_line_indent = Inches(-0.25)
 p.add_run(clean_line)
@@ -215,4 +214,4 @@ except Exception as e:
 st.error(f"பிழை: {e}")
 if 'docx_bytes_v18' in st.session_state:
 st.download_button(label="📥 Download Master Word Document (.docx)", data=st.session_state['docx_bytes_v18'], file_name=f"PMP_Master_{subject_val}.docx", mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document", use_container_width=True)
-
+""", file_name="app.py", mime="text/plain", use_container_width=True)
