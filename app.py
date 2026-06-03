@@ -10,7 +10,6 @@ from docx.oxml.ns import qn
 import io
 import re
 
-# சர்வர் மெமரி மற்றும் கிராஷ் பாதுகாப்பிற்கான பிரத்யேக மேட்லாட்லிப் லாக்
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
@@ -32,7 +31,34 @@ def load_data():
     except:
         return pd.DataFrame()
 
-# 💡 விகிதாச்சாரத் தானியங்கிப் பாதுகாப்பு இன்ஜின் (Proportion Auto-Scaler)
+# 💡 அசல் 2023-2026 எக்செல் கோப்பை நேரடியாகப் படித்து கணக்கிடும் புதிய அல்காரிதம் இன்ஜின்
+def calculate_math_weightage_from_csv(selected_lessons):
+    """2023-2026 கணிதம்.csv கோப்பை நேரடியாகப் படித்து அசல் போர்டு விகிதத்தைக் கணக்கிடும் பகுதி"""
+    try:
+        # அசல் வினாக்கள் விபரக் கோப்பைப் படித்தல்
+        math_df = pd.read_csv('2023-2026 கணிதம்.csv')
+        rules = []
+        
+        for lesson in selected_lessons:
+            # தேர்ந்தெடுக்கப்பட்ட பாடத்தின் தரவுகளை மட்டும் பிரித்தல்
+            lesson_data = math_df[math_df['Lesson'].str.lower() == lesson.lower()]
+            if not lesson_data.empty:
+                # 4 ஆண்டுகளில் சராசரியாக எத்தனை வினாக்கள் கேட்கப்பட்டுள்ளன என்ற கணக்கீடு
+                p1_count = round(len(lesson_data[lesson_data['Part'] == 'I']) / 4, 1)
+                p2_count = round(len(lesson_data[lesson_data['Part'] == 'II']) / 4, 1)
+                p3_count = round(len(lesson_data[lesson_data['Part'] == 'III']) / 4, 1)
+                p4_count = round(len(lesson_data[lesson_data['Part'] == 'IV']) / 4, 1)
+                
+                # அத்தியாயங்களின் முக்கியத் தலைப்புகள் மற்றும் திறன்களைத் திரட்டுதல்
+                sample_topics = ", ".join(lesson_data['Topic'].unique()[:3])
+                
+                rules.append(f"- From '{lesson}' ({sample_topics}): Board historically asks average of {p1_count} Qs in Part-I, {p2_count} Qs in Part-II, {p3_count} Qs in Part-III, and {p4_count} Qs in Part-IV.")
+        
+        return "\n".join(rules)
+    except Exception as e:
+        # ஒருவேளை ஃபைல் படிக்க முடியாவிட்டால் இயல்புநிலை போர்டு வெயிட்டேஜ் பேக்கப் லாக்
+        return "- Follow standard distribution evenly across selected units."
+
 def get_blueprint_defaults(total_marks, is_social=False):
     if is_social:
         return {"p1": 20, "p2g": 12, "p2a": 10, "p3g": 10, "p3a": 8, "p4v": 8, "p4g": 4, "p4a": 2}
@@ -46,12 +72,9 @@ def get_blueprint_defaults(total_marks, is_social=False):
         defaults = {"p1": 5, "p2g": 6, "p2a": 5, "p3g": 3, "p3a": 2, "p4v": 8, "p4g": 0, "p4a": 0}
     return defaults
 
-# 💡 சர்வர் ஃபான்ட் பாக்ஸ் பிழையைத் தீர்க்கும் புதிய டயக்ராம் இன்ஜின்
 def generate_geometry_image(shape_type, label_text=""):
     fig, ax = plt.subplots(figsize=(2.5, 2.5))
     shape_upper = shape_type.upper()
-    
-    # லேபிளில் இருக்கும் கணினி குறியீடுகளைத் தூய்மைப்படுத்துதல்
     clean_label = label_text.replace("Angle", r"$\angle$").replace("angle", r"$\angle$")
     
     if "TRIANGLE" in shape_upper:
@@ -62,20 +85,16 @@ def generate_geometry_image(shape_type, label_text=""):
         ax.text(2, 3.2, 'C', fontsize=11, fontweight='bold')
         if clean_label:
             ax.text(2, -0.6, clean_label, fontsize=10, ha='center', fontweight='bold', color='blue')
-            
     elif "SQUARE" in shape_upper:
         points = np.array([[0, 0], [3, 0], [3, 3], [0, 3], [0, 0]])
         ax.plot(points[:, 0], points[:, 1], 'k-', lw=2)
         ax.text(-0.2, -0.2, 'A', fontsize=10)
         ax.text(3.2, -0.2, 'B', fontsize=10)
-        ax.text(3.2, 3.2, 'C', fontsize=10)
-        ax.text(-0.2, 3.2, 'D', fontsize=10)
         if clean_label:
             ax.text(1.5, -0.6, clean_label, fontsize=10, ha='center', fontweight='bold', color='blue')
             
     ax.set_aspect('equal')
     ax.axis('off')
-    
     img_buf = io.BytesIO()
     plt.savefig(img_buf, format='png', bbox_inches='tight', dpi=100)
     img_buf.seek(0)
@@ -85,7 +104,7 @@ def generate_geometry_image(shape_type, label_text=""):
 # ==========================================
 # 3. Adaptive Language & Subject Prompt Engine
 # ==========================================
-def generate_prompt_v16(subject, lessons_list, exam_type, exam_time, total_marks, exam_mode, blueprint_desc, custom_q, book_back_perf, interior_perf):
+def generate_prompt_v16(subject, lessons_list, exam_type, exam_time, total_marks, exam_mode, blueprint_desc):
     lessons_str = ", ".join(lessons_list)
     sub_lower = subject.lower()
     
@@ -94,38 +113,47 @@ def generate_prompt_v16(subject, lessons_list, exam_type, exam_time, total_marks
     is_social = "social" in sub_lower or "சமூக" in sub_lower
     is_math = "math" in sub_lower or "கணிதம்" in sub_lower
     
+    # கணிதப் பாடம் எனில் அசல் 2023-2026 எக்செல் வெயிட்டேஜை டைனமிக் முறையில் பிராம்ப்ட்டிற்குள் செலுத்துதல்
+    math_weightage_directive = ""
+    if is_math:
+        math_weightage_directive = f"""
+        [DYNAMIC 2023-2026 HISTORICAL BOARD ANALYSIS LOCK]
+        You MUST strictly align the number of questions per unit with the historical frequency derived from the master dataset:
+        {calculate_math_weightage_from_csv(lessons_list)}
+        """
+
     if is_english:
-        lang_instruction = "5. Language: The ENTIRE question paper text, headers, instructions, questions, and options MUST be in pure ENGLISH language only."
+        lang_instruction = "5. Language: Pure ENGLISH only."
         header_format = "PART [ROMAN_NUM] - [Section Description] (No_of_Qs x Marks = Total_Marks)"
         option_format = "Options marker: a) , b) , c) , d)"
-        subject_blueprint_rules = "[STRICT TN BOARD ENGLISH BLUEPRINT] Q1-20 MCQ structure aligned."
+        subject_blueprint_rules = "[STRICT TN BOARD ENGLISH BLUEPRINT] Balanced grammar/vocab grids."
     elif is_tamil:
-        lang_instruction = "5. Language: The ENTIRE question paper text MUST be in pure TAMIL only."
+        lang_instruction = "5. Language: Pure TAMIL only."
         header_format = "பகுதி [ROMAN_NUM] - [பிரிவின் விளக்கம்] (வினாக்கள் எண்ணிக்கை x மதிப்பெண் = மொத்த மதிப்பெண்கள்)"
         option_format = "Options marker: அ) , ஆ) , இ) , ஈ)"
         subject_blueprint_rules = "[அசல் தமிழ் பாடத்திட்ட ப்ளூபிரின்ட்] சொல்வளம், இலக்கணம், இலக்கியக் கட்டமைப்பு லாக்."
     elif is_social:
-        lang_instruction = "5. Language: The ENTIRE question paper text MUST be in pure TAMIL only."
-        header_format = "பகுதி [ROMAN_NUM] - [பிரிவின் விளக்கம்] (வினாக்கள் எண்ணிக்கை x மதிப்பெண் = மொத்த மதிப்பெண்கள்)"
+        lang_instruction = "5. Language: Pure TAMIL only."
+        header_format = "பகுதி [ROMAN_NUM] - [பிரிவின் விளக்கம்]"
         option_format = "Options marker: அ) , ஆ) , இ) , ஈ)"
-        subject_blueprint_rules = "[MANDATORY CRITICAL SOCIAL SCIENCE BOARD EXPERT BLUEPRINT] Source-based, Map marking, and HOTS locked."
+        subject_blueprint_rules = "[MANDATORY CRITICAL SOCIAL SCIENCE BLUEPRINT] Assertion-Reason, Map marking, and HOTS locked."
     elif is_math:
-        lang_instruction = "5. Language: The ENTIRE question paper text MUST be in pure TAMIL only."
+        lang_instruction = "5. Language: Pure TAMIL only."
         header_format = "பகுதி [ROMAN_NUM] - [பிரிவின் விளக்கம்] (No_of_Qs x Marks = Total_Marks)"
         option_format = "Options marker: அ) , ஆ) , இ) , ஈ)"
-        
-        # 💡 அசல் 2026 போர்டு எக்ஸாம் எழுத்துரு மற்றும் வடிவமைப்பு லாக்
-        subject_blueprint_rules = """
-        [MANDATORY CRITICAL MATHEMATICS CORE SECURE LOCK - V17.8]
-        1. NO TAMIL INSIDE IMAGE TAGS: You MUST strictly write arguments inside [DRAW_TRIANGLE: ...] or [DRAW_SQUARE: ...] tags using English alphanumeric values and math short notation only (e.g., Use 'AB=5cm, BC=6cm, Angle B=60' or 'side = 5cm'). Never use Tamil words like 'கோணம்' or 'பக்கம்' inside the square brackets to avoid image box rendering errors.
-        2. TEXTBOOK FRACTION PRESENTATION: When writing fractions in the main Tamil questions text (like 5/3), do NOT output raw computer syntax. Write it with proper spaces or express it as '5/3 பங்கு' or '5/3 மடங்காக' clearly so that it aligns with Tamil Nadu Board textbook print style.
-        3. STRICT BAN ON AI DISCLAIMERS: Never print any conversational notes like '[வரைபடத்தை இங்கு காட்சிப்படுத்த முடியாது]' under geometry questions. 
+        subject_blueprint_rules = f"""
+        [MANDATORY CRITICAL MATHEMATICS DATA-DRIVEN ENGINE]
+        1. ABSOLUTE BAN ON AI DISCLAIMERS: Do NOT output phrases like '[வரைபடத்தை இங்கு காட்சிப்படுத்த முடியாது]'.
+        2. DYNAMIC GEOMETRY TAGS: Output tags strictly on its own line: [DRAW_TRIANGLE: AB=5cm, BC=6cm, Angle B=60]. Do NOT use Tamil inside square brackets.
+        3. GRAPH PAPER COORDINATES: Output clean coordinate table for graph equations.
+        4. TEXTBOOK FRACTION PRESENTATION: Fractions in the text must be formatted spaced or as '5/3 பங்கு' or '5/3 மடங்காக' clearly to match textbook print style.
+        {math_weightage_directive}
         """
     else:
         lang_instruction = "5. Language: Pure TAMIL language only."
-        header_format = "பகுதி [ROMAN_NUM] - [பிரிவின் விளக்கம்]"
+        header_format = "பகுதி [ROMAN_NUM]"
         option_format = "Options marker: அ) , ஆ) , இ) , ஈ)"
-        subject_blueprint_rules = "[CORE BLUEPRINT] Standard parts split."
+        subject_blueprint_rules = ""
 
     return f"""
     You are an Expert Question Paper Setter for TN Board Class 10. 
@@ -148,7 +176,7 @@ def generate_prompt_v16(subject, lessons_list, exam_type, exam_time, total_marks
     {option_format}
 
     [STRICT NO-LATEX RULE FOR WORD TEMPLATE]
-    Do NOT use '$' or '$$' or '\\frac' or any LaTeX symbols inside this Tab 1 Question Paper Generator. Write equations in plain, normal text format.
+    Do NOT use '$' or '$$' or '\\frac' or any LaTeX symbols inside this Tab 1. Write equations in plain, normal text format.
 
     [LANGUAGE DIRECTIVE]
     {lang_instruction}
@@ -198,11 +226,9 @@ def write_markdown_to_word(doc, text):
                 img_buf = generate_geometry_image(shape_type, label_text)
                 p_img = doc.add_paragraph()
                 p_img.alignment = WD_ALIGN_PARAGRAPH.CENTER
-                p_img.paragraph_format.space_before = Pt(6)
-                p_img.paragraph_format.space_after = Pt(6)
                 p_img.add_run().add_picture(img_buf, width=Inches(2.5))
             except Exception as e:
-                doc.add_paragraph(f"[வரைபடம் இணைப்பதில் பிழை: {e}]")
+                doc.add_paragraph(f"[Error loading diagram: {e}]")
             continue
 
         clean_line = line.replace('*', '').replace('$', '').strip()
@@ -305,11 +331,8 @@ st.markdown("""<style>#MainMenu {visibility: hidden;} footer {visibility: hidden
 
 tab1, tab2 = st.tabs(["🎓 வினாத்தாள் தயாரிப்பு (QP Generator)", "📝 விடைத்தாள் திருத்தம் (AI Math Evaluator)"])
 
-# ------------------------------------------
-# TAB 1: Question Paper Generator
-# ------------------------------------------
 with tab1:
-    st.title("🎓 PMP Question Paper AI (V17.8 GLYPH ENGINE)")
+    st.title("🎓 PMP Question Paper AI (V18.0 DATA-DRIVEN)")
     df = load_data()
     if df.empty:
         st.error("Database (lesson_master_v1_5.csv) கிடைக்கவில்லை!")
@@ -359,7 +382,7 @@ with tab1:
         total_calculated = (p1_ask * 1) + (p2_ask * 2) + (p3_ask * 5) + (p4_ask * p4_val)
         
         if total_calculated == marks_val:
-            st.success(f"✅ வெற்றிகரமாகப் பொருந்தியது! விகிதாச்சாரக் கணக்கீடு: {total_calculated} மார்க் = மொத்த மதிப்பெண்: {marks_val} மார்க்.")
+            st.success(f"✅ வெற்றிகரமாகப் பொருந்தியது! விகிதாச்சாரக் கணக்கீடு: {total_calculated} மார்க்.")
             can_generate = True
         else:
             st.warning(f"⚠️ கணக்கீடு: {total_calculated} மார்க் | மொத்த மதிப்பெண்: {marks_val} மார்க். (சமமாக மாற்றவும்).")
@@ -373,10 +396,10 @@ with tab1:
             elif not selected_lessons:
                 st.warning("⚠️ தயவுசெய்து பாடங்களைத் தேர்ந்தெடுக்கவும்.")
             else:
-                spinner_text = "⏳ அசல் அரசுப் பொதுத்தேர்வு தரத்தில் வினாத்தாள் தயாராகிறது..." if "Public" in exam_mode else "⏳ எலைட் போர்டு தரத்தில் வினாத்தாள் தயாராகிறது..."
+                spinner_text = "⏳ அசல் 2023-2026 பொதுத்தேர்வு தரவு விதிகளின்படி வினாத்தாள் தயாராகிறது..."
                 with st.spinner(spinner_text):
-                    dynamic_blueprint_desc = f"- Part I: 1 Mark Questions Total: {p1_ask}. - Part II: Given {p2_get}, Answer {p2_ask}. - Part III: Given {p3_get}, Answer {p3_ask}. - Part IV: {p4_val} Mark Given {p4_get}, Answer {p4_ask}."
-                    prompt = generate_prompt_v16(subject_val, selected_lessons, exam_type, time_val, marks_val, exam_mode, dynamic_blueprint_desc, "", 80, 20)
+                    dynamic_blueprint_desc = f"- Part I: {p1_ask} Questions. - Part II: Given {p2_get}, Answer {p2_ask}. - Part III: Given {p3_get}, Answer {p3_ask}. - Part IV: {p4_val} Mark Given {p4_get}, Answer {p4_ask}."
+                    prompt = generate_prompt_v16(subject_val, selected_lessons, exam_type, time_val, marks_val, exam_mode, dynamic_blueprint_desc)
                     try:
                         response = client.models.generate_content(model='gemini-2.5-flash', contents=prompt)
                         docx_file = create_professional_docx(response.text, school_name, class_val, subject_val, exam_type, time_val, marks_val)
@@ -390,9 +413,6 @@ with tab1:
         if 'ai_text' in st.session_state:
             st.download_button(label="📥 Download as Word File (.docx)", data=st.session_state['docx_bytes'], file_name=st.session_state['file_name'], mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document", use_container_width=True)
 
-# ------------------------------------------
-# TAB 2: AI Handwriting Paper Evaluator
-# ------------------------------------------
 with tab2:
     st.title("📝 AI Math Paper Evaluator (LaTeX Edition)")
     uploaded_image = st.file_uploader("உங்கள் கையெழுத்து கணிதப் பக்கத்தை அப்லோட் செய்யவும்", type=["png", "jpg", "jpeg"])
@@ -401,7 +421,7 @@ with tab2:
         st.image(image, caption="Uploaded Image", width=450)
         if st.button("🚀 Start AI Evaluation", use_container_width=True):
             with st.spinner("⏳ ஜெமினி AI விடைத்தாளைத் திருத்தி வருகிறது..."):
-                eval_prompt = "You are an official TN Board Math Evaluator. Read handwriting and correct step-by-step. Write fractions as $\\frac{a}{b}$ and roots as $\\sqrt{x}$ inside single dollar signs. Respond in Tamil."
+                eval_prompt = "You are an official TN Board Math Evaluator. Read handwriting and correct step-by-step. Write fractions as $\\frac{a}{b}$ inside single dollar signs. Respond in Tamil."
                 try:
                     response = client.models.generate_content(model='gemini-2.5-flash', contents=[image, eval_prompt])
                     st.markdown(response.text)
