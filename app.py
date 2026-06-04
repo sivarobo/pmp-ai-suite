@@ -33,7 +33,7 @@ def load_data():
     except:
         return pd.DataFrame()
 
-# 💡 [MATH MATRIX ENGINE V20.3]
+# 💡 [MATH MATRIX ENGINE V20.5]: அசல் அரசுப் பொதுத்தேர்வு அத்தியாய வாரியான வெயிட்டேஜ் விதிகள்
 def get_math_dynamic_weightage(selected_lessons):
     base_matrix = {
         "Relations and Functions": {"1M": 1.5, "2M": 2, "5M": 2, "8M": 0},
@@ -73,6 +73,7 @@ def get_blueprint_defaults(total_marks, is_social=False, is_english=False):
         defaults = {"p1": 5, "p2g": 6, "p2a": 5, "p3g": 3, "p3a": 2, "p4v": 8, "p4g": 0, "p4a": 0}
     return defaults
 
+# 💡 [DIAGAM ENGINE V20.5]: Scale Factor மற்றும் லேபிள்கள் துல்லியமாக குறிக்கப்படும் வரைபட எஞ்சின்
 def generate_geometry_image(label_text=""):
     fig, ax = plt.subplots(figsize=(2.5, 2.5))
     points = np.array([[0, 0], [4, 0], [2, 3], [0, 0]])
@@ -80,8 +81,12 @@ def generate_geometry_image(label_text=""):
     ax.text(-0.2, -0.2, 'A', fontsize=11, fontweight='bold')
     ax.text(4.1, -0.2, 'B', fontsize=11, fontweight='bold')
     ax.text(2, 3.2, 'C', fontsize=11, fontweight='bold')
-    if label_text:
-        ax.text(2, -0.6, label_text, fontsize=10, ha='center', fontweight='bold', color='blue')
+    
+    # Scale Factor விபரங்களை வரைபடத்தில் தெளிவாகக் குறிக்கிறோம்
+    clean_label = label_text.replace("3/5", "Scale Factor = 3/5")
+    if clean_label:
+        ax.text(2, -0.6, clean_label, fontsize=9, ha='center', fontweight='bold', color='blue')
+        
     ax.set_aspect('equal')
     ax.axis('off')
     img_buf = io.BytesIO()
@@ -90,13 +95,17 @@ def generate_geometry_image(label_text=""):
     plt.close(fig)
     return img_buf
 
+# 💡 [GRAPH ENGINE SCALE FIX]: புள்ளிகளை கச்சிதமாக குறிக்க Y-அச்சு ±10 ஆக விரிவுபடுத்தப்பட்டுள்ளது
 def generate_graph_image(label_text=""):
     fig, ax = plt.subplots(figsize=(2.5, 2.5))
     ax.axhline(0, color='black', lw=1.5)
     ax.axvline(0, color='black', lw=1.5)
     ax.grid(True, which='both', color='gray', linestyle='--', linewidth=0.5)
+    
+    # 🛡️ பக் ஃபிக்ஸ்: Y-அச்சு scale ±10 ஆக உயர்த்தப்பட்டுள்ளது
     ax.set_xlim([-5, 5])
-    ax.set_ylim([-5, 5])
+    ax.set_ylim([-10, 10])
+    
     if label_text:
         ax.set_title(label_text, fontsize=9, fontweight='bold', color='blue')
     img_buf = io.BytesIO()
@@ -123,9 +132,10 @@ def generate_prompt_v18(subject, lessons_list, exam_type, exam_time, total_marks
     else:
         difficulty_directive = "DIFFICULTY CRITERIA: High-level standard with creative HOTS problems."
 
+    # 💡 [MATHEMATICS V20.5 MASTER SPECIFICATION LOCK]: அசல் பொதுத்தேர்வு Either/Or பேட்டர்ன் லாக்
     if is_math:
         subject_blueprint_rules = f"""
-        [MANDATORY CRITICAL MATHEMATICS CORE EMBEDDED LOCK - VERSION 20.3]
+        [MANDATORY CRITICAL MATHEMATICS CORE EMBEDDED LOCK - VERSION 20.5]
         1. CHAPTER WEIGHTAGE DIRECTION: You MUST follow this exact chapter-wise question count allocation rule for selected chapters:
         {get_math_dynamic_weightage(lessons_list)}
         
@@ -133,9 +143,12 @@ def generate_prompt_v18(subject, lessons_list, exam_type, exam_time, total_marks
            - Question No 28 (2-Mark Part) MUST be a Compulsory Question from Chapter 5 or Chapter 7. Creative MOTS style.
            - Question No 42 (5-Mark Part) MUST be a Compulsory Question from Chapter 2 or Chapter 3. Challenging HOTS style.
         
-        3. PART IV (8-MARK) OUTPUT DESIGN COMPLIANCE:
-           - For Practical Geometry Questions: You MUST output a line with the tag [DRAW_GEOMETRY: <Measurements details>].
-           - For Graph Questions: You MUST generate a clear X-Y Coordinate Data Table inside the text, and output a separate line with the tag [DRAW_GRAPH: <Equation details>]. Never mix them up.
+        3. PART IV (8-MARK) STRICT EITHER/OR PUBLIC EXAM STRUCTURE:
+           - Part IV MUST contain exactly TWO questions (Q43 and Q44) with internal (either/or) choices only. Total 16 Marks.
+           - Q43 (அ) அல்லது (ஆ): Graph Questions ONLY from Chapter 3. Must include a complete X-Y Coordinate Data Table inside the text and output a separate line with the tag [DRAW_GRAPH: <Equation details>].
+           - Q44 (அ) அல்லது (ஆ): Practical Geometry Construction ONLY from Chapter 4. Must include a separate line with the tag [DRAW_GEOMETRY: <Measurements details>]. 
+           - ABSOLUTE BAN on Linear Regression, data modeling, or standalone questions in Part IV.
+           - In the Answer Key for Construction, provide the EXACT mathematically derived measurements. Do NOT use terms like 'approximately'.
 
         === MANDATORY SCHEME OF VALUATION FOR MATHEMATICS ANSWER KEY ===
         - 1 Mark Questions: Option Code + Exact Answer [1 Mark].
@@ -335,7 +348,7 @@ st.markdown("""
 tab1, tab2 = st.tabs(["🎓 வினாத்தாள் தயாரிப்பு", "📝 விடைத்தாள் திருத்தம்"])
 
 with tab1:
-    st.title("🎓 PMP Master AI Engine (V20.3)")
+    st.title("🎓 PMP Master AI Engine (V20.5)")
     df = load_data()
     if not df.empty:
         col1, col2 = st.columns(2)
@@ -390,7 +403,10 @@ with tab1:
             
         if st.button("🚀 Generate PRO Question Paper", use_container_width=True):
             if can_generate and selected_lessons:
-                with st.spinner("⏳ வினாத்தாள் தயாராகிறது..."):
+                timer_placeholder = st.empty()
+                start_time = time.time()
+                
+                with st.spinner("⏳ அசல் அரசுப் பொதுத்தேர்வு விதிகளின்படி வினாத்தாள் தயாராகிறது..."):
                     blueprint_desc = f"- Part I: {p1_ask} Qs. - Part II: Given {p2_get}, Answer {p2_ask}. - Part III: Given {p3_get}, Answer {p3_ask}. - Part IV: Given {p4_get}, Answer {p4_ask}."
                     prompt = generate_prompt_v18(subject_val, selected_lessons, exam_type, time_val, marks_val, exam_mode, blueprint_desc, p1_ask, p2_ask, p3_ask, diff_level)
                     
@@ -407,18 +423,18 @@ with tab1:
                                 continue
                             else:
                                 st.error(f"சர்வர் தற்காலிகமாக ஓவர்லோடு ஆகியுள்ளது: {api_err}")
+                    
+                    elapsed_time = time.time() - start_time
+                    timer_placeholder.info(f"⏱️ வினாத்தாள் உருவாக்க எடுக்கப்பட்ட நேரம்: {elapsed_time:.1f} விநாடிகள் (Seconds)")
                                 
                     if response:
                         doc = create_professional_docx(response.text, school_name, class_val, subject_val, exam_type, time_val, marks_val)
                         doc_io = io.BytesIO()
                         doc.save(doc_io)
                         st.session_state['docx_bytes'] = doc_io.getvalue()
-                        
-                        # 💡 [PREVIEW ENGINE ENHANCEMENT]: லைவ் பிரவ்யூவிற்கான ஸ்டேட் லாக்
                         st.session_state['preview_text'] = response.text
                         st.success("✅ வினாத்தாள் வெற்றிகரமாகத் தயாராகிவிட்டது!")
 
-        # 💡 [LIVE PREVIEW DISPLAY BLOCK]: திரையிலேயே முழு வினாத்தாளையும் காட்டும் முன்னோட்டப் பகுதி
         if 'preview_text' in st.session_state:
             st.markdown("---")
             st.subheader("👀 வினாத்தாள் மற்றும் விடைக்குறிப்பு முன்னோட்டம் (Live Preview)")
