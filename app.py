@@ -52,9 +52,40 @@ def get_math_dynamic_weightage(selected_lessons, part1_val, part2_val, part3_val
             rules.append(f"- From '{lesson}': Generate approx {int(bm['1M'])} MCQs, {bm['2M']} Questions (2-Mark), {int(bm['5M'])} Questions (5-Mark), and {bm['8M']} Question (8-Mark).")
     return "\n".join(rules)
 
-# 💡 புதிய ஆங்கில போர்டு பேட்டர்ன் இன்டெலிஜென்ஸ் அல்காரிதம்
+# 💡 மாஸ்டர் ஆங்கில போர்டு ப்ளூபிரின்ட் இன்ஜின் (V3 Base - 85 Marks Balanced Filter)
 def get_english_blueprint_rules():
-    return "PART I (Q1-14): 1 Mark Questions ONLY. Q1-3 Synonyms, Q4-6 Antonyms, Q7-14 Grammar Grids (Plural Form, Suffix/Prefix, Abbreviations, Phrasal Verbs, Compound Words, Prepositions, Tense, Linkers). PART II: Poetry Appreciation, Poetic Devices, Grammar Transformation (Voice Change, Reported Speech, Punctuation, Simple/Compound/Complex), Road Map Directions. PART III: Advertisement, Letter Writing, Notice Writing, Picture Comprehension."
+    return """
+    [STRICT MASTER ENGLISH BLUEPRINT V18.2 - 85 MARKS LOCK]
+    
+    PART I (14 Marks): One Mark Questions
+    - Q1-3: Synonyms strictly selected from the text prose context (e.g., plaintively, dilated, yanked, unperturbed, indigenous).
+    - Q4-6: Antonyms strictly selected from the text prose context (e.g., cranky, commotion, ascending, affluent, inclusion).
+    - Q7-14: Textual Grammar Matrix: Plural Form, Suffix/Prefix derivative, Abbreviations, Phrasal Verbs, Compound Words, Prepositions, Tense Forms, Linkers.
+
+    PART II (20 Marks): Two Mark Questions (Answer any 10 out of 12)
+    - Section 1 (Prose Qs): 3 Short answer questions from selected literature lessons (e.g., His First Flight, The Attic, The Last Lesson).
+    - Section 2 (Poetry Appreciation): 3 Poetic line sets with internal appreciation questions.
+    - Section 3 (Grammar Blocks): 5 Mandatory Core Grammar Questions:
+      * 1 Question: Voice Change (Active to Passive or vice-versa).
+      * 1 Question: Reported Speech (Direct to Indirect statement/question).
+      * 1 Question: Punctuation grid.
+      * 1 Question: Sentence Transformation (Simple/Compound/Complex conversion).
+      * 1 Question: Rearrange jumbled words into meaningful sentences.
+    - Section 4 (Roadmap): 1 Question on Road Map directions guide.
+
+    PART III (35 Marks): Five Mark Questions (Answer any 7 out of 10)
+    - Section 1 (Literature Paragraphs): 2 Prose Paragraphs and 2 Poetry Paragraphs covering lessons like 'The Attic', 'Empowered Women Navigating the World', 'The Dying Detective', 'Life', and 'The Grumble Family'.
+    - Section 2 (Coherent Order & Comprehension): 1 Rearrange sentences in coherent order, 1 Supplementary passage comprehension.
+    - Section 3 (Writing Skills Matrix - Strictly Balanced):
+      * 1 Question: Prepare an attractive Advertisement using given hints.
+      * 1 Question: Write a Formal Letter (Editor of a newspaper / Enquiry letter) or Informal Letter.
+      * 1 Question: Notice Writing / Notice board draft for school events.
+      * 1 Question: Picture Comprehension (Describe 5 sentences about the given scene/image).
+
+    PART IV (16 Marks): Eight Mark Questions (Answer both - Internal Choice)
+    - Q37: Comprehensive Prose Passage reading or Poem reading with 4-8 granular analytical questions.
+    - Q38: Detailed Literature Essay / Hints Development Paragraph (150 words) from supplementary stories (e.g., The Tempest, The Aged Mother, Zigzag).
+    """
 
 def get_blueprint_defaults(total_marks, is_social=False, is_english=False):
     if is_english or is_social:
@@ -119,11 +150,10 @@ def generate_prompt_v18(subject, lessons_list, exam_type, exam_time, total_marks
         """
 
     if is_english:
-        lang_instruction = "5. Language: Pure ENGLISH only."
+        lang_instruction = "5. Language: Pure ENGLISH only. No Tamil markers or disclaimers in question texts."
         header_format = "PART [ROMAN_NUM] - [Section Description] (No_of_Qs x Marks = Total_Marks)"
         option_format = "Options marker: a) , b) , c) , d)"
         subject_blueprint_rules = f"""
-        [STRICT TN BOARD ENGLISH BLUEPRINT LOCK]
         {get_english_blueprint_rules()}
         """
     elif is_tamil:
@@ -330,7 +360,7 @@ st.markdown("""<style>#MainMenu {visibility: hidden;} footer {visibility: hidden
 tab1, tab2 = st.tabs(["🎓 வினாத்தாள் தயாரிப்பு (QP Generator)", "📝 விடைத்தாள் திருத்தம் (AI Math Evaluator)"])
 
 with tab1:
-    st.title("🎓 PMP Question Paper AI (V18.1 MASTER COMBO)")
+    st.title("🎓 PMP Question Paper AI (V18.2 MASTER ENGINE)")
     df = load_data()
     if df.empty:
         st.error("Database (lesson_master_v1_5.csv) கிடைக்கவில்லை!")
