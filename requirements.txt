@@ -5,3 +5,4 @@ pillow
 python-docx
 matplotlib
 numpy
+streamlit-authenticator
