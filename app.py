@@ -33,7 +33,7 @@ def load_data():
     except:
         return pd.DataFrame()
 
-# 💡 [MATH MATRIX ENGINE V20.5]: அசல் அரசுப் பொதுத்தேர்வு அத்தியாய வாரியான வெயிட்டேஜ் விதிகள்
+# 💡 [MATH MATRIX ENGINE V20.6]
 def get_math_dynamic_weightage(selected_lessons):
     base_matrix = {
         "Relations and Functions": {"1M": 1.5, "2M": 2, "5M": 2, "8M": 0},
@@ -56,11 +56,12 @@ def get_english_blueprint_rules():
     return """
     [STRICT MASTER ENGLISH BLUEPRINT LOCK]
     PART I (14 Marks): One Mark Questions (Q1-14: Synonyms, Antonyms, Grammar Grids).
-    PART II (20 Marks): Two Mark Questions (Answer any 10 out of 12. 3 Prose, 3 Poetry, 5 Grammar, 1 Roadmap).
-    PART III (35 Marks): Five Mark Questions (Answer any 7 out of 10. Paragraphs & Writing Skills).
+    PART II (20 Marks): Two Mark Questions (Answer any 10 out of 12).
+    PART III (35 Marks): Five Mark Questions (Answer any 7 out of 10).
     PART IV (16 Marks): Eight Mark Questions (Answer both - Internal Choice).
     """
 
+# 💡 [BLUEPRINT DEFAULTS BUG FIX]: 25 மார்க்காக இருந்தாலும் பகுதி IV மதிப்புகள் 0 ஆக மாறாமல் தடுத்தல்
 def get_blueprint_defaults(total_marks, is_social=False, is_english=False):
     if is_english or is_social:
         return {"p1": 14, "p2g": 12, "p2a": 10, "p3g": 10, "p3a": 7, "p4v": 8, "p4g": 2, "p4a": 2}
@@ -70,10 +71,10 @@ def get_blueprint_defaults(total_marks, is_social=False, is_english=False):
     elif total_marks == 50:
         defaults = {"p1": 10, "p2g": 8, "p2a": 6, "p3g": 6, "p3a": 4, "p4v": 8, "p4g": 2, "p4a": 1}
     elif total_marks == 25:
-        defaults = {"p1": 5, "p2g": 6, "p2a": 5, "p3g": 3, "p3a": 2, "p4v": 8, "p4g": 0, "p4a": 0}
+        # 🛡️ பக் ஃபிக்ஸ்: கொடுக்க வேண்டியவை 2, எழுத வேண்டியவை 1 என இயல்பாக மாற்றப்பட்டுள்ளது
+        defaults = {"p1": 5, "p2g": 6, "p2a": 5, "p3g": 3, "p3a": 2, "p4v": 8, "p4g": 2, "p4a": 1}
     return defaults
 
-# 💡 [DIAGAM ENGINE V20.5]: Scale Factor மற்றும் லேபிள்கள் துல்லியமாக குறிக்கப்படும் வரைபட எஞ்சின்
 def generate_geometry_image(label_text=""):
     fig, ax = plt.subplots(figsize=(2.5, 2.5))
     points = np.array([[0, 0], [4, 0], [2, 3], [0, 0]])
@@ -81,12 +82,9 @@ def generate_geometry_image(label_text=""):
     ax.text(-0.2, -0.2, 'A', fontsize=11, fontweight='bold')
     ax.text(4.1, -0.2, 'B', fontsize=11, fontweight='bold')
     ax.text(2, 3.2, 'C', fontsize=11, fontweight='bold')
-    
-    # Scale Factor விபரங்களை வரைபடத்தில் தெளிவாகக் குறிக்கிறோம்
     clean_label = label_text.replace("3/5", "Scale Factor = 3/5")
     if clean_label:
         ax.text(2, -0.6, clean_label, fontsize=9, ha='center', fontweight='bold', color='blue')
-        
     ax.set_aspect('equal')
     ax.axis('off')
     img_buf = io.BytesIO()
@@ -95,17 +93,13 @@ def generate_geometry_image(label_text=""):
     plt.close(fig)
     return img_buf
 
-# 💡 [GRAPH ENGINE SCALE FIX]: புள்ளிகளை கச்சிதமாக குறிக்க Y-அச்சு ±10 ஆக விரிவுபடுத்தப்பட்டுள்ளது
 def generate_graph_image(label_text=""):
     fig, ax = plt.subplots(figsize=(2.5, 2.5))
     ax.axhline(0, color='black', lw=1.5)
     ax.axvline(0, color='black', lw=1.5)
     ax.grid(True, which='both', color='gray', linestyle='--', linewidth=0.5)
-    
-    # 🛡️ பக் ஃபிக்ஸ்: Y-அச்சு scale ±10 ஆக உயர்த்தப்பட்டுள்ளது
     ax.set_xlim([-5, 5])
     ax.set_ylim([-10, 10])
-    
     if label_text:
         ax.set_title(label_text, fontsize=9, fontweight='bold', color='blue')
     img_buf = io.BytesIO()
@@ -132,10 +126,9 @@ def generate_prompt_v18(subject, lessons_list, exam_type, exam_time, total_marks
     else:
         difficulty_directive = "DIFFICULTY CRITERIA: High-level standard with creative HOTS problems."
 
-    # 💡 [MATHEMATICS V20.5 MASTER SPECIFICATION LOCK]: அசல் பொதுத்தேர்வு Either/Or பேட்டர்ன் லாக்
     if is_math:
         subject_blueprint_rules = f"""
-        [MANDATORY CRITICAL MATHEMATICS CORE EMBEDDED LOCK - VERSION 20.5]
+        [MANDATORY CRITICAL MATHEMATICS CORE EMBEDDED LOCK - VERSION 20.6]
         1. CHAPTER WEIGHTAGE DIRECTION: You MUST follow this exact chapter-wise question count allocation rule for selected chapters:
         {get_math_dynamic_weightage(lessons_list)}
         
@@ -144,10 +137,9 @@ def generate_prompt_v18(subject, lessons_list, exam_type, exam_time, total_marks
            - Question No 42 (5-Mark Part) MUST be a Compulsory Question from Chapter 2 or Chapter 3. Challenging HOTS style.
         
         3. PART IV (8-MARK) STRICT EITHER/OR PUBLIC EXAM STRUCTURE:
-           - Part IV MUST contain exactly TWO questions (Q43 and Q44) with internal (either/or) choices only. Total 16 Marks.
-           - Q43 (அ) அல்லது (ஆ): Graph Questions ONLY from Chapter 3. Must include a complete X-Y Coordinate Data Table inside the text and output a separate line with the tag [DRAW_GRAPH: <Equation details>].
-           - Q44 (அ) அல்லது (ஆ): Practical Geometry Construction ONLY from Chapter 4. Must include a separate line with the tag [DRAW_GEOMETRY: <Measurements details>]. 
-           - ABSOLUTE BAN on Linear Regression, data modeling, or standalone questions in Part IV.
+           - Part IV MUST contain questions with internal (either/or) choices only.
+           - Graph Questions MUST include a complete X-Y Coordinate Data Table inside the text and output a separate line with the tag [DRAW_GRAPH: <Equation details>].
+           - Practical Geometry Construction MUST include a separate line with the tag [DRAW_GEOMETRY: <Measurements details>]. 
            - In the Answer Key for Construction, provide the EXACT mathematically derived measurements. Do NOT use terms like 'approximately'.
 
         === MANDATORY SCHEME OF VALUATION FOR MATHEMATICS ANSWER KEY ===
@@ -348,7 +340,7 @@ st.markdown("""
 tab1, tab2 = st.tabs(["🎓 வினாத்தாள் தயாரிப்பு", "📝 விடைத்தாள் திருத்தம்"])
 
 with tab1:
-    st.title("🎓 PMP Master AI Engine (V20.5)")
+    st.title("🎓 PMP Master AI Engine (V20.6)")
     df = load_data()
     if not df.empty:
         col1, col2 = st.columns(2)
