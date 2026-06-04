@@ -33,48 +33,32 @@ def load_data():
     except:
         return pd.DataFrame()
 
-# 💡 அசல் கணித அலகுகள் வாரியான வினாக்கள் விபரத் தரவுத்தளம் (Frequency Matrix Engine)
-def get_math_dynamic_weightage(selected_lessons, part1_val, part2_val, part3_val):
+# 💡 [MATH MATRIX ENGINE V20.1]: அசல் அரசுப் பொதுத்தேர்வு அத்தியாய வாரியான வெயிட்டேஜ் விதிகள்
+def get_math_dynamic_weightage(selected_lessons):
     base_matrix = {
-        "Relations and Functions": {"1M": 1.5, "2M": 2, "5M": 1.5, "8M": 0},
-        "Numbers and Sequences":   {"1M": 2.0, "2M": 2, "5M": 2.0, "8M": 0},
-        "Algebra":                  {"1M": 2.0, "2M": 2, "5M": 2.0, "8M": 1},
-        "Geometry":                 {"1M": 2.0, "2M": 1, "5M": 1.0, "8M": 1},
-        "Coordinate Geometry":     {"1M": 1.5, "2M": 2, "5M": 2.0, "8M": 0},
-        "Trigonometry":            {"1M": 1.0, "2M": 1, "5M": 1.0, "8M": 0},
-        "Mensuration":             {"1M": 1.5, "2M": 2, "5M": 2.0, "8M": 0},
-        "Statistics and Probability":{"1M": 2.0, "2M": 2, "5M": 2.0, "8M": 0}
+        "Relations and Functions": {"1M": 1.5, "2M": 2, "5M": 2, "8M": 0},
+        "Numbers and Sequences":   {"1M": 2, "2M": 2, "5M": 2, "8M": 0},
+        "Algebra":                  {"1M": 2, "2M": 2, "5M": 2, "8M": 1},
+        "Geometry":                 {"1M": 2, "2M": 1, "5M": 1, "8M": 1},
+        "Coordinate Geometry":     {"1M": 1.5, "2M": 2, "5M": 2, "8M": 0},
+        "Trigonometry":            {"1M": 1, "2M": 1, "5M": 1, "8M": 0},
+        "Mensuration":             {"1M": 1.5, "2M": 2, "5M": 2, "8M": 0},
+        "Statistics and Probability":{"1M": 2, "2M": 2, "5M": 2, "8M": 0}
     }
     rules = []
     for lesson in selected_lessons:
         if lesson in base_matrix:
             bm = base_matrix[lesson]
-            rules.append(f"- From '{lesson}': Generate approx {int(bm['1M'])} MCQs, {bm['2M']} Questions (2-Mark), {int(bm['5M'])} Questions (5-Mark), and {bm['8M']} Question (8-Mark).")
+            rules.append(f"- From Chapter '{lesson}': Generate approx {int(bm['1M'])} MCQs, {bm['2M']} Questions (2-Mark), {int(bm['5M'])} Questions (5-Mark), and {bm['8M']} Question (8-Mark).")
     return "\n".join(rules)
 
-# 💡 மாஸ்டர் ஆங்கில போர்டு ப்ளூபிரின்ட் இன்ஜின் (V3 Base - 100% Balanced Literature Filter)
 def get_english_blueprint_rules():
     return """
     [STRICT MASTER ENGLISH BLUEPRINT LOCK]
-    PART I (14 Marks): One Mark Questions
-    - Q1-3: Synonyms strictly selected from the text prose context.
-    - Q4-6: Antonyms strictly selected from the text prose context.
-    - Q7-14: Textual Grammar Matrix: Plural Form, Suffix/Prefix, Abbreviations, Phrasal Verbs, Compound Words, Prepositions, Tense Forms, Linkers.
-
-    PART II (20 Marks): Two Mark Questions (Answer any 10 out of 12)
-    - Section 1 (Prose Qs): 3 Short answer questions from selected textbook lessons.
-    - Section 2 (Poetry Appreciation): 3 Poetic line sets with internal appreciation questions.
-    - Section 3 (Grammar Blocks): 5 Mandatory Core Grammar Questions: Voice Change, Reported Speech, Punctuation, Sentence Transformation, Rearrange jumbled words.
-    - Section 4 (Roadmap): 1 Question on Road Map directions guide.
-
-    PART III (35 Marks): Five Mark Questions (Answer any 7 out of 10)
-    - Section 1 (Literature Paragraphs): Prose Paragraphs and Poetry Paragraphs covering textbook lessons.
-    - Section 2 (Coherent Order & Comprehension): Rearrange sentences in coherent order, Supplementary passage comprehension.
-    - Section 3 (Writing Skills Matrix): Advertisement, Formal Letter, Notice Writing, Picture Comprehension.
-
-    PART IV (16 Marks): Eight Mark Questions (Answer both - Internal Choice)
-    - Q37: Comprehensive Prose Passage reading or Poem reading with granularity questions.
-    - Q38: Detailed Literature Essay from supplementary stories.
+    PART I (14 Marks): One Mark Questions (Q1-14: Synonyms, Antonyms, Grammar Grids).
+    PART II (20 Marks): Two Mark Questions (Answer any 10 out of 12. 3 Prose, 3 Poetry, 5 Grammar, 1 Roadmap).
+    PART III (35 Marks): Five Mark Questions (Answer any 7 out of 10. Paragraphs & Writing Skills).
+    PART IV (16 Marks): Eight Mark Questions (Answer both - Internal Choice).
     """
 
 def get_blueprint_defaults(total_marks, is_social=False, is_english=False):
@@ -89,27 +73,34 @@ def get_blueprint_defaults(total_marks, is_social=False, is_english=False):
         defaults = {"p1": 5, "p2g": 6, "p2a": 5, "p3g": 3, "p3a": 2, "p4v": 8, "p4g": 0, "p4a": 0}
     return defaults
 
-def generate_geometry_image(shape_type, label_text=""):
+# 💡 [DIAGAM ENGINE FIX]: செய்முறை வடிவியலுக்கு மட்டும் முக்கோணம் வரையும் இன்ஜின்
+def generate_geometry_image(label_text=""):
     fig, ax = plt.subplots(figsize=(2.5, 2.5))
-    shape_upper = shape_type.upper()
-    clean_label = label_text.replace("Angle", r"$\angle$").replace("angle", r"$\angle$")
-    if "TRIANGLE" in shape_upper:
-        points = np.array([[0, 0], [4, 0], [2, 3], [0, 0]])
-        ax.plot(points[:, 0], points[:, 1], 'k-', lw=2)
-        ax.text(-0.2, -0.2, 'A', fontsize=11, fontweight='bold')
-        ax.text(4.1, -0.2, 'B', fontsize=11, fontweight='bold')
-        ax.text(2, 3.2, 'C', fontsize=11, fontweight='bold')
-        if clean_label:
-            ax.text(2, -0.6, clean_label, fontsize=10, ha='center', fontweight='bold', color='blue')
-    elif "SQUARE" in shape_upper:
-        points = np.array([[0, 0], [3, 0], [3, 3], [0, 3], [0, 0]])
-        ax.plot(points[:, 0], points[:, 1], 'k-', lw=2)
-        ax.text(-0.2, -0.2, 'A', fontsize=10)
-        ax.text(3.2, -0.2, 'B', fontsize=10)
-        if clean_label:
-            ax.text(1.5, -0.6, clean_label, fontsize=10, ha='center', fontweight='bold', color='blue')
+    points = np.array([[0, 0], [4, 0], [2, 3], [0, 0]])
+    ax.plot(points[:, 0], points[:, 1], 'k-', lw=2)
+    ax.text(-0.2, -0.2, 'A', fontsize=11, fontweight='bold')
+    ax.text(4.1, -0.2, 'B', fontsize=11, fontweight='bold')
+    ax.text(2, 3.2, 'C', fontsize=11, fontweight='bold')
+    if label_text:
+        ax.text(2, -0.6, label_text, fontsize=10, ha='center', fontweight='bold', color='blue')
     ax.set_aspect('equal')
     ax.axis('off')
+    img_buf = io.BytesIO()
+    plt.savefig(img_buf, format='png', bbox_inches='tight', dpi=100)
+    img_buf.seek(0)
+    plt.close(fig)
+    return img_buf
+
+# 💡 [GRAPH ENGINE LOCK]: வரைபடக் கேள்விகளுக்கு கார்ட்டீசியன் அச்சு மற்றும் கிரிட் கோடுகள் வரையும் இன்ஜின்
+def generate_graph_image(label_text=""):
+    fig, ax = plt.subplots(figsize=(2.5, 2.5))
+    ax.axhline(0, color='black', lw=1.5)
+    ax.axvline(0, color='black', lw=1.5)
+    ax.grid(True, which='both', color='gray', linestyle='--', linewidth=0.5)
+    ax.set_xlim([-5, 5])
+    ax.set_ylim([-5, 5])
+    if label_text:
+        ax.set_title(label_text, fontsize=9, fontweight='bold', color='blue')
     img_buf = io.BytesIO()
     plt.savefig(img_buf, format='png', bbox_inches='tight', dpi=100)
     img_buf.seek(0)
@@ -128,51 +119,40 @@ def generate_prompt_v18(subject, lessons_list, exam_type, exam_time, total_marks
     is_math = "math" in sub_lower or "கணிதம்" in sub_lower
     
     if diff_level == "எளிமை (Easy)":
-        difficulty_directive = "DIFFICULTY CRITERIA: Focus 80% on direct textbook back questions and formulas."
+        difficulty_directive = "DIFFICULTY CRITERIA: Focus 80% on direct textbook back LOTS questions."
     elif diff_level == "நடுத்தரம் (Medium)":
-        difficulty_directive = "DIFFICULTY CRITERIA: Balanced public paper structure. 60% Direct, 30% Application, 10% HOTS."
+        difficulty_directive = "DIFFICULTY CRITERIA: Balanced public paper structure. 60% LOTS, 30% MOTS, 10% HOTS."
     else:
-        difficulty_directive = "DIFFICULTY CRITERIA: High-level revision standard with indirect grammatical transformations."
+        difficulty_directive = "DIFFICULTY CRITERIA: High-level standard with creative HOTS problems."
 
-    math_weightage_directive = ""
     if is_math:
-        math_weightage_directive = f"[STRICT LESSON-WISE MARKS WEIGHTAGE MATRIX]\n{get_math_dynamic_weightage(lessons_list, part1_val, part2_val, part3_val)}"
+        subject_blueprint_rules = f"""
+        [MANDATORY CRITICAL MATHEMATICS CORE EMBEDDED LOCK - VERSION 20.1]
+        1. CHAPTER WEIGHTAGE DIRECTION: You MUST follow this exact chapter-wise question count allocation rule for selected chapters:
+        {get_math_dynamic_weightage(lessons_list)}
+        
+        2. COMPULSORY QUESTION ALGORITHM:
+           - Question No 28 (2-Mark Part) MUST be a Compulsory Question from Chapter 5 or Chapter 7. Creative MOTS style.
+           - Question No 42 (5-Mark Part) MUST be a Compulsory Question from Chapter 2 or Chapter 3. Challenging HOTS style.
+        
+        3. PART IV (8-MARK) OUTPUT DESIGN COMPLIANCE:
+           - For Practical Geometry Questions: You MUST output a line with the tag [DRAW_GEOMETRY: <Measurements details>].
+           - For Graph Questions: You MUST generate a clear X-Y Coordinate Data Table inside the text, and output a separate line with the tag [DRAW_GRAPH: <Equation details>]. Never mix them up.
 
-    # 💡 [SCHEME OF VALUATION INJECTION LOCKED]: நீங்கள் பரிந்துரைத்த புதிய விதிகள் ஏஐ-க்குள் பூட்டப்பட்டுள்ளன!
-    scheme_of_valuation_directive = """
-    === MANDATORY SCHEME OF VALUATION FOR ANSWER KEY ===
-    When generating the '=== ANSWER KEY ===' section at the end of the output, you MUST strictly output the step-by-step mark distribution grid for each section using these exact rules:
-    1. One Mark Qs: Direct exact answer only [1 Mark].
-    2. Prose 2 Marks: Main Answer Point [1 Mark] + Supporting Point/Expansion [1 Mark] = [2 Marks].
-    3. Core Grammar Transformations: Direct Correct Transformation Form [2 Marks] (No broken partial credits for spelling).
-    4. Road Map: Direction Points Guide [2 Marks].
-    5. Literature Paragraphs (5 Marks): Content / Relevance [3 Marks] + Organization [1 Mark] + Language [1 Mark] = [5 Marks].
-    6. Advertisement (5 Marks): Format/Layout [1 Mark] + Heading [1 Mark] + Content [2 Marks] + Contact Details [1 Mark] = [5 Marks].
-    7. Letter Writing (5 Marks): Format [1 Mark] + Content/Body [3 Marks] + Language & Closing [1 Mark] = [5 Marks].
-    8. Picture Description: 5 Appropriate Sentences × 1 Mark = [5 Marks].
-    9. Hints Development Essay (8 Marks): Introduction [1 Mark] + Development using hints [5 Marks] + Coherence & Language [2 Marks] = [8 Marks].
-    """
-
-    if is_english:
+        === MANDATORY SCHEME OF VALUATION FOR MATHEMATICS ANSWER KEY ===
+        - 1 Mark Questions: Option Code + Exact Answer [1 Mark].
+        - 2 Mark Questions: Formula/Concept [1 Mark] + Final Correct Answer [1 Mark] = [2 Marks].
+        - 5 Mark Questions: Formula [1 Mark] + Substitution [1 Mark] + Working Steps [2 Marks] + Final Answer [1 Mark] = [5 Marks].
+        - 8 Mark Questions: Diagram/Graph Layout [1 Mark] + Formula [1 Mark] + Substitution/Coordinates Table [2 Marks] + Calculations [2 Marks] + Final Conclusion [2 Marks] = [8 Marks].
+        """
+        lang_instruction = "5. Language: Pure TAMIL language only for all question text (except mathematical variables, equations, and expressions)."
+        header_format = "பகுதி [ROMAN_NUM] - [பிரிவின் விளக்கம்] (வினாக்கள் எண்ணிக்கை x மதிப்பெண் = மொத்த மதிப்பெண்கள்)"
+        option_format = "Options marker: அ) , ஆ) , இ) , ஈ)"
+    elif is_english:
         lang_instruction = "5. Language: Pure ENGLISH only. No Tamil markers or disclaimers in question texts."
         header_format = "PART [ROMAN_NUM] - [Section Description] (No_of_Qs x Marks = Total_Marks)"
         option_format = "Options marker: a) , b) , c) , d)"
-        subject_blueprint_rules = f"[STRICT TN BOARD ENGLISH BLUEPRINT LOCK]\n{get_english_blueprint_rules()}\n{scheme_of_valuation_directive}"
-    elif is_tamil:
-        lang_instruction = "5. Language: Pure TAMIL only."
-        header_format = "பகுதி [ROMAN_NUM] - [பிரிவின் விளக்கம்] (வினாக்கள் எண்ணிக்கை x மதிப்பெண் = மொத்த மதிப்பெண்கள்)"
-        option_format = "Options marker: அ) , ஆ) , இ) , ஈ)"
-        subject_blueprint_rules = "[அசல் தமிழ் பாடத்திட்ட ப்ளூபிரின்ட்] சொல்வளம், இலக்கணம் லாக்."
-    elif is_social:
-        lang_instruction = "5. Language: Pure TAMIL only."
-        header_format = "பகுதி [ROMAN_NUM] - [பிரிவின் விளக்கம்]"
-        option_format = "Options marker: அ) , ஆ) , இ) , ஈ)"
-        subject_blueprint_rules = "[MANDATORY CRITICAL SOCIAL SCIENCE BLUEPRINT] Assertion-Reason, Map locked."
-    elif is_math:
-        lang_instruction = "5. Language: Pure TAMIL only."
-        header_format = "பகுதி [ROMAN_NUM] - [பிரிவின் விளக்கம்] (No_of_Qs x Marks = Total_Marks)"
-        option_format = "Options marker: அ) , ஆ) , இ) , ஈ)"
-        subject_blueprint_rules = f"[MANDATORY CRITICAL MATHEMATICS CORE EMBEDDED LOCK]\n1. ABSOLUTE BAN ON AI DISCLAIMERS.\n2. DYNAMIC GEOMETRY TAGS: [DRAW_TRIANGLE: AB=5cm].\n3. GRAPH PAPER COORDINATES.\n{math_weightage_directive}"
+        subject_blueprint_rules = f"[STRICT TN BOARD ENGLISH BLUEPRINT LOCK]\n{get_english_blueprint_rules()}"
     else:
         lang_instruction = "5. Language: Pure TAMIL language only."
         header_format = "பகுதி [ROMAN_NUM]"
@@ -203,22 +183,36 @@ def add_solid_line(doc):
     pBdr.append(bottom)
     p.paragraph_format.element.get_or_add_pPr().append(pBdr)
 
+# 💡 [CRITICAL WORD PROCESSING CORRECTION]: டயக்ராம் மேப்பிங் பக் முழுமையாக நீக்கப்பட்டுள்ளது
 def write_markdown_to_word(doc, text):
     for line in text.split('\n'):
         line = line.strip()
         if not line: continue
         
-        draw_match = re.search(r'\[DRAW_(TRIANGLE|SQUARE)[:\s]*(.*?)\]', line, re.IGNORECASE)
-        if draw_match:
-            shape_type = draw_match.group(1)
-            label_text = draw_match.group(2)
+        # 🛡️ பக் ஃபிக்ஸ் 1: செய்முறை வடிவியல் டேக் வந்தால் மட்டுமே முக்கோணம்
+        geo_match = re.search(r'\[DRAW_GEOMETRY[:\s]*(.*?)\]', line, re.IGNORECASE)
+        if geo_match:
+            label_text = geo_match.group(1)
             try:
-                img_buf = generate_geometry_image(shape_type, label_text)
+                img_buf = generate_geometry_image(label_text)
                 p_img = doc.add_paragraph()
                 p_img.alignment = WD_ALIGN_PARAGRAPH.CENTER
                 p_img.add_run().add_picture(img_buf, width=Inches(2.5))
             except Exception as e:
                 doc.add_paragraph(f"[Error loading diagram: {e}]")
+            continue
+
+        # 🛡️ பக் ஃபிக்ஸ் 2: வரைபடக் கேள்வி டேக் வந்தால் கிரிட் கார்ட்டீசியன் அச்சு
+        graph_match = re.search(r'\[DRAW_GRAPH[:\s]*(.*?)\]', line, re.IGNORECASE)
+        if graph_match:
+            label_text = graph_match.group(1)
+            try:
+                img_buf = generate_graph_image(label_text)
+                p_img = doc.add_paragraph()
+                p_img.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                p_img.add_run().add_picture(img_buf, width=Inches(2.5))
+            except Exception as e:
+                doc.add_paragraph(f"[Error loading graph layout: {e}]")
             continue
 
         clean_line = line.replace('*', '').replace('$', '').strip()
@@ -322,7 +316,7 @@ st.markdown("""
 tab1, tab2 = st.tabs(["🎓 வினாத்தாள் தயாரிப்பு", "📝 விடைத்தாள் திருத்தம்"])
 
 with tab1:
-    st.title("🎓 PMP Master AI Engine (V19.1)")
+    st.title("🎓 PMP Master AI Engine (V20.1)")
     df = load_data()
     if not df.empty:
         col1, col2 = st.columns(2)
@@ -348,7 +342,7 @@ with tab1:
         is_soc = "social" in subject_val.lower() or "சமூக" in subject_val.lower()
         bp = get_blueprint_defaults(marks_val, is_social=is_soc, is_english=is_eng)
         
-        st.markdown("### 📋 வினா வடிவமைப்பு பிரிவு (பகுதிகளைத் தேர்ந்தெடுக்கவும்)")
+        st.markdown("### 📋 வினா வடிவமைப்பு பிரிவு")
         show_p1 = st.checkbox("பகுதி I (1-Mark Questions) சேர்க்கலாமா?", value=True)
         show_p2 = st.checkbox("பகுதி II (2-Mark Questions) சேர்க்கலாமா?", value=True)
         show_p3 = st.checkbox("பகுதி III (5-Mark Questions) சேர்க்கலாமா?", value=True)
