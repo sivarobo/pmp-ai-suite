@@ -32,14 +32,13 @@ def load_data():
         return pd.DataFrame()
 
 # 💡 அசல் கணித அலகுகள் வாரியான வினாக்கள் விபரத் தரவுத்தளம் (Frequency Matrix Engine)
-def get_math_dynamic_weightage(selected_lessons, part1_total, part2_total, part3_total):
+def get_math_dynamic_weightage(selected_lessons, part1_val, part2_val, part3_val):
     """ஆசிரியர் தேர்ந்தெடுக்கும் பாடங்களுக்கு ஏற்ப அசல் போர்டு வெயிட்டேஜை பிரித்து தரும் இன்ஜின்"""
-    # அசல் போர்டு மேட்ரிக்ஸ் லாக்
     base_matrix = {
         "Relations and Functions": {"1M": 1.5, "2M": 2, "5M": 1.5, "8M": 0},
         "Numbers and Sequences":   {"1M": 2.0, "2M": 2, "5M": 2.0, "8M": 0},
-        "Algebra":                 {"1M": 2.0, "2M": 2, "5M": 2.0, "8M": 1},
-        "Geometry":                {"1M": 2.0, "2M": 1, "5M": 1.0, "8M": 1},
+        "Algebra":                  {"1M": 2.0, "2M": 2, "5M": 2.0, "8M": 1},
+        "Geometry":                 {"1M": 2.0, "2M": 1, "5M": 1.0, "8M": 1},
         "Coordinate Geometry":     {"1M": 1.5, "2M": 2, "5M": 2.0, "8M": 0},
         "Trigonometry":            {"1M": 1.0, "2M": 1, "5M": 1.0, "8M": 0},
         "Mensuration":             {"1M": 1.5, "2M": 2, "5M": 2.0, "8M": 0},
@@ -53,9 +52,13 @@ def get_math_dynamic_weightage(selected_lessons, part1_total, part2_total, part3
             rules.append(f"- From '{lesson}': Generate approx {int(bm['1M'])} MCQs, {bm['2M']} Questions (2-Mark), {int(bm['5M'])} Questions (5-Mark), and {bm['8M']} Question (8-Mark).")
     return "\n".join(rules)
 
-def get_blueprint_defaults(total_marks, is_social=False):
-    if is_social:
-        return {"p1": 20, "p2g": 12, "p2a": 10, "p3g": 10, "p3a": 8, "p4v": 8, "p4g": 4, "p4a": 2}
+# 💡 புதிய ஆங்கில போர்டு பேட்டர்ன் இன்டெலிஜென்ஸ் அல்காரிதம்
+def get_english_blueprint_rules():
+    return "PART I (Q1-14): 1 Mark Questions ONLY. Q1-3 Synonyms, Q4-6 Antonyms, Q7-14 Grammar Grids (Plural Form, Suffix/Prefix, Abbreviations, Phrasal Verbs, Compound Words, Prepositions, Tense, Linkers). PART II: Poetry Appreciation, Poetic Devices, Grammar Transformation (Voice Change, Reported Speech, Punctuation, Simple/Compound/Complex), Road Map Directions. PART III: Advertisement, Letter Writing, Notice Writing, Picture Comprehension."
+
+def get_blueprint_defaults(total_marks, is_social=False, is_english=False):
+    if is_english or is_social:
+        return {"p1": 14, "p2g": 12, "p2a": 10, "p3g": 10, "p3a": 7, "p4v": 8, "p4g": 2, "p4a": 2}
     
     defaults = {"p1": 14, "p2g": 12, "p2a": 10, "p3g": 14, "p3a": 10, "p4v": 8, "p4g": 4, "p4a": 2}
     if total_marks == 106:
@@ -98,7 +101,7 @@ def generate_geometry_image(shape_type, label_text=""):
 # ==========================================
 # 3. Adaptive Language & Subject Prompt Engine
 # ==========================================
-def generate_prompt_v16(subject, lessons_list, exam_type, exam_time, total_marks, exam_mode, blueprint_desc, part1_val, part2_val, part3_val):
+def generate_prompt_v18(subject, lessons_list, exam_type, exam_time, total_marks, exam_mode, blueprint_desc, part1_val, part2_val, part3_val):
     lessons_str = ", ".join(lessons_list)
     sub_lower = subject.lower()
     
@@ -107,7 +110,6 @@ def generate_prompt_v16(subject, lessons_list, exam_type, exam_time, total_marks
     is_social = "social" in sub_lower or "சமூக" in sub_lower
     is_math = "math" in sub_lower or "கணிதம்" in sub_lower
     
-    # கணிதப் பாடம் எனில் டைனமிக் வெயிட்டேஜ் விதிகளைப் பிரித்தெடுத்தல்
     math_weightage_directive = ""
     if is_math:
         math_weightage_directive = f"""
@@ -120,7 +122,10 @@ def generate_prompt_v16(subject, lessons_list, exam_type, exam_time, total_marks
         lang_instruction = "5. Language: Pure ENGLISH only."
         header_format = "PART [ROMAN_NUM] - [Section Description] (No_of_Qs x Marks = Total_Marks)"
         option_format = "Options marker: a) , b) , c) , d)"
-        subject_blueprint_rules = "[STRICT TN BOARD ENGLISH BLUEPRINT] Balanced grammar/vocab grids."
+        subject_blueprint_rules = f"""
+        [STRICT TN BOARD ENGLISH BLUEPRINT LOCK]
+        {get_english_blueprint_rules()}
+        """
     elif is_tamil:
         lang_instruction = "5. Language: Pure TAMIL only."
         header_format = "பகுதி [ROMAN_NUM] - [பிரிவின் விளக்கம்] (வினாக்கள் எண்ணிக்கை x மதிப்பெண் = மொத்த மதிப்பெண்கள்)"
@@ -325,7 +330,7 @@ st.markdown("""<style>#MainMenu {visibility: hidden;} footer {visibility: hidden
 tab1, tab2 = st.tabs(["🎓 வினாத்தாள் தயாரிப்பு (QP Generator)", "📝 விடைத்தாள் திருத்தம் (AI Math Evaluator)"])
 
 with tab1:
-    st.title("🎓 PMP Question Paper AI (V17.9 INTELLIGENT MATRIX)")
+    st.title("🎓 PMP Question Paper AI (V18.1 MASTER COMBO)")
     df = load_data()
     if df.empty:
         st.error("Database (lesson_master_v1_5.csv) கிடைக்கவில்லை!")
@@ -341,7 +346,7 @@ with tab1:
         with col3:
             time_val = st.selectbox("Time (நேரம்)", ["1.00 Hour", "1.30 Hours", "2.00 Hours", "2.30 Hours", "3.00 Hours"], index=3)
         with col4:
-            marks_val = st.number_input("Total Marks (மொத்த மதிப்பெண்கள்)", value=106, step=1)
+            marks_val = st.number_input("Total Marks (மொத்த மதிப்பெண்கள்)", value=100, step=1)
             exam_mode = st.selectbox("Exam Mode", ["🏛️ Public Exam Mode", "🏫 School Elite Mode"])
             
         lesson_list = df[df['Subject'] == subject_val]['Lesson'].unique()
@@ -349,8 +354,9 @@ with tab1:
         
         st.markdown("---")
         
+        is_eng = "english" in subject_val.lower() or "ஆங்கிலம்" in subject_val.lower()
         is_soc = "social" in subject_val.lower() or "சமூக" in subject_val.lower()
-        bp = get_blueprint_defaults(marks_val, is_social=is_soc)
+        bp = get_blueprint_defaults(marks_val, is_social=is_soc, is_english=is_eng)
         
         st.markdown("### 📋 வினா வடிவமைப்பு தானியங்கிப் பிரிவு (Auto-Adjusted Blueprint Options)")
         
@@ -368,7 +374,7 @@ with tab1:
             p3_ask = st.number_input("5-மார்க் எழுத வேண்டியவை (Answer)", value=int(bp["p3a"]), step=1)
         with b_col4:
             st.subheader("பகுதி IV (Long Qs)")
-            p4_val = st.selectbox("நெடுவினா மதிப்பெண் (Per Question)", [8, 10], index=0 if bp["p4v"] == 8 else 1)
+            p4_val = st.selectbox("நெடுவினா மதிப்பெண் (Per Question)", [5, 8, 10], index=1 if is_eng or is_soc or marks_val==100 else 0)
             p4_get = st.number_input("நெடுவினா கொடுக்க வேண்டியவை (Given)", value=int(bp["p4g"]), step=1)
             p4_ask = st.number_input("நெடுவினா எழுத வேண்டியவை (Answer)", value=int(bp["p4a"]), step=1)
             
@@ -392,7 +398,7 @@ with tab1:
                 spinner_text = "⏳ அசல் அரசுப் பொதுத்தேர்வு வெயிட்டேஜ் விதிகளின்படி வினாத்தாள் தயாராகிறது..."
                 with st.spinner(spinner_text):
                     dynamic_blueprint_desc = f"- Part I: {p1_ask} Questions. - Part II: Given {p2_get}, Answer {p2_ask}. - Part III: Given {p3_get}, Answer {p3_ask}. - Part IV: {p4_val} Mark Given {p4_get}, Answer {p4_ask}."
-                    prompt = generate_prompt_v16(subject_val, selected_lessons, exam_type, time_val, marks_val, exam_mode, dynamic_blueprint_desc, p1_ask, p2_ask, p3_ask)
+                    prompt = generate_prompt_v18(subject_val, selected_lessons, exam_type, time_val, marks_val, exam_mode, dynamic_blueprint_desc, p1_ask, p2_ask, p3_ask)
                     try:
                         response = client.models.generate_content(model='gemini-2.5-flash', contents=prompt)
                         docx_file = create_professional_docx(response.text, school_name, class_val, subject_val, exam_type, time_val, marks_val)
@@ -408,7 +414,7 @@ with tab1:
 
 with tab2:
     st.title("📝 AI Math Paper Evaluator (LaTeX Edition)")
-    uploaded_image = st.file_uploader("உங்கள் கையெழுத்து கணிதப் பக்கத்தை அப்லோட் செய்யவும்", type=["png", "jpg", "jpeg"])
+    uploaded_image = st.file_uploader("உங்கள் கையெழுத்து கணிதப் பக்கத்தை அப்لوட் செய்யவும்", type=["png", "jpg", "jpeg"])
     if uploaded_image is not None:
         image = Image.open(uploaded_image)
         st.image(image, caption="Uploaded Image", width=450)
