@@ -57,7 +57,6 @@ def get_math_dynamic_weightage(selected_lessons, part1_val, part2_val, part3_val
 def get_english_blueprint_rules():
     return """
     [STRICT MASTER ENGLISH BLUEPRINT LOCK]
-    
     PART I (14 Marks): One Mark Questions
     - Q1-3: Synonyms strictly selected from the text prose context (e.g., plaintively, dilated, yanked, unperturbed, indigenous).
     - Q4-6: Antonyms strictly selected from the text prose context (e.g., cranky, commotion, ascending, affluent, inclusion).
@@ -66,18 +65,13 @@ def get_english_blueprint_rules():
     PART II (20 Marks): Two Mark Questions (Answer any 10 out of 12)
     - Section 1 (Prose Qs): 3 Short answer questions from selected textbook lessons.
     - Section 2 (Poetry Appreciation): 3 Poetic line sets with internal appreciation questions.
-    - Section 3 (Grammar Blocks): 5 Mandatory Core Grammar Questions:
-      * 1 Question: Voice Change (Active to Passive or vice-versa).
-      * 1 Question: Reported Speech (Direct to Indirect statement).
-      * 1 Question: Punctuation grid.
-      * 1 Question: Sentence Transformation (Simple/Compound/Complex conversion).
-      * 1 Question: Rearrange jumbled words into meaningful sentences.
+    - Section 3 (Grammar Blocks): 5 Mandatory Core Grammar Questions: Voice Change, Reported Speech, Punctuation, Sentence Transformation, Rearrange jumbled words.
     - Section 4 (Roadmap): 1 Question on Road Map directions guide.
 
     PART III (35 Marks): Five Mark Questions (Answer any 7 out of 10)
-    - Section 1 (Literature Paragraphs): 2 Prose Paragraphs and 2 Poetry Paragraphs covering textbook lessons.
-    - Section 2 (Coherent Order & Comprehension): 1 Rearrange sentences in coherent order, 1 Supplementary passage comprehension.
-    - Section 3 (Writing Skills Matrix): 1 Advertisement, 1 Formal Letter, 1 Notice Writing, 1 Picture Comprehension.
+    - Section 1 (Literature Paragraphs): Prose Paragraphs and Poetry Paragraphs covering textbook lessons.
+    - Section 2 (Coherent Order & Comprehension): Rearrange sentences in coherent order, Supplementary passage comprehension.
+    - Section 3 (Writing Skills Matrix): Advertisement, Formal Letter, Notice Writing, Picture Comprehension.
 
     PART IV (16 Marks): Eight Mark Questions (Answer both - Internal Choice)
     - Q37: Comprehensive Prose Passage reading or Poem reading with granularity questions.
@@ -132,13 +126,17 @@ def generate_geometry_image(shape_type, label_text=""):
 def generate_prompt_v18(subject, lessons_list, exam_type, exam_time, total_marks, exam_mode, blueprint_desc, part1_val, part2_val, part3_val, diff_level):
     lessons_str = ", ".join(lessons_list)
     sub_lower = subject.lower()
+    is_english = "english" in sub_lower or "ஆங்கிலம்" in sub_lower
+    is_tamil = "tamil" in sub_lower or "தமிழ்" in sub_lower
+    is_social = "social" in sub_lower or "சமூக" in sub_lower
+    is_math = "math" in sub_lower or "கணிதம்" in sub_lower
     
     if diff_level == "எளிமை (Easy)":
-        difficulty_directive = "DIFFICULTY CRITERIA: Focus 80% on direct textbook back questions, basic formulas, and direct conceptual synonyms/definitions. Avoid tricky indirect modifications."
+        difficulty_directive = "DIFFICULTY CRITERIA: Focus 80% on direct textbook back questions and formulas."
     elif diff_level == "நடுத்தரம் (Medium)":
-        difficulty_directive = "DIFFICULTY CRITERIA: Balanced public paper structure. 60% Direct questions, 30% Application/Understanding based, and 10% slightly analytical/HOTS questions."
+        difficulty_directive = "DIFFICULTY CRITERIA: Balanced public paper structure. 60% Direct, 30% Application, 10% HOTS."
     else:
-        difficulty_directive = "DIFFICULTY CRITERIA: High-level revision standard. Focus 50% on deep conceptual understanding, indirect grammatical transformations, unseen critical comprehension, and challenging multi-step analytical problems."
+        difficulty_directive = "DIFFICULTY CRITERIA: High-level revision standard with indirect grammatical transformations."
 
     math_weightage_directive = ""
     if is_math:
@@ -153,17 +151,17 @@ def generate_prompt_v18(subject, lessons_list, exam_type, exam_time, total_marks
         lang_instruction = "5. Language: Pure TAMIL only."
         header_format = "பகுதி [ROMAN_NUM] - [பிரிவின் விளக்கம்] (வினாக்கள் எண்ணிக்கை x மதிப்பெண் = மொத்த மதிப்பெண்கள்)"
         option_format = "Options marker: அ) , ஆ) , இ) , ஈ)"
-        subject_blueprint_rules = "[அசல் தமிழ் பாடத்திட்ட ப்ளூபிரின்ட்] சொல்வளம், இலக்கணம், இலக்கியக் கட்டமைப்பு லாக்."
+        subject_blueprint_rules = "[அசல் தமிழ் பாடத்திட்ட ப்ளூபிரின்ட்] சொல்வளம், இலக்கணம் இலக்கணம் லாக்."
     elif is_social:
         lang_instruction = "5. Language: Pure TAMIL only."
         header_format = "பகுதி [ROMAN_NUM] - [பிரிவின் விளக்கம்]"
         option_format = "Options marker: அ) , ஆ) , இ) , ஈ)"
-        subject_blueprint_rules = "[MANDATORY CRITICAL SOCIAL SCIENCE BLUEPRINT] Assertion-Reason, Map marking, and HOTS locked."
+        subject_blueprint_rules = "[MANDATORY CRITICAL SOCIAL SCIENCE BLUEPRINT] Assertion-Reason, Map locked."
     elif is_math:
         lang_instruction = "5. Language: Pure TAMIL only."
         header_format = "பகுதி [ROMAN_NUM] - [பிரிவின் விளக்கம்] (No_of_Qs x Marks = Total_Marks)"
         option_format = "Options marker: அ) , ஆ) , இ) , ஈ)"
-        subject_blueprint_rules = f"[MANDATORY CRITICAL MATHEMATICS CORE EMBEDDED LOCK]\n1. ABSOLUTE BAN ON AI DISCLAIMERS: Do NOT output phrases like '[வரைபடத்தை இங்கு காட்சிப்படுத்த முடியாது]'.\n2. DYNAMIC GEOMETRY TAGS: Output tags strictly on its own line: [DRAW_TRIANGLE: AB=5cm, BC=6cm, Angle B=60]. Do NOT use Tamil inside square brackets.\n3. GRAPH PAPER COORDINATES: Output clean coordinate table for graph.\n{math_weightage_directive}"
+        subject_blueprint_rules = f"[MANDATORY CRITICAL MATHEMATICS CORE EMBEDDED LOCK]\n1. ABSOLUTE BAN ON AI DISCLAIMERS.\n2. DYNAMIC GEOMETRY TAGS: [DRAW_TRIANGLE: AB=5cm].\n3. GRAPH PAPER COORDINATES.\n{math_weightage_directive}"
     else:
         lang_instruction = "5. Language: Pure TAMIL language only."
         header_format = "பகுதி [ROMAN_NUM]"
@@ -288,12 +286,10 @@ def create_professional_docx(ai_response, school_name, class_val, subject_val, e
     return doc
 
 # ==========================================
-# 5. Streamlit Mobile UI & Fonts Configuration
+# 4. Streamlit Presentation UI Config
 # ==========================================
-# 💡 layout="centered" மூலம் மொபைல் வியூ பக்கா லேஅவுட்டாக லாக் செய்யப்பட்டுள்ளது.
-st.set_page_config(page_title="PMP AI Suite", page_icon="🎓", layout="centered")
+st.set_page_config(page_title="PMP AI Suite PRO", page_icon="🎓", layout="centered")
 
-# 💡 சிஎஸ்எஸ் குறியீடு மூலம் எழுத்துகளின் அளவு (Font Size) மொபைலுக்காகப் பெரிதாக்கப்பட்டுள்ளது.
 st.markdown("""
 <style>
     html, body, [data-testid="stMarkdownContainer"] p {
@@ -305,9 +301,6 @@ st.markdown("""
         font-weight: bold !important;
         color: #1E3A8A !important;
     }
-    div[data-testid="stSelectbox"] div, div[data-testid="stTextInput"] input {
-        font-size: 18px !important;
-    }
     button {
         font-size: 20px !important;
         height: 50px !important;
@@ -318,10 +311,9 @@ st.markdown("""
 tab1, tab2 = st.tabs(["🎓 வினாத்தாள் தயாரிப்பு", "📝 விடைத்தாள் திருத்தம்"])
 
 with tab1:
-    st.title("🎓 PMP Master AI Engine")
+    st.title("🎓 PMP Master AI Engine (V18.7)")
     df = load_data()
     if not df.empty:
-        # 💡 மொபைல் திரையில் கச்சிதமாகப் பொருந்துமாறு காலம்கள் பிரிக்கப்பட்டுள்ளன.
         col1, col2 = st.columns(2)
         with col1:
             school_name = st.text_input("School Name", value="ABC SCHOOL")
@@ -345,18 +337,24 @@ with tab1:
         is_soc = "social" in subject_val.lower() or "சமூக" in subject_val.lower()
         bp = get_blueprint_defaults(marks_val, is_social=is_soc, is_english=is_eng)
         
-        st.markdown("### 📋 வினா வடிவமைப்பு பிரிவு")
+        st.markdown("### 📋 வினா வடிவமைப்பு பிரிவு (பகுதிகளைத் தேர்ந்தெடுக்கவும்)")
+        show_p1 = st.checkbox("பகுதி I (1-Mark Questions) சேர்க்கலாமா?", value=True)
+        show_p2 = st.checkbox("பகுதி II (2-Mark Questions) சேர்க்கலாமா?", value=True)
+        show_p3 = st.checkbox("பகுதி III (5-Mark Questions) சேர்க்கலாமா?", value=True)
+        show_p4 = st.checkbox("பகுதி IV (Long Questions) சேர்க்கலாமா?", value=True)
+        
+        st.markdown("#### ⚙️ மதிப்பெண் விவரங்கள் (Fine-Tune Variables)")
         b1, b2 = st.columns(2)
         with b1:
-            p1_ask = st.number_input("1-மார்க் வினாக்கள்", value=int(bp["p1"]), step=1)
-            p2_get = st.number_input("2-மார்க் Given", value=int(bp["p2g"]), step=1)
-            p2_ask = st.number_input("2-மார்க் Answer", value=int(bp["p2a"]), step=1)
+            p1_ask = st.number_input("1-மார்க் வினாக்கள் எண்ணிக்கை", value=int(bp["p1"]) if show_p1 else 0, step=1, disabled=not show_p1)
+            p2_get = st.number_input("2-மார்க் கொடுக்க வேண்டியவை (Given)", value=int(bp["p2g"]) if show_p2 else 0, step=1, disabled=not show_p2)
+            p2_ask = st.number_input("2-மார்க் எழுத வேண்டியவை (Answer)", value=int(bp["p2a"]) if show_p2 else 0, step=1, disabled=not show_p2)
         with b2:
-            p3_get = st.number_input("5-மார்க் Given", value=int(bp["p3g"]), step=1)
-            p3_ask = st.number_input("5-marked Answer", value=int(bp["p3a"]), step=1)
-            p4_val = st.selectbox("நெடுவினா மார்க்", [5, 8, 10], index=1 if is_eng or is_soc or marks_val==100 else 0)
-            p4_get = st.number_input("நெடுவினா Given", value=int(bp["p4g"]), step=1)
-            p4_ask = st.number_input("நெடுவினா Answer", value=int(bp["p4a"]), step=1)
+            p3_get = st.number_input("5-மார்க் கொடுக்க வேண்டியவை (Given)", value=int(bp["p3g"]) if show_p3 else 0, step=1, disabled=not show_p3)
+            p3_ask = st.number_input("5-மார்க் எழுத வேண்டியவை (Answer)", value=int(bp["p3a"]) if show_p3 else 0, step=1, disabled=not show_p3)
+            p4_val = st.selectbox("நெடுவினா மதிப்பெண்", [5, 8, 10], index=1 if is_eng or is_soc or marks_val==100 else 0, disabled=not show_p4)
+            p4_get = st.number_input("நெடுவினா கொடுக்க வேண்டியவை (Given)", value=int(bp["p4g"]) if show_p4 else 0, step=1, disabled=not show_p4)
+            p4_ask = st.number_input("நெடுவினா எழுத வேண்டியவை (Answer)", value=int(bp["p4a"]) if show_p4 else 0, step=1, disabled=not show_p4)
             
         total_calculated = (p1_ask * 1) + (p2_ask * 2) + (p3_ask * 5) + (p4_ask * p4_val)
         can_generate = total_calculated == marks_val
@@ -364,7 +362,7 @@ with tab1:
         if can_generate:
             st.success(f"✅ மதிப்பெண்கள் சரியாகப் பொருந்தியது: {total_calculated} மார்க்.")
         else:
-            st.warning(f"⚠️ கணக்கீடு: {total_calculated} மார்க் | மொத்த மதிப்பெண்: {marks_val} மார்க்.")
+            st.warning(f"⚠️ கணக்கீடு: {total_calculated} மார்க் | மொத்த மதிப்பெண்: {marks_val} மார்க். (தயவுசெய்து சமப்படுத்தவும்).")
             
         if st.button("🚀 Generate PRO Question Paper", use_container_width=True):
             if can_generate and selected_lessons:
@@ -390,3 +388,34 @@ with tab1:
 
         if 'docx_bytes' in st.session_state:
             st.download_button(label="📥 Download Word File (.docx)", data=st.session_state['docx_bytes'], file_name=f"PMP_{subject_val}.docx", mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document", use_container_width=True)
+
+with tab2:
+    st.title("📝 AI Math Paper Evaluator (Multi-Format Edition)")
+    
+    # 💡 PDF ஆப்ஷனுடன் கூடிய புதிய மல்டி-ஃபார்மட் ஃபைல் அப்லோடர் (Image + PDF Integration Locked)
+    uploaded_file = st.file_uploader("உங்கள் விடைத்தாளை அப்லோட் செய்யவும் (Image அல்லது PDF கோப்புகள்)", type=["png", "jpg", "jpeg", "pdf"])
+    
+    if uploaded_file is not None:
+        file_type = uploaded_file.name.split(".")[-1].lower()
+        
+        # 📂 பிழை ஏதுமின்றி PDF மற்றும் இமேஜ்களைக் கையாளும் மல்டி மாஸ்டர் செக்மென்ட்
+        if file_type == "pdf":
+            st.info("📊 PDF கோப்பு கண்டறியப்பட்டது. ஜெமினி ஏஐ கோப்பினை நேரடியாகப் பகுப்பாய்வு செய்கிறது...")
+            # PDF பைட்டுகளை ஏஐ புரிந்து கொள்ளும் வகையில் ஸ்ட்ரீம் செய்கிறோம்
+            file_data = uploaded_file.read()
+            eval_payload = [{"mime_type": "application/pdf", "data": file_data}]
+        else:
+            image = Image.open(uploaded_file)
+            st.image(image, caption="Uploaded Handwriting Page", width=420)
+            eval_payload = [image]
+            
+        if st.button("🚀 Start AI Evaluation", use_container_width=True):
+            with st.spinner("⏳ ஜெமினி AI விடைத்தாளைத் திருத்தி வருகிறது..."):
+                eval_prompt = "You are an official TN Board Math Evaluator. Read handwriting or PDF pages and correct step-by-step. Write fractions as $\\frac{a}{b}$ inside single dollar signs. Respond in Tamil."
+                try:
+                    # மல்டி-ஃபார்மட் பேலோடை ஏஐ-க்கு செலுத்துகிறோம்
+                    eval_payload.append(eval_prompt)
+                    response = client.models.generate_content(model='gemini-2.5-pro', contents=eval_payload)
+                    st.markdown(response.text)
+                except Exception as e:
+                    st.error(f"❌ சர்வர் பிழை: {e}")
