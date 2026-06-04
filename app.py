@@ -307,7 +307,7 @@ st.markdown("""
 tab1, tab2 = st.tabs(["🎓 வினாத்தாள் தயாரிப்பு", "📝 விடைத்தாள் திருத்தம்"])
 
 with tab1:
-    st.title("🎓 PMP Master AI Engine (V18.8)")
+    st.title("🎓 PMP Master AI Engine (V19.0)")
     df = load_data()
     if not df.empty:
         col1, col2 = st.columns(2)
@@ -367,14 +367,20 @@ with tab1:
                     prompt = generate_prompt_v18(subject_val, selected_lessons, exam_type, time_val, marks_val, exam_mode, blueprint_desc, p1_ask, p2_ask, p3_ask, diff_level)
                     
                     response = None
-                    for attempt in range(3):
+                    max_retries = 4
+                    for attempt in range(max_retries):
                         try:
-                            response = client.models.generate_content(model='gemini-2.5-pro', contents=prompt)
+                            # 💡 மாடல் 'gemini-2.5-flash' ஆக மாற்றப்பட்டுள்ளது (High Speed & Zero Quota Blocker)
+                            response = client.models.generate_content(model='gemini-2.5-flash', contents=prompt)
                             break
-                        except:
-                            time.sleep(2)
-                            continue
-                            
+                        except Exception as api_err:
+                            if ("429" in str(api_err) or "503" in str(api_err)) and attempt < max_retries - 1:
+                                wait_time = (attempt + 1) * 4
+                                time.sleep(wait_time)
+                                continue
+                            else:
+                                st.error(f"சர்வர் தற்காலிகமாக ஓவர்லோடு ஆகியுள்ளது: {api_err}")
+                                
                     if response:
                         doc = create_professional_docx(response.text, school_name, class_val, subject_val, exam_type, time_val, marks_val)
                         doc_io = io.BytesIO()
@@ -406,9 +412,20 @@ with tab2:
         if st.button("🚀 Start AI Evaluation", use_container_width=True):
             with st.spinner("⏳ ஜெமினி AI விடைத்தாளைத் திருத்தி வருகிறது..."):
                 eval_prompt = "You are an official TN Board Math Evaluator. Read handwriting or PDF pages and correct step-by-step. Write fractions as $\\frac{a}{b}$ inside single dollar signs. Respond in Tamil."
-                try:
-                    eval_payload.append(eval_prompt)
-                    response = client.models.generate_content(model='gemini-2.5-pro', contents=eval_payload)
+                
+                eval_payload.append(eval_prompt)
+                response = None
+                for attempt in range(3):
+                    try:
+                        # 💡 மதிப்பீட்டு இன்ஜினும் 'gemini-2.5-flash' மாடலுக்கு மாற்றப்பட்டுள்ளது
+                        response = client.models.generate_content(model='gemini-2.5-flash', contents=eval_payload)
+                        break
+                    except Exception as eval_err:
+                        if "429" in str(eval_err) and attempt < 2:
+                            time.sleep(4)
+                            continue
+                        else:
+                            st.error(f"மதிப்பீட்டு சர்வர் பிழை: {eval_err}")
+                            
+                if response:
                     st.markdown(response.text)
-                except Exception as e:
-                    st.error(f"❌ சர்வர் பிழை: {e}")
