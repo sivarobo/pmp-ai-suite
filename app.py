@@ -33,7 +33,7 @@ def load_data():
     except:
         return pd.DataFrame()
 
-# 💡 [MATH MATRIX ENGINE V20.6]
+# 💡 [MATH MATRIX ENGINE V20.8]
 def get_math_dynamic_weightage(selected_lessons):
     base_matrix = {
         "Relations and Functions": {"1M": 1.5, "2M": 2, "5M": 2, "8M": 0},
@@ -60,20 +60,6 @@ def get_english_blueprint_rules():
     PART III (35 Marks): Five Mark Questions (Answer any 7 out of 10).
     PART IV (16 Marks): Eight Mark Questions (Answer both - Internal Choice).
     """
-
-# 💡 [BLUEPRINT DEFAULTS BUG FIX]: 25 மார்க்காக இருந்தாலும் பகுதி IV மதிப்புகள் 0 ஆக மாறாமல் தடுத்தல்
-def get_blueprint_defaults(total_marks, is_social=False, is_english=False):
-    if is_english or is_social:
-        return {"p1": 14, "p2g": 12, "p2a": 10, "p3g": 10, "p3a": 7, "p4v": 8, "p4g": 2, "p4a": 2}
-    defaults = {"p1": 14, "p2g": 12, "p2a": 10, "p3g": 14, "p3a": 10, "p4v": 8, "p4g": 4, "p4a": 2}
-    if total_marks == 106:
-        defaults = {"p1": 20, "p2g": 12, "p2a": 10, "p3g": 14, "p3a": 10, "p4v": 8, "p4g": 4, "p4a": 2}
-    elif total_marks == 50:
-        defaults = {"p1": 10, "p2g": 8, "p2a": 6, "p3g": 6, "p3a": 4, "p4v": 8, "p4g": 2, "p4a": 1}
-    elif total_marks == 25:
-        # 🛡️ பக் ஃபிக்ஸ்: கொடுக்க வேண்டியவை 2, எழுத வேண்டியவை 1 என இயல்பாக மாற்றப்பட்டுள்ளது
-        defaults = {"p1": 5, "p2g": 6, "p2a": 5, "p3g": 3, "p3a": 2, "p4v": 8, "p4g": 2, "p4a": 1}
-    return defaults
 
 def generate_geometry_image(label_text=""):
     fig, ax = plt.subplots(figsize=(2.5, 2.5))
@@ -119,16 +105,20 @@ def generate_prompt_v18(subject, lessons_list, exam_type, exam_time, total_marks
     is_social = "social" in sub_lower or "சமூக" in sub_lower
     is_math = "math" in sub_lower or "கணிதம்" in sub_lower
     
+    # 💡 [BOOK vs INSIDE-TEXT RATIO ALGORITHM LOCKED]: உங்களோட அந்த 80% மற்றும் 20% அல்காரிதம் இதோ ஜி!
     if diff_level == "எளிமை (Easy)":
-        difficulty_directive = "DIFFICULTY CRITERIA: Focus 80% on direct textbook back LOTS questions."
+        difficulty_directive = "[STRICT DIFFICULT PERCENTAGE MATRIX - EASY]\nGenerate 100% direct textbook back (Book-back) questions only. Absolute zero creative modifications."
     elif diff_level == "நடுத்தரம் (Medium)":
-        difficulty_directive = "DIFFICULTY CRITERIA: Balanced public paper structure. 60% LOTS, 30% MOTS, 10% HOTS."
+        difficulty_directive = """[STRICT DIFFICULT PERCENTAGE MATRIX - RATIO LOCK 80:20]
+        1. 80% OF THE TOTAL QUESTIONS MUST be direct textbook back (Book-back / LOTS) questions.
+        2. EXACTLY 20% OF THE TOTAL QUESTIONS MUST be Creative Inside-text (உள் வினாக்கள் / MOTS / HOTS) questions where numbers, values, names, or expressions are dynamically modified from the original book format to test applied knowledge.
+        """
     else:
-        difficulty_directive = "DIFFICULTY CRITERIA: High-level standard with creative HOTS problems."
+        difficulty_directive = "[STRICT DIFFICULT PERCENTAGE MATRIX - HARD]\nGenerate 50% direct textbook back questions and 50% highly advanced creative inside-text (HOTS) non-textual modification problems."
 
     if is_math:
         subject_blueprint_rules = f"""
-        [MANDATORY CRITICAL MATHEMATICS CORE EMBEDDED LOCK - VERSION 20.6]
+        [MANDATORY CRITICAL MATHEMATICS CORE EMBEDDED LOCK - VERSION 20.8]
         1. CHAPTER WEIGHTAGE DIRECTION: You MUST follow this exact chapter-wise question count allocation rule for selected chapters:
         {get_math_dynamic_weightage(lessons_list)}
         
@@ -340,7 +330,7 @@ st.markdown("""
 tab1, tab2 = st.tabs(["🎓 வினாத்தாள் தயாரிப்பு", "📝 விடைத்தாள் திருத்தம்"])
 
 with tab1:
-    st.title("🎓 PMP Master AI Engine (V20.6)")
+    st.title("🎓 PMP Master AI Engine (V20.8)")
     df = load_data()
     if not df.empty:
         col1, col2 = st.columns(2)
@@ -362,10 +352,6 @@ with tab1:
         diff_level = st.selectbox("வினாத்தாள் கடினத்தன்மை (Difficulty Level)", ["எளிமை (Easy)", "நடுத்தரம் (Medium)", "கடினம் (Hard)"], index=1)
         
         st.markdown("---")
-        is_eng = "english" in subject_val.lower() or "ஆங்கிலம்" in subject_val.lower()
-        is_soc = "social" in subject_val.lower() or "சமூக" in subject_val.lower()
-        bp = get_blueprint_defaults(marks_val, is_social=is_soc, is_english=is_eng)
-        
         st.markdown("### 📋 வினா வடிவமைப்பு பிரிவு")
         show_p1 = st.checkbox("பகுதி I (1-Mark Questions) சேர்க்கலாமா?", value=True)
         show_p2 = st.checkbox("பகுதி II (2-Mark Questions) சேர்க்கலாமா?", value=True)
@@ -374,16 +360,17 @@ with tab1:
         
         st.markdown("#### ⚙️ மதிப்பெண் விவரங்கள் (Fine-Tune Variables)")
         b1, b2 = st.columns(2)
+        
         with b1:
-            p1_ask = st.number_input("1-மார்க் வினாக்கள் எண்ணிக்கை", value=int(bp["p1"]) if show_p1 else 0, step=1, disabled=not show_p1)
-            p2_get = st.number_input("2-மார்க் கொடுக்க வேண்டியவை (Given)", value=int(bp["p2g"]) if show_p2 else 0, step=1, disabled=not show_p2)
-            p2_ask = st.number_input("2-மார்க் எழுத வேண்டியவை (Answer)", value=int(bp["p2a"]) if show_p2 else 0, step=1, disabled=not show_p2)
+            p1_ask = st.number_input("1-மார்க் வினாக்கள் எண்ணிக்கை", value=14 if show_p1 else 0, step=1, disabled=not show_p1)
+            p2_get = st.number_input("2-மார்க் கொடுக்க வேண்டியவை (Given)", value=12 if show_p2 else 0, step=1, disabled=not show_p2)
+            p2_ask = st.number_input("2-மார்க் எழுத வேண்டியவை (Answer)", value=10 if show_p2 else 0, step=1, disabled=not show_p2)
         with b2:
-            p3_get = st.number_input("5-மார்க் கொடுக்க வேண்டியவை (Given)", value=int(bp["p3g"]) if show_p3 else 0, step=1, disabled=not show_p3)
-            p3_ask = st.number_input("5-மார்க் எழுத வேண்டியவை (Answer)", value=int(bp["p3a"]) if show_p3 else 0, step=1, disabled=not show_p3)
-            p4_val = st.selectbox("நெடுவினா மதிப்பெண்", [5, 8, 10], index=1 if is_eng or is_soc or marks_val==100 else 0, disabled=not show_p4)
-            p4_get = st.number_input("நெடுவினா கொடுக்க வேண்டியவை (Given)", value=int(bp["p4g"]) if show_p4 else 0, step=1, disabled=not show_p4)
-            p4_ask = st.number_input("நெடுவினா எழுத வேண்டியவை (Answer)", value=int(bp["p4a"]) if show_p4 else 0, step=1, disabled=not show_p4)
+            p3_get = st.number_input("5-மார்க் கொடுக்க வேண்டியவை (Given)", value=14 if show_p3 else 0, step=1, disabled=not show_p3)
+            p3_ask = st.number_input("5-மார்க் எழுத வேண்டியவை (Answer)", value=10 if show_p3 else 0, step=1, disabled=not show_p3)
+            p4_val = st.selectbox("நெடுவினா மதிப்பெண்", [5, 8, 10], index=1, disabled=not show_p4)
+            p4_get = st.number_input("நெடுவினா கொடுக்க வேண்டியவை (Given)", value=2 if show_p4 else 0, step=1, disabled=not show_p4)
+            p4_ask = st.number_input("நெடுவினா எழுத வேண்டியவை (Answer)", value=2 if show_p4 else 0, step=1, disabled=not show_p4)
             
         total_calculated = (p1_ask * 1) + (p2_ask * 2) + (p3_ask * 5) + (p4_ask * p4_val)
         can_generate = total_calculated == marks_val
