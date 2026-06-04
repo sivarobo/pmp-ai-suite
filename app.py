@@ -1,4 +1,22 @@
-import streamlit as st
+# 1. லாகின் லேயர்
+name, authentication_status, username = authenticator.login('Login', 'main')
+
+# 2. பிழை ஏற்படாமல் தடுக்க, லாகின் ஸ்டேட்டஸை உறுதி செய்தல்
+if authentication_status:
+    # ----------------------------------------------------
+    # லாகின் ஆன பிறகு இயங்க வேண்டிய மெயின் கோடு (அனைத்தும் Tab தள்ளி இருக்கட்டும்)
+    # ----------------------------------------------------
+    st.success(f"Welcome {name}")
+    
+    # இங்கிருந்து உங்கள் டேப்கள் மற்றும் தயாரிப்புப் பகுதிகள் (Tab1, Tab2) வர வேண்டும்
+    
+    if st.sidebar.button("Logout"):
+        authenticator.logout('Logout', 'main')
+
+elif authentication_status == False:
+    st.error('❌ Username/password is incorrect')
+elif authentication_status == None:
+    st.warning('⚠️ Please enter your username and password')import streamlit as st
 import streamlit_authenticator as stauth
 import pandas as pd
 from google import genai
