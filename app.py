@@ -192,6 +192,7 @@ def write_markdown_to_word(doc, text):
     for line in text.split('\n'):
         line = line.strip()
         if not line: continue
+        
         draw_match = re.search(r'\[DRAW_(TRIANGLE|SQUARE)[:\s]*(.*?)\]', line, re.IGNORECASE)
         if draw_match:
             shape_type = draw_match.group(1)
@@ -204,7 +205,9 @@ def write_markdown_to_word(doc, text):
             except Exception as e:
                 doc.add_paragraph(f"[Error loading diagram: {e}]")
             continue
+
         clean_line = line.replace('*', '').replace('$', '').strip()
+        
         if "பகுதி" in clean_line or "PART" in clean_line.upper():
             marks_match = re.search(r'\(?\d+\s*[xX*]\s*\d+\s*=\s*\d+\)?', clean_line)
             if marks_match:
@@ -218,6 +221,7 @@ def write_markdown_to_word(doc, text):
                 set_cell_margins(c1, top=0, bottom=0, start=0, end=0)
                 set_cell_margins(c2, top=0, bottom=0, start=0, end=0)
                 continue
+
         option_markers = ["அ)", "ஆ)", "இ)", "ஈ)", "a)", "b)", "c)", "d)"]
         if any(marker in clean_line for marker in option_markers):
             raw_parts = re.split(r'(அ\)|ஆ\)|இ\)|ஈ\)|a\)|b\)|c\)|d\))', clean_line)
@@ -229,6 +233,7 @@ def write_markdown_to_word(doc, text):
                     current = chunk + " "
                 else: current += chunk
             if current.strip(): parts.append(current.strip())
+            
             if parts:
                 table = doc.add_table(rows=1, cols=len(parts))
                 for idx, opt in enumerate(parts):
@@ -236,10 +241,11 @@ def write_markdown_to_word(doc, text):
                     cell.paragraphs[0].add_run(opt.replace("*", ""))
                     set_cell_margins(cell, top=0, bottom=0, start=0, end=0)
                 continue
+
         p = doc.add_paragraph()
         if re.match(r'^\d+\.', clean_line):
-		p.paragraph_format.left_indent = Inches(0.25)
-		p.paragraph_format.first_line_indent = Inches(-0.25)
+            p.paragraph_format.left_indent = Inches(0.25)
+            p.paragraph_format.first_line_indent = Inches(-0.25)
         parts = re.split(r'\*\*(.*?)\*\*', line)
         for i, part in enumerate(parts):
             run = p.add_run(part.replace('$', ''))
@@ -252,20 +258,24 @@ def create_professional_docx(ai_response, school_name, class_val, subject_val, e
     section.left_margin = section.right_margin = section.top_margin = section.bottom_margin = Inches(0.5)
     style = doc.styles['Normal']
     style.font.name = 'Nirmala UI'
+    
     h_school = doc.add_paragraph(style='Normal')
     h_school.alignment = WD_ALIGN_PARAGRAPH.CENTER
     h_school.add_run(school_name.upper()).bold = True
     h_school.runs[0].font.size = Pt(15)
+    
     table = doc.add_table(rows=2, cols=2)
     def format_cell(cell, text, align_right=False):
         p = cell.paragraphs[0]
         p.alignment = WD_ALIGN_PARAGRAPH.RIGHT if align_right else WD_ALIGN_PARAGRAPH.LEFT
         p.add_run(text).bold = True
         set_cell_margins(cell, top=0, bottom=0, start=0, end=0)
+        
     format_cell(table.cell(0, 0), f"Class : {class_val}")
     format_cell(table.cell(0, 1), f"Time : {time_val}", align_right=True)
     format_cell(table.cell(1, 0), f"Subject : {subject_val}")
     format_cell(table.cell(1, 1), f"Marks : {marks_val}", align_right=True)
+    
     add_solid_line(doc)
     parts = ai_response.split("=== ANSWER KEY ===")
     write_markdown_to_word(doc, parts[0].strip())
