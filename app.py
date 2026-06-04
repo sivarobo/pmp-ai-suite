@@ -238,8 +238,8 @@ def write_markdown_to_word(doc, text):
                 continue
         p = doc.add_paragraph()
         if re.match(r'^\d+\.', clean_line):
-			p.paragraph_format.left_indent = Inches(0.25)
-			p.paragraph_format.first_line_indent = Inches(-0.25)
+		p.paragraph_format.left_indent = Inches(0.25)
+		p.paragraph_format.first_line_indent = Inches(-0.25)
         parts = re.split(r'\*\*(.*?)\*\*', line)
         for i, part in enumerate(parts):
             run = p.add_run(part.replace('$', ''))
