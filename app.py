@@ -57,8 +57,8 @@ def get_english_blueprint_rules():
     return """
     [STRICT MASTER ENGLISH BLUEPRINT LOCK]
     PART I (14 Marks): One Mark Questions
-    - Q1-3: Synonyms strictly selected from the text prose context (e.g., plaintively, dilated, yanked).
-    - Q4-6: Antonyms strictly selected from the text prose context (e.g., cranky, commotion).
+    - Q1-3: Synonyms strictly selected from the text prose context.
+    - Q4-6: Antonyms strictly selected from the text prose context.
     - Q7-14: Textual Grammar Matrix: Plural Form, Suffix/Prefix, Abbreviations, Phrasal Verbs, Compound Words, Prepositions, Tense Forms, Linkers.
 
     PART II (20 Marks): Two Mark Questions (Answer any 10 out of 12)
@@ -138,11 +138,26 @@ def generate_prompt_v18(subject, lessons_list, exam_type, exam_time, total_marks
     if is_math:
         math_weightage_directive = f"[STRICT LESSON-WISE MARKS WEIGHTAGE MATRIX]\n{get_math_dynamic_weightage(lessons_list, part1_val, part2_val, part3_val)}"
 
+    # 💡 [SCHEME OF VALUATION INJECTION LOCKED]: நீங்கள் பரிந்துரைத்த புதிய விதிகள் ஏஐ-க்குள் பூட்டப்பட்டுள்ளன!
+    scheme_of_valuation_directive = """
+    === MANDATORY SCHEME OF VALUATION FOR ANSWER KEY ===
+    When generating the '=== ANSWER KEY ===' section at the end of the output, you MUST strictly output the step-by-step mark distribution grid for each section using these exact rules:
+    1. One Mark Qs: Direct exact answer only [1 Mark].
+    2. Prose 2 Marks: Main Answer Point [1 Mark] + Supporting Point/Expansion [1 Mark] = [2 Marks].
+    3. Core Grammar Transformations: Direct Correct Transformation Form [2 Marks] (No broken partial credits for spelling).
+    4. Road Map: Direction Points Guide [2 Marks].
+    5. Literature Paragraphs (5 Marks): Content / Relevance [3 Marks] + Organization [1 Mark] + Language [1 Mark] = [5 Marks].
+    6. Advertisement (5 Marks): Format/Layout [1 Mark] + Heading [1 Mark] + Content [2 Marks] + Contact Details [1 Mark] = [5 Marks].
+    7. Letter Writing (5 Marks): Format [1 Mark] + Content/Body [3 Marks] + Language & Closing [1 Mark] = [5 Marks].
+    8. Picture Description: 5 Appropriate Sentences × 1 Mark = [5 Marks].
+    9. Hints Development Essay (8 Marks): Introduction [1 Mark] + Development using hints [5 Marks] + Coherence & Language [2 Marks] = [8 Marks].
+    """
+
     if is_english:
         lang_instruction = "5. Language: Pure ENGLISH only. No Tamil markers or disclaimers in question texts."
         header_format = "PART [ROMAN_NUM] - [Section Description] (No_of_Qs x Marks = Total_Marks)"
         option_format = "Options marker: a) , b) , c) , d)"
-        subject_blueprint_rules = f"[STRICT TN BOARD ENGLISH BLUEPRINT LOCK]\n{get_english_blueprint_rules()}"
+        subject_blueprint_rules = f"[STRICT TN BOARD ENGLISH BLUEPRINT LOCK]\n{get_english_blueprint_rules()}\n{scheme_of_valuation_directive}"
     elif is_tamil:
         lang_instruction = "5. Language: Pure TAMIL only."
         header_format = "பகுதி [ROMAN_NUM] - [பிரிவின் விளக்கம்] (வினாக்கள் எண்ணிக்கை x மதிப்பெண் = மொத்த மதிப்பெண்கள்)"
@@ -307,7 +322,7 @@ st.markdown("""
 tab1, tab2 = st.tabs(["🎓 வினாத்தாள் தயாரிப்பு", "📝 விடைத்தாள் திருத்தம்"])
 
 with tab1:
-    st.title("🎓 PMP Master AI Engine (V19.0)")
+    st.title("🎓 PMP Master AI Engine (V19.1)")
     df = load_data()
     if not df.empty:
         col1, col2 = st.columns(2)
@@ -370,7 +385,6 @@ with tab1:
                     max_retries = 4
                     for attempt in range(max_retries):
                         try:
-                            # 💡 மாடல் 'gemini-2.5-flash' ஆக மாற்றப்பட்டுள்ளது (High Speed & Zero Quota Blocker)
                             response = client.models.generate_content(model='gemini-2.5-flash', contents=prompt)
                             break
                         except Exception as api_err:
@@ -417,7 +431,6 @@ with tab2:
                 response = None
                 for attempt in range(3):
                     try:
-                        # 💡 மதிப்பீட்டு இன்ஜினும் 'gemini-2.5-flash' மாடலுக்கு மாற்றப்பட்டுள்ளது
                         response = client.models.generate_content(model='gemini-2.5-flash', contents=eval_payload)
                         break
                     except Exception as eval_err:
