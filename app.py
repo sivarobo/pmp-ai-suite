@@ -33,7 +33,7 @@ def load_data():
     except:
         return pd.DataFrame()
 
-# 💡 [MATH MATRIX ENGINE V20.1]: அசல் அரசுப் பொதுத்தேர்வு அத்தியாய வாரியான வெயிட்டேஜ் விதிகள்
+# 💡 [MATH MATRIX ENGINE V20.3]
 def get_math_dynamic_weightage(selected_lessons):
     base_matrix = {
         "Relations and Functions": {"1M": 1.5, "2M": 2, "5M": 2, "8M": 0},
@@ -73,7 +73,6 @@ def get_blueprint_defaults(total_marks, is_social=False, is_english=False):
         defaults = {"p1": 5, "p2g": 6, "p2a": 5, "p3g": 3, "p3a": 2, "p4v": 8, "p4g": 0, "p4a": 0}
     return defaults
 
-# 💡 [DIAGAM ENGINE FIX]: செய்முறை வடிவியலுக்கு மட்டும் முக்கோணம் வரையும் இன்ஜின்
 def generate_geometry_image(label_text=""):
     fig, ax = plt.subplots(figsize=(2.5, 2.5))
     points = np.array([[0, 0], [4, 0], [2, 3], [0, 0]])
@@ -91,7 +90,6 @@ def generate_geometry_image(label_text=""):
     plt.close(fig)
     return img_buf
 
-# 💡 [GRAPH ENGINE LOCK]: வரைபடக் கேள்விகளுக்கு கார்ட்டீசியன் அச்சு மற்றும் கிரிட் கோடுகள் வரையும் இன்ஜின்
 def generate_graph_image(label_text=""):
     fig, ax = plt.subplots(figsize=(2.5, 2.5))
     ax.axhline(0, color='black', lw=1.5)
@@ -127,7 +125,7 @@ def generate_prompt_v18(subject, lessons_list, exam_type, exam_time, total_marks
 
     if is_math:
         subject_blueprint_rules = f"""
-        [MANDATORY CRITICAL MATHEMATICS CORE EMBEDDED LOCK - VERSION 20.1]
+        [MANDATORY CRITICAL MATHEMATICS CORE EMBEDDED LOCK - VERSION 20.3]
         1. CHAPTER WEIGHTAGE DIRECTION: You MUST follow this exact chapter-wise question count allocation rule for selected chapters:
         {get_math_dynamic_weightage(lessons_list)}
         
@@ -152,7 +150,20 @@ def generate_prompt_v18(subject, lessons_list, exam_type, exam_time, total_marks
         lang_instruction = "5. Language: Pure ENGLISH only. No Tamil markers or disclaimers in question texts."
         header_format = "PART [ROMAN_NUM] - [Section Description] (No_of_Qs x Marks = Total_Marks)"
         option_format = "Options marker: a) , b) , c) , d)"
-        subject_blueprint_rules = f"[STRICT TN BOARD ENGLISH BLUEPRINT LOCK]\n{get_english_blueprint_rules()}"
+        subject_blueprint_rules = f"""
+        [STRICT TN BOARD ENGLISH BLUEPRINT LOCK]
+        {get_english_blueprint_rules()}
+        === MANDATORY SCHEME OF VALUATION FOR ENGLISH ANSWER KEY ===
+        - One Mark Qs: Direct exact answer only [1 Mark].
+        - Prose 2 Marks: Main Answer Point [1 Mark] + Supporting Point/Expansion [1 Mark] = [2 Marks].
+        - Core Grammar Transformations: Direct Correct Transformation Form [2 Marks].
+        - Road Map: Direction Points Guide [2 Marks].
+        - Literature Paragraphs (5 Marks): Content / Relevance [3 Marks] + Organization [1 Mark] + Language [1 Mark] = [5 Marks].
+        - Advertisement (5 Marks): Format/Layout [1 Mark] + Heading [1 Mark] + Content [2 Marks] + Contact Details [1 Mark] = [5 Marks].
+        - Letter Writing (5 Marks): Format [1 Mark] + Content/Body [3 Marks] + Language & Closing [1 Mark] = [5 Marks].
+        - Picture Description: 5 Appropriate Sentences x 1 Mark = [5 Marks].
+        - Hints Development Essay (8 Marks): Introduction [1 Mark] + Development using hints [5 Marks] + Coherence & Language [2 Marks] = [8 Marks].
+        """
     else:
         lang_instruction = "5. Language: Pure TAMIL language only."
         header_format = "பகுதி [ROMAN_NUM]"
@@ -183,13 +194,11 @@ def add_solid_line(doc):
     pBdr.append(bottom)
     p.paragraph_format.element.get_or_add_pPr().append(pBdr)
 
-# 💡 [CRITICAL WORD PROCESSING CORRECTION]: டயக்ராம் மேப்பிங் பக் முழுமையாக நீக்கப்பட்டுள்ளது
 def write_markdown_to_word(doc, text):
     for line in text.split('\n'):
         line = line.strip()
         if not line: continue
         
-        # 🛡️ பக் ஃபிக்ஸ் 1: செய்முறை வடிவியல் டேக் வந்தால் மட்டுமே முக்கோணம்
         geo_match = re.search(r'\[DRAW_GEOMETRY[:\s]*(.*?)\]', line, re.IGNORECASE)
         if geo_match:
             label_text = geo_match.group(1)
@@ -202,7 +211,6 @@ def write_markdown_to_word(doc, text):
                 doc.add_paragraph(f"[Error loading diagram: {e}]")
             continue
 
-        # 🛡️ பக் ஃபிக்ஸ் 2: வரைபடக் கேள்வி டேக் வந்தால் கிரிட் கார்ட்டீசியன் அச்சு
         graph_match = re.search(r'\[DRAW_GRAPH[:\s]*(.*?)\]', line, re.IGNORECASE)
         if graph_match:
             label_text = graph_match.group(1)
@@ -286,8 +294,19 @@ def create_professional_docx(ai_response, school_name, class_val, subject_val, e
     format_cell(table.cell(1, 1), f"Marks : {marks_val}", align_right=True)
     
     add_solid_line(doc)
-    parts = ai_response.split("=== ANSWER KEY ===")
-    write_markdown_to_word(doc, parts[0].strip())
+    
+    if "=== ANSWER KEY ===" in ai_response:
+        parts = ai_response.split("=== ANSWER KEY ===")
+        write_markdown_to_word(doc, parts[0].strip())
+        doc.add_page_break()
+        p_key_title = doc.add_paragraph()
+        p_key_title.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        p_key_title.add_run("=== ANSWER KEY & SCHEME OF VALUATION ===").bold = True
+        p_key_title.runs[0].font.size = Pt(13)
+        write_markdown_to_word(doc, parts[1].strip())
+    else:
+        write_markdown_to_word(doc, ai_response.strip())
+        
     return doc
 
 # ==========================================
@@ -316,7 +335,7 @@ st.markdown("""
 tab1, tab2 = st.tabs(["🎓 வினாத்தாள் தயாரிப்பு", "📝 விடைத்தாள் திருத்தம்"])
 
 with tab1:
-    st.title("🎓 PMP Master AI Engine (V20.1)")
+    st.title("🎓 PMP Master AI Engine (V20.3)")
     df = load_data()
     if not df.empty:
         col1, col2 = st.columns(2)
@@ -394,7 +413,18 @@ with tab1:
                         doc_io = io.BytesIO()
                         doc.save(doc_io)
                         st.session_state['docx_bytes'] = doc_io.getvalue()
+                        
+                        # 💡 [PREVIEW ENGINE ENHANCEMENT]: லைவ் பிரவ்யூவிற்கான ஸ்டேட் லாக்
+                        st.session_state['preview_text'] = response.text
                         st.success("✅ வினாத்தாள் வெற்றிகரமாகத் தயாராகிவிட்டது!")
+
+        # 💡 [LIVE PREVIEW DISPLAY BLOCK]: திரையிலேயே முழு வினாத்தாளையும் காட்டும் முன்னோட்டப் பகுதி
+        if 'preview_text' in st.session_state:
+            st.markdown("---")
+            st.subheader("👀 வினாத்தாள் மற்றும் விடைக்குறிப்பு முன்னோட்டம் (Live Preview)")
+            with st.container(border=True):
+                st.markdown(st.session_state['preview_text'])
+            st.markdown("---")
 
         if 'docx_bytes' in st.session_state:
             st.download_button(label="📥 Download Word File (.docx)", data=st.session_state['docx_bytes'], file_name=f"PMP_{subject_val}.docx", mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document", use_container_width=True)
