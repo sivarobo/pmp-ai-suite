@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
 from google import genai
-from google.genai import types  # 💡 புதிய SDK பாராமீட்டர் லாக்
+from google.genai import types
 from PIL import Image
 from docx import Document
 from docx.shared import Pt, Inches
@@ -35,7 +35,6 @@ def load_data():
 
 # 💡 அசல் கணித அலகுகள் வாரியான வினாக்கள் விபரத் தரவுத்தளம் (Frequency Matrix Engine)
 def get_math_dynamic_weightage(selected_lessons, part1_val, part2_val, part3_val):
-    """ஆசிரியர் தேர்ந்தெடுக்கும் பாடங்களுக்கு ஏற்ப அசல் போர்டு வெயிட்டேஜை பிரித்து தரும் இன்ஜின்"""
     base_matrix = {
         "Relations and Functions": {"1M": 1.5, "2M": 2, "5M": 1.5, "8M": 0},
         "Numbers and Sequences":   {"1M": 2.0, "2M": 2, "5M": 2.0, "8M": 0},
@@ -46,7 +45,6 @@ def get_math_dynamic_weightage(selected_lessons, part1_val, part2_val, part3_val
         "Mensuration":             {"1M": 1.5, "2M": 2, "5M": 2.0, "8M": 0},
         "Statistics and Probability":{"1M": 2.0, "2M": 2, "5M": 2.0, "8M": 0}
     }
-    
     rules = []
     for lesson in selected_lessons:
         if lesson in base_matrix:
@@ -59,9 +57,9 @@ def get_english_blueprint_rules():
     return """
     [STRICT MASTER ENGLISH BLUEPRINT LOCK]
     PART I (14 Marks): One Mark Questions
-    - Q1-3: Synonyms strictly selected from the text prose context (e.g., plaintively, dilated, yanked, unperturbed, indigenous).
-    - Q4-6: Antonyms strictly selected from the text prose context (e.g., cranky, commotion, ascending, affluent, inclusion).
-    - Q7-14: Textual Grammar Matrix: Plural Form, Suffix/Prefix derivative, Abbreviations, Phrasal Verbs, Compound Words, Prepositions, Tense Forms, Linkers.
+    - Q1-3: Synonyms strictly selected from the text prose context (e.g., plaintively, dilated, yanked).
+    - Q4-6: Antonyms strictly selected from the text prose context (e.g., cranky, commotion).
+    - Q7-14: Textual Grammar Matrix: Plural Form, Suffix/Prefix, Abbreviations, Phrasal Verbs, Compound Words, Prepositions, Tense Forms, Linkers.
 
     PART II (20 Marks): Two Mark Questions (Answer any 10 out of 12)
     - Section 1 (Prose Qs): 3 Short answer questions from selected textbook lessons.
@@ -82,7 +80,6 @@ def get_english_blueprint_rules():
 def get_blueprint_defaults(total_marks, is_social=False, is_english=False):
     if is_english or is_social:
         return {"p1": 14, "p2g": 12, "p2a": 10, "p3g": 10, "p3a": 7, "p4v": 8, "p4g": 2, "p4a": 2}
-    
     defaults = {"p1": 14, "p2g": 12, "p2a": 10, "p3g": 14, "p3a": 10, "p4v": 8, "p4g": 4, "p4a": 2}
     if total_marks == 106:
         defaults = {"p1": 20, "p2g": 12, "p2a": 10, "p3g": 14, "p3a": 10, "p4v": 8, "p4g": 4, "p4a": 2}
@@ -96,7 +93,6 @@ def generate_geometry_image(shape_type, label_text=""):
     fig, ax = plt.subplots(figsize=(2.5, 2.5))
     shape_upper = shape_type.upper()
     clean_label = label_text.replace("Angle", r"$\angle$").replace("angle", r"$\angle$")
-    
     if "TRIANGLE" in shape_upper:
         points = np.array([[0, 0], [4, 0], [2, 3], [0, 0]])
         ax.plot(points[:, 0], points[:, 1], 'k-', lw=2)
@@ -112,7 +108,6 @@ def generate_geometry_image(shape_type, label_text=""):
         ax.text(3.2, -0.2, 'B', fontsize=10)
         if clean_label:
             ax.text(1.5, -0.6, clean_label, fontsize=10, ha='center', fontweight='bold', color='blue')
-            
     ax.set_aspect('equal')
     ax.axis('off')
     img_buf = io.BytesIO()
@@ -152,7 +147,7 @@ def generate_prompt_v18(subject, lessons_list, exam_type, exam_time, total_marks
         lang_instruction = "5. Language: Pure TAMIL only."
         header_format = "பகுதி [ROMAN_NUM] - [பிரிவின் விளக்கம்] (வினாக்கள் எண்ணிக்கை x மதிப்பெண் = மொத்த மதிப்பெண்கள்)"
         option_format = "Options marker: அ) , ஆ) , இ) , ஈ)"
-        subject_blueprint_rules = "[அசல் தமிழ் பாடத்திட்ட ப்ளூபிரின்ட்] சொல்வளம், இலக்கணம் இலக்கணம் லாக்."
+        subject_blueprint_rules = "[அசல் தமிழ் பாடத்திட்ட ப்ளூபிரின்ட்] சொல்வளம், இலக்கணம் லாக்."
     elif is_social:
         lang_instruction = "5. Language: Pure TAMIL only."
         header_format = "பகுதி [ROMAN_NUM] - [பிரிவின் விளக்கம்]"
@@ -197,7 +192,6 @@ def write_markdown_to_word(doc, text):
     for line in text.split('\n'):
         line = line.strip()
         if not line: continue
-        
         draw_match = re.search(r'\[DRAW_(TRIANGLE|SQUARE)[:\s]*(.*?)\]', line, re.IGNORECASE)
         if draw_match:
             shape_type = draw_match.group(1)
@@ -210,9 +204,7 @@ def write_markdown_to_word(doc, text):
             except Exception as e:
                 doc.add_paragraph(f"[Error loading diagram: {e}]")
             continue
-
         clean_line = line.replace('*', '').replace('$', '').strip()
-        
         if "பகுதி" in clean_line or "PART" in clean_line.upper():
             marks_match = re.search(r'\(?\d+\s*[xX*]\s*\d+\s*=\s*\d+\)?', clean_line)
             if marks_match:
@@ -226,7 +218,6 @@ def write_markdown_to_word(doc, text):
                 set_cell_margins(c1, top=0, bottom=0, start=0, end=0)
                 set_cell_margins(c2, top=0, bottom=0, start=0, end=0)
                 continue
-
         option_markers = ["அ)", "ஆ)", "இ)", "ஈ)", "a)", "b)", "c)", "d)"]
         if any(marker in clean_line for marker in option_markers):
             raw_parts = re.split(r'(அ\)|ஆ\)|இ\)|ஈ\)|a\)|b\)|c\)|d\))', clean_line)
@@ -238,7 +229,6 @@ def write_markdown_to_word(doc, text):
                     current = chunk + " "
                 else: current += chunk
             if current.strip(): parts.append(current.strip())
-            
             if parts:
                 table = doc.add_table(rows=1, cols=len(parts))
                 for idx, opt in enumerate(parts):
@@ -246,11 +236,10 @@ def write_markdown_to_word(doc, text):
                     cell.paragraphs[0].add_run(opt.replace("*", ""))
                     set_cell_margins(cell, top=0, bottom=0, start=0, end=0)
                 continue
-
         p = doc.add_paragraph()
         if re.match(r'^\d+\.', clean_line):
-            p.paragraph_format.left_indent = Inches(0.25)
-            p.paragraph_format.first_line_indent = Inches(-0.25)
+			p.paragraph_format.left_indent = Inches(0.25)
+			p.paragraph_format.first_line_indent = Inches(-0.25)
         parts = re.split(r'\*\*(.*?)\*\*', line)
         for i, part in enumerate(parts):
             run = p.add_run(part.replace('$', ''))
@@ -263,24 +252,20 @@ def create_professional_docx(ai_response, school_name, class_val, subject_val, e
     section.left_margin = section.right_margin = section.top_margin = section.bottom_margin = Inches(0.5)
     style = doc.styles['Normal']
     style.font.name = 'Nirmala UI'
-    
     h_school = doc.add_paragraph(style='Normal')
     h_school.alignment = WD_ALIGN_PARAGRAPH.CENTER
     h_school.add_run(school_name.upper()).bold = True
     h_school.runs[0].font.size = Pt(15)
-    
     table = doc.add_table(rows=2, cols=2)
     def format_cell(cell, text, align_right=False):
         p = cell.paragraphs[0]
         p.alignment = WD_ALIGN_PARAGRAPH.RIGHT if align_right else WD_ALIGN_PARAGRAPH.LEFT
         p.add_run(text).bold = True
         set_cell_margins(cell, top=0, bottom=0, start=0, end=0)
-        
     format_cell(table.cell(0, 0), f"Class : {class_val}")
     format_cell(table.cell(0, 1), f"Time : {time_val}", align_right=True)
     format_cell(table.cell(1, 0), f"Subject : {subject_val}")
     format_cell(table.cell(1, 1), f"Marks : {marks_val}", align_right=True)
-    
     add_solid_line(doc)
     parts = ai_response.split("=== ANSWER KEY ===")
     write_markdown_to_word(doc, parts[0].strip())
@@ -398,11 +383,9 @@ with tab2:
         file_type = uploaded_file.name.split(".")[-1].lower()
         eval_payload = []
         
-        # 📂 [FIXED CODE]: புதிய google-genai SDK பராமீட்டர் முறை பூட்டப்பட்டுள்ளது
         if file_type == "pdf":
             st.info("📊 PDF கோப்பு கண்டறியப்பட்டது. ஜெமினி ஏஐ பகுப்பாய்வு செய்கிறது...")
             file_data = uploaded_file.read()
-            # டிக்ஸனரிக்கு பதிலாக 'types.Part.from_bytes' உத்தியைப் பயன்படுத்துகிறோம்
             pdf_part = types.Part.from_bytes(data=file_data, mime_type="application/pdf")
             eval_payload.append(pdf_part)
         else:
