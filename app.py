@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 from google import genai
+from google.genai import types  # 💡 புதிய SDK பாராமீட்டர் லாக்
 from PIL import Image
 from docx import Document
 from docx.shared import Pt, Inches
@@ -311,7 +312,7 @@ st.markdown("""
 tab1, tab2 = st.tabs(["🎓 வினாத்தாள் தயாரிப்பு", "📝 விடைத்தாள் திருத்தம்"])
 
 with tab1:
-    st.title("🎓 PMP Master AI Engine (V18.7)")
+    st.title("🎓 PMP Master AI Engine (V18.8)")
     df = load_data()
     if not df.empty:
         col1, col2 = st.columns(2)
@@ -391,29 +392,28 @@ with tab1:
 
 with tab2:
     st.title("📝 AI Math Paper Evaluator (Multi-Format Edition)")
-    
-    # 💡 PDF ஆப்ஷனுடன் கூடிய புதிய மல்டி-ஃபார்மட் ஃபைல் அப்லோடர் (Image + PDF Integration Locked)
-    uploaded_file = st.file_uploader("உங்கள் விடைத்தாளை அப்லோட் செய்யவும் (Image அல்லது PDF கோப்புகள்)", type=["png", "jpg", "jpeg", "pdf"])
+    uploaded_file = st.file_uploader("உங்கள் விடைத்தாளைத் தேர்ந்தெடுக்கவும் (Image / PDF)", type=["png", "jpg", "jpeg", "pdf"])
     
     if uploaded_file is not None:
         file_type = uploaded_file.name.split(".")[-1].lower()
+        eval_payload = []
         
-        # 📂 பிழை ஏதுமின்றி PDF மற்றும் இமேஜ்களைக் கையாளும் மல்டி மாஸ்டர் செக்மென்ட்
+        # 📂 [FIXED CODE]: புதிய google-genai SDK பராமீட்டர் முறை பூட்டப்பட்டுள்ளது
         if file_type == "pdf":
-            st.info("📊 PDF கோப்பு கண்டறியப்பட்டது. ஜெமினி ஏஐ கோப்பினை நேரடியாகப் பகுப்பாய்வு செய்கிறது...")
-            # PDF பைட்டுகளை ஏஐ புரிந்து கொள்ளும் வகையில் ஸ்ட்ரீம் செய்கிறோம்
+            st.info("📊 PDF கோப்பு கண்டறியப்பட்டது. ஜெமினி ஏஐ பகுப்பாய்வு செய்கிறது...")
             file_data = uploaded_file.read()
-            eval_payload = [{"mime_type": "application/pdf", "data": file_data}]
+            # டிக்ஸனரிக்கு பதிலாக 'types.Part.from_bytes' உத்தியைப் பயன்படுத்துகிறோம்
+            pdf_part = types.Part.from_bytes(data=file_data, mime_type="application/pdf")
+            eval_payload.append(pdf_part)
         else:
             image = Image.open(uploaded_file)
             st.image(image, caption="Uploaded Handwriting Page", width=420)
-            eval_payload = [image]
+            eval_payload.append(image)
             
         if st.button("🚀 Start AI Evaluation", use_container_width=True):
             with st.spinner("⏳ ஜெமினி AI விடைத்தாளைத் திருத்தி வருகிறது..."):
                 eval_prompt = "You are an official TN Board Math Evaluator. Read handwriting or PDF pages and correct step-by-step. Write fractions as $\\frac{a}{b}$ inside single dollar signs. Respond in Tamil."
                 try:
-                    # மல்டி-ஃபார்மட் பேலோடை ஏஐ-க்கு செலுத்துகிறோம்
                     eval_payload.append(eval_prompt)
                     response = client.models.generate_content(model='gemini-2.5-pro', contents=eval_payload)
                     st.markdown(response.text)
