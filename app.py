@@ -27,6 +27,7 @@ def check_password():
         password = st.text_input("Password", type="password")
 
         if st.button("Login"):
+            st.success("BUTTON CLICKED")
             if username.strip() == "admin" and password.strip() == "pmp123":
                 st.session_state.logged_in = True
                 st.rerun()
