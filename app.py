@@ -470,17 +470,7 @@ with tab2:
                     st.markdown(response.text)
     # st.sidebar.button("Logout", on_click=lambda: st.session_state.update({"logged_in": False}))
     
-    # [உங்கள் பழைய கோடில் இருந்த அனைத்து பங்க்ஷன்களையும் இங்கே வைக்கவும்]
-    # உதாரணத்திற்கு:
-    st.title("🎓 PMP Master AI Engine (V25.0)")
     
-    # உங்கள் tab, input பெட்டிகள், generate button அனைத்தும் இங்கே வர வேண்டும்
-    tab1, tab2 = st.tabs(["🎓 வினாத்தாள் தயாரிப்பு", "📝 மதிப்பீடு"])
-    with tab1:
-        st.write("வினாத்தாள் தயாரிப்புப் பகுதி...")
-    with tab2:
-        st.write("மதிப்பீட்டு பகுதி...")
-
     if st.sidebar.button("Logout"):
         st.session_state.logged_in = False
         st.rerun()
