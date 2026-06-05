@@ -401,7 +401,7 @@ with tab1:
         # user = admin account for now
 # later replace with Google email
 
-    today_count = get_today_usage()
+        today_count = get_today_usage()
 
         if today_count >= 5:
         st.error("இன்றைய இலவச வரம்பு (5 வினாத்தாள்கள்) முடிந்துவிட்டது.")
