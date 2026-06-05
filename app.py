@@ -414,7 +414,7 @@ if st.button("🚀 Generate PRO Question Paper", use_container_width=True):
                 st.success("PROMPT CREATED"),
                 response = client.models.generate_content(
                 model="gemini-2.5-flash",
-                contents=prompt
+                contents=prompt,
                 st.success("GEMINI RESPONSE RECEIVED")
 )
                 subject_val,
