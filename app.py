@@ -407,7 +407,7 @@ if st.button("🚀 Generate PRO Question Paper", use_container_width=True):
     if can_generate and selected_lessons:
 
         with st.spinner("⏳ வினாத்தாள் தயாராகிறது..."):
-        st.write("INSIDE SPINNER")
+            st.write("INSIDE SPINNER")
         prompt = generate_prompt_v18(...)
         st.write("PROMPT CREATED")
         response = client.models.generate_content(...)
