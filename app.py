@@ -1,6 +1,6 @@
 import streamlit as st
 import pandas as pd
-from google import genai
+import google.generativeai as genai
 from google.genai import types
 from PIL import Image
 from docx import Document
