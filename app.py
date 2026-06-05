@@ -402,7 +402,7 @@ with tab1:
         # user = admin account for now
 # later replace with Google email       
 if st.button("🚀 Generate PRO Question Paper", use_container_width=True):
-      st.success("BUTTON CLICKED")
+    st.success("BUTTON CLICKED")
 
     if can_generate and selected_lessons:
 
