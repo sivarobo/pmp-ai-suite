@@ -38,7 +38,6 @@ def check_password():
 # ----------------------------------------------------
 def main_app():
     # 💡 இங்கிருந்து உங்கள் பழைய 431 வரிகள் கொண்ட கோட் தொடரும்
-     "Trigonometry":            {"1M": 1.0, "2M": 1, "5M": 1.0, "8M": 0},
 import pandas as pd
 import streamlit as st
 from google import genai
