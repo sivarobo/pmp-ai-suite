@@ -7,3 +7,5 @@ matplotlib
 numpy
 pillow
 PyYAML
+supabase
+streamlit-oauth
