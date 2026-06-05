@@ -407,16 +407,13 @@ with tab1:
             st.error("இன்றைய இலவச வரம்பு (5 வினாத்தாள்கள்) முடிந்துவிட்டது.")
             st.info("🚀 Pro Plan - ₹199 / மாதம்")
             st.stop() 
-        if st.button("🚀 Generate PRO Question Paper", use_container_width=True):
-            if can_generate and selected_lessons:
-                with st.spinner("⏳ வினாத்தாள் தயாராகிறது..."):
-                    if st.button("🚀 Generate PRO Question Paper", use_container_width=True):
+if st.button("🚀 Generate PRO Question Paper", use_container_width=True):
 
     if can_generate and selected_lessons:
 
         with st.spinner("⏳ வினாத்தாள் தயாராகிறது..."):
 
-            blueprint_desc = f"- Part I: {p1_ask} Qs. - Part II: Given {p2_get}, Answer {p2_ask}. - Part III: Given {p3_get}, Answer {p3_ask}."
+            blueprint_desc = f"- Part I: {p1_ask} Qs. - Part II: Given {p2_get}, Answer {p2_ask}. - Part III: Given {p3_get}, Answer {p3_ask}. - Part IV: Given {p4_get}, Answer {p4_ask}."
 
             prompt = generate_prompt_v18(
                 subject_val,
@@ -434,26 +431,43 @@ with tab1:
 
             response = None
             max_retries = 4
-                    max_retries = 4
-                    for attempt in range(max_retries):
-                        try:
-                            # 💡 மாடல் 'gemini-2.5-flash' ஆக மாற்றப்பட்டுள்ளது (High Speed & Zero Quota Blocker)
-                            response = client.models.generate_content(model='gemini-2.5-flash', contents=prompt)
-                            break
-                        except Exception as api_err:
-                            if ("429" in str(api_err) or "503" in str(api_err)) and attempt < max_retries - 1:
-                                wait_time = (attempt + 1) * 4
-                                time.sleep(wait_time)
-                                continue
-                            else:
-                                st.error(f"சர்வர் தற்காலிகமாக ஓவர்லோடு ஆகியுள்ளது: {api_err}")
-                                
-                    if response:
-                        doc = create_professional_docx(response.text, school_name, class_val, subject_val, exam_type, time_val, marks_val)
-                        doc_io = io.BytesIO()
-                        doc.save(doc_io)
-                        st.session_state['docx_bytes'] = doc_io.getvalue()
-                        st.success("✅ வினாத்தாள் வெற்றிகரமாகத் தயாராகிவிட்டது!")
+
+            for attempt in range(max_retries):
+                try:
+                    response = client.models.generate_content(
+                        model='gemini-2.5-flash',
+                        contents=prompt
+                    )
+                    break
+
+                except Exception as api_err:
+
+                    if ("429" in str(api_err) or "503" in str(api_err)) and attempt < max_retries - 1:
+                        wait_time = (attempt + 1) * 4
+                        time.sleep(wait_time)
+                        continue
+
+                    else:
+                        st.error(f"சர்வர் தற்காலிகமாக ஓவர்லோடு ஆகியுள்ளது: {api_err}")
+
+            if response:
+
+                doc = create_professional_docx(
+                    response.text,
+                    school_name,
+                    class_val,
+                    subject_val,
+                    exam_type,
+                    time_val,
+                    marks_val
+                )
+
+                doc_io = io.BytesIO()
+                doc.save(doc_io)
+
+                st.session_state['docx_bytes'] = doc_io.getvalue()
+
+                st.success("✅ வினாத்தாள் வெற்றிகரமாகத் தயாராகிவிட்டது!")
 
         if 'docx_bytes' in st.session_state:
             st.download_button(label="📥 Download Word File (.docx)", data=st.session_state['docx_bytes'], file_name=f"PMP_{subject_val}.docx", mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document", use_container_width=True)
