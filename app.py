@@ -407,7 +407,11 @@ if st.button("🚀 Generate PRO Question Paper", use_container_width=True):
     if can_generate and selected_lessons:
 
         with st.spinner("⏳ வினாத்தாள் தயாராகிறது..."):
-
+        st.write("INSIDE SPINNER")
+        prompt = generate_prompt_v18(...)
+        st.write("PROMPT CREATED")
+        response = client.models.generate_content(...)
+        st.write("GEMINI RESPONSE RECEIVED")
             blueprint_desc = f"- Part I: {p1_ask} Qs. - Part II: Given {p2_get}, Answer {p2_ask}. - Part III: Given {p3_get}, Answer {p3_ask}. - Part IV: Given {p4_get}, Answer {p4_ask}."
 
             prompt = generate_prompt_v18(
