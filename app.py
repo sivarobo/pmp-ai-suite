@@ -26,15 +26,17 @@ def check_password():
         username = st.text_input("User Name")
         password = st.text_input("Password", type="password")
 
-       if st.button("Login"):
-    username = username.strip()
-    password = password.strip()
+        if st.button("Login"):
+            username = username.strip()
+            password = password.strip()
 
-    if username == "admin" and password == "pmp123":
-        st.session_state.logged_in = True
-        st.rerun()
-    else:
-        st.error("❌ தவறான Username அல்லது Password")
+            if username == "admin" and password == "pmp123":
+                st.session_state.logged_in = True
+                st.rerun()
+            else:
+                st.error("❌ தவறான Username அல்லது Password")
+
+        st.stop()
 # ----------------------------------------------------
 # 2. மெயின் அப்ளிகேஷன் (உங்கள் 431 வரிகள் இதனுள் வரும்)
 # ----------------------------------------------------
