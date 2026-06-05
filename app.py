@@ -401,12 +401,12 @@ with tab1:
         # user = admin account for now
 # later replace with Google email
 
-today_count = get_today_usage()
+    today_count = get_today_usage()
 
-if today_count >= 5:
-    st.error("இன்றைய இலவச வரம்பு (5 வினாத்தாள்கள்) முடிந்துவிட்டது.")
-    st.info("🚀 Pro Plan - ₹199 / மாதம்")
-    st.stop() 
+        if today_count >= 5:
+        st.error("இன்றைய இலவச வரம்பு (5 வினாத்தாள்கள்) முடிந்துவிட்டது.")
+        st.info("🚀 Pro Plan - ₹199 / மாதம்")
+        st.stop() 
         if st.button("🚀 Generate PRO Question Paper", use_container_width=True):
             if can_generate and selected_lessons:
                 with st.spinner("⏳ வினாத்தாள் தயாராகிறது..."):
