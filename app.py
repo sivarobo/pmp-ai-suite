@@ -399,14 +399,7 @@ with tab1:
         else:
             st.warning(f"⚠️ கணக்கீடு: {total_calculated} மார்க் | மொத்த மதிப்பெண்: {marks_val} மார்க். (தயவுசெய்து சமப்படுத்தவும்).")
         # user = admin account for now
-# later replace with Google email
-
-        today_count = get_today_usage()
-
-        if today_count >= 5:
-            st.error("இன்றைய இலவச வரம்பு (5 வினாத்தாள்கள்) முடிந்துவிட்டது.")
-            st.info("🚀 Pro Plan - ₹199 / மாதம்")
-            st.stop() 
+# later replace with Google email       
 if st.button("🚀 Generate PRO Question Paper", use_container_width=True):
 
     if can_generate and selected_lessons:
