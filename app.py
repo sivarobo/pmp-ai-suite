@@ -411,6 +411,12 @@ if st.button("🚀 Generate PRO Question Paper", use_container_width=True):
             blueprint_desc = f"- Part I: {p1_ask} Qs. - Part II: Given {p2_get}, Answer {p2_ask}. - Part III: Given {p3_get}, Answer {p3_ask}. - Part IV: Given {p4_get}, Answer {p4_ask}."
 
             prompt = generate_prompt_v18(
+                st.success("PROMPT CREATED")
+                response = client.models.generate_content(
+                model="gemini-2.5-flash",
+                contents=prompt
+                st.success("GEMINI RESPONSE RECEIVED")
+)
                 subject_val,
                 selected_lessons,
                 exam_type,
@@ -446,7 +452,7 @@ if st.button("🚀 Generate PRO Question Paper", use_container_width=True):
                         st.error(f"சர்வர் தற்காலிகமாக ஓவர்லோடு ஆகியுள்ளது: {api_err}")
 
             if response:
-
+                st.success("CREATING DOCX")
                 doc = create_professional_docx(
                     response.text,
                     school_name,
