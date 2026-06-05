@@ -409,9 +409,9 @@ with tab1:
             st.stop() 
         if st.button("🚀 Generate PRO Question Paper", use_container_width=True):
             if can_generate and selected_lessons:
-                    with st.spinner("⏳ வினாத்தாள் தயாராகிறது..."):
+                with st.spinner("⏳ வினாத்தாள் தயாராகிறது..."):
                     blueprint_desc = f"- Part I: {p1_ask} Qs. - Part II: Given {p2_get}, Answer {p2_ask}. - Part III: Given {p3_get}, Answer {p3_ask}. - Part IV: Given {p4_get}, Answer {p4_ask}."
-                    prompt = generate_prompt_v18(subject_val, selected_lessons, exam_type, time_val, marks_val, exam_mode, blueprint_desc, p1_ask, p2_ask, p3_ask, diff_level)
+                       prompt = generate_prompt_v18(subject_val, selected_lessons, exam_type, time_val, marks_val, exam_mode, blueprint_desc, p1_ask, p2_ask, p3_ask, diff_level)
                     
                     response = None
                     max_retries = 4
