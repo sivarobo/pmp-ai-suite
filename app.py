@@ -404,12 +404,12 @@ with tab1:
         today_count = get_today_usage()
 
         if today_count >= 5:
-        st.error("இன்றைய இலவச வரம்பு (5 வினாத்தாள்கள்) முடிந்துவிட்டது.")
-        st.info("🚀 Pro Plan - ₹199 / மாதம்")
-        st.stop() 
+            st.error("இன்றைய இலவச வரம்பு (5 வினாத்தாள்கள்) முடிந்துவிட்டது.")
+            st.info("🚀 Pro Plan - ₹199 / மாதம்")
+            st.stop() 
         if st.button("🚀 Generate PRO Question Paper", use_container_width=True):
-            if can_generate and selected_lessons:
-                with st.spinner("⏳ வினாத்தாள் தயாராகிறது..."):
+        if can_generate and selected_lessons:
+            with st.spinner("⏳ வினாத்தாள் தயாராகிறது..."):
                     blueprint_desc = f"- Part I: {p1_ask} Qs. - Part II: Given {p2_get}, Answer {p2_ask}. - Part III: Given {p3_get}, Answer {p3_ask}. - Part IV: Given {p4_get}, Answer {p4_ask}."
                     prompt = generate_prompt_v18(subject_val, selected_lessons, exam_type, time_val, marks_val, exam_mode, blueprint_desc, p1_ask, p2_ask, p3_ask, diff_level)
                     
