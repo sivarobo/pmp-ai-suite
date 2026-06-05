@@ -22,16 +22,18 @@ def check_password():
 
     if not st.session_state.logged_in:
         st.title("🔐 PMP Master AI Login")
-        user = st.text_input("User ID")
-        pwd = st.text_input("Password", type="password")
+
+        username = st.text_input("User Name")
+        password = st.text_input("Password", type="password")
+
         if st.button("Login"):
-            if user == "admin" and pwd == "pmp123":
+            if username == "admin" and password == "pmp123":
                 st.session_state.logged_in = True
                 st.rerun()
             else:
-                st.error("❌ தவறான ID அல்லது Password!")
-        return False
-    return True
+                st.error("❌ தவறான Username அல்லது Password")
+
+        st.stop()
 
 # ----------------------------------------------------
 # 2. மெயின் அப்ளிகேஷன் (உங்கள் 431 வரிகள் இதனுள் வரும்)
@@ -323,6 +325,7 @@ def create_professional_docx(ai_response, school_name, class_val, subject_val, e
 # ==========================================
 # 4. Streamlit Presentation UI Config
 # ==========================================
+check_password()
 st.set_page_config(page_title="PMP AI Suite PRO", page_icon="🎓", layout="centered")
 
 st.markdown("""
