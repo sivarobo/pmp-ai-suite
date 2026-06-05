@@ -470,8 +470,11 @@ with tab2:
                     st.markdown(response.text)
     # st.sidebar.button("Logout", on_click=lambda: st.session_state.update({"logged_in": False}))
     
+    st.markdown("---")
+st.subheader("Account")
+
+if st.button("🚪 Logout", use_container_width=True):
+    st.session_state.logged_in = False
+    st.rerun()
     
-    if st.sidebar.button("Logout"):
-        st.session_state.logged_in = False
-        st.rerun()
 
