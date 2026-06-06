@@ -190,7 +190,14 @@ def generate_prompt_v18(subject, lessons_list, exam_type, exam_time, total_marks
         option_format = "Options marker: அ) , ஆ) , இ) , ஈ)"
         subject_blueprint_rules = ""
 
-    return f"Subject: {subject}\nLessons: {lessons_str}\nExam Type: {exam_type}\nTotal Marks: {total_marks}\nTime: {exam_time}\nMode: {exam_mode}\n{difficulty_directive}\n{blueprint_desc}\n{header_format}\n{option_format}\n{lang_instruction}\n{subject_blueprint_rules}\n=== ANSWER KEY ==="
+    theorem_proof_rule = """
+[STRICT THEOREM & PROOF ANSWER KEY RULE]
+- If a question contains: "நிரூபிக்கவும்", "Prove that", "தேற்றம்", "Theorem", "Definition", "வரையறு"
+  -> In the Answer Key write ONLY: [Refer Textbook - பாடநூல் பார்க்கவும்]
+  -> Do NOT generate proof steps or reasoning under any circumstance.
+  -> This rule overrides ALL other instructions.
+"""
+    return f"Subject: {subject}\nLessons: {lessons_str}\nExam Type: {exam_type}\nTotal Marks: {total_marks}\nTime: {exam_time}\nMode: {exam_mode}\n{difficulty_directive}\n{blueprint_desc}\n{header_format}\n{option_format}\n{lang_instruction}\n{subject_blueprint_rules}\n{theorem_proof_rule}\n=== ANSWER KEY ==="
 
 def set_cell_margins(cell, **kwargs):
     tcPr = cell._element.get_or_add_tcPr()
