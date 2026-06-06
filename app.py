@@ -453,13 +453,6 @@ with tab1:
                 use_container_width=True
             )
 
-    # Logout — tab1-ல் எப்போதும் கீழே தெரியும்
-    st.markdown("---")
-    st.subheader("Account")
-    if st.button("🚪 Logout", key="logout_tab1", use_container_width=True):
-        st.session_state.logged_in = False
-        st.rerun()
-
 with tab2:
     st.title("📝 AI Math Paper Evaluator (Multi-Format Edition)")
     uploaded_file = st.file_uploader("உங்கள் விடைத்தாளைத் தேர்ந்தெடுக்கவும் (Image / PDF)", type=["png", "jpg", "jpeg", "pdf"])
@@ -498,7 +491,6 @@ with tab2:
                     st.markdown(response.text)
 
     st.markdown("---")
-    st.subheader("Account")
     if st.button("🚪 Logout", use_container_width=True):
         st.session_state.logged_in = False
         st.rerun()
