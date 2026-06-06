@@ -453,11 +453,12 @@ with tab1:
                 use_container_width=True
             )
 
-        st.markdown("---")
-        st.subheader("Account")
-        if st.button("🚪 Logout", key="logout_tab1", use_container_width=True):
-            st.session_state.logged_in = False
-            st.rerun()
+    # Logout — tab1-ல் எப்போதும் கீழே தெரியும்
+    st.markdown("---")
+    st.subheader("Account")
+    if st.button("🚪 Logout", key="logout_tab1", use_container_width=True):
+        st.session_state.logged_in = False
+        st.rerun()
 
 with tab2:
     st.title("📝 AI Math Paper Evaluator (Multi-Format Edition)")
