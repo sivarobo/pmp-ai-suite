@@ -27,7 +27,6 @@ def check_password():
         password = st.text_input("Password", type="password")
 
         if st.button("Login"):
-          
             if username.strip() == "admin" and password.strip() == "pmp123":
                 st.session_state.logged_in = True
                 st.rerun()
@@ -35,27 +34,15 @@ def check_password():
                 st.error("❌ தவறான Username அல்லது Password")
 
         st.stop()
+
 # ----------------------------------------------------
-# 2. மெயின் அப்ளிகேஷன் (உங்கள் 431 வரிகள் இதனுள் வரும்)
+# 2. மெயின் அப்ளிகேஷன்
 # ----------------------------------------------------
-import pandas as pd
-import streamlit as st
 from google import genai
 from google.genai import types
-from PIL import Image
-from docx import Document
-from docx.shared import Pt, Inches
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
-import io
-import re
-import time
-
-import matplotlib
-matplotlib.use('Agg')
-import matplotlib.pyplot as plt
-import numpy as np
 
 # ==========================================
 # 1. API Configuration & Secrets Lock
@@ -165,7 +152,7 @@ def generate_prompt_v18(subject, lessons_list, exam_type, exam_time, total_marks
     is_tamil = "tamil" in sub_lower or "தமிழ்" in sub_lower
     is_social = "social" in sub_lower or "சமூக" in sub_lower
     is_math = "math" in sub_lower or "கணிதம்" in sub_lower
-    
+
     if diff_level == "எளிமை (Easy)":
         difficulty_directive = "DIFFICULTY CRITERIA: Focus 80% on direct textbook back questions and formulas."
     elif diff_level == "நடுத்தரம் (Medium)":
@@ -230,8 +217,9 @@ def add_solid_line(doc):
 def write_markdown_to_word(doc, text):
     for line in text.split('\n'):
         line = line.strip()
-        if not line: continue
-        
+        if not line:
+            continue
+
         draw_match = re.search(r'\[DRAW_(TRIANGLE|SQUARE)[:\s]*(.*?)\]', line, re.IGNORECASE)
         if draw_match:
             shape_type = draw_match.group(1)
@@ -246,7 +234,7 @@ def write_markdown_to_word(doc, text):
             continue
 
         clean_line = line.replace('*', '').replace('$', '').strip()
-        
+
         if "பகுதி" in clean_line or "PART" in clean_line.upper():
             marks_match = re.search(r'\(?\d+\s*[xX*]\s*\d+\s*=\s*\d+\)?', clean_line)
             if marks_match:
@@ -268,11 +256,14 @@ def write_markdown_to_word(doc, text):
             current = ""
             for chunk in raw_parts:
                 if chunk in option_markers:
-                    if current.strip(): parts.append(current.strip())
+                    if current.strip():
+                        parts.append(current.strip())
                     current = chunk + " "
-                else: current += chunk
-            if current.strip(): parts.append(current.strip())
-            
+                else:
+                    current += chunk
+            if current.strip():
+                parts.append(current.strip())
+
             if parts:
                 table = doc.add_table(rows=1, cols=len(parts))
                 for idx, opt in enumerate(parts):
@@ -288,7 +279,8 @@ def write_markdown_to_word(doc, text):
         parts = re.split(r'\*\*(.*?)\*\*', line)
         for i, part in enumerate(parts):
             run = p.add_run(part.replace('$', ''))
-            if i % 2 == 1: run.bold = True
+            if i % 2 == 1:
+                run.bold = True
 
 def create_professional_docx(ai_response, school_name, class_val, subject_val, exam_type, time_val, marks_val):
     doc = Document()
@@ -297,24 +289,24 @@ def create_professional_docx(ai_response, school_name, class_val, subject_val, e
     section.left_margin = section.right_margin = section.top_margin = section.bottom_margin = Inches(0.5)
     style = doc.styles['Normal']
     style.font.name = 'Nirmala UI'
-    
+
     h_school = doc.add_paragraph(style='Normal')
     h_school.alignment = WD_ALIGN_PARAGRAPH.CENTER
     h_school.add_run(school_name.upper()).bold = True
     h_school.runs[0].font.size = Pt(15)
-    
+
     table = doc.add_table(rows=2, cols=2)
     def format_cell(cell, text, align_right=False):
         p = cell.paragraphs[0]
         p.alignment = WD_ALIGN_PARAGRAPH.RIGHT if align_right else WD_ALIGN_PARAGRAPH.LEFT
         p.add_run(text).bold = True
         set_cell_margins(cell, top=0, bottom=0, start=0, end=0)
-        
+
     format_cell(table.cell(0, 0), f"Class : {class_val}")
     format_cell(table.cell(0, 1), f"Time : {time_val}", align_right=True)
     format_cell(table.cell(1, 0), f"Subject : {subject_val}")
     format_cell(table.cell(1, 1), f"Marks : {marks_val}", align_right=True)
-    
+
     add_solid_line(doc)
     parts = ai_response.split("=== ANSWER KEY ===")
     write_markdown_to_word(doc, parts[0].strip())
@@ -360,25 +352,25 @@ with tab1:
             exam_type = st.selectbox("Exam Type", ["Unit Test", "Quarterly Exam", "Half-Yearly Exam", "Annual Exam"])
             time_val = st.selectbox("Time (நேரம்)", ["1.00 Hour", "2.00 Hours", "3.00 Hours"], index=2)
             marks_val = st.number_input("Total Marks", value=100, step=1)
-            
+
         exam_mode = st.selectbox("Exam Mode", ["🏛️ Public Exam Mode", "🏫 School Elite Mode"])
         lesson_list = df[df['Subject'] == subject_val]['Lesson'].unique()
         selected_lessons = st.multiselect("பாடங்களைத் தேர்ந்தெடுக்கவும்", lesson_list)
-        
+
         st.markdown("---")
         diff_level = st.selectbox("வினாத்தாள் கடினத்தன்மை (Difficulty Level)", ["எளிமை (Easy)", "நடுத்தரம் (Medium)", "கடினம் (Hard)"], index=1)
-        
+
         st.markdown("---")
         is_eng = "english" in subject_val.lower() or "ஆங்கிலம்" in subject_val.lower()
         is_soc = "social" in subject_val.lower() or "சமூக" in subject_val.lower()
         bp = get_blueprint_defaults(marks_val, is_social=is_soc, is_english=is_eng)
-        
+
         st.markdown("### 📋 வினா வடிவமைப்பு பிரிவு (பகுதிகளைத் தேர்ந்தெடுக்கவும்)")
         show_p1 = st.checkbox("பகுதி I (1-Mark Questions) சேர்க்கலாமா?", value=True)
         show_p2 = st.checkbox("பகுதி II (2-Mark Questions) சேர்க்கலாமா?", value=True)
         show_p3 = st.checkbox("பகுதி III (5-Mark Questions) சேர்க்கலாமா?", value=True)
         show_p4 = st.checkbox("பகுதி IV (Long Questions) சேர்க்கலாமா?", value=True)
-        
+
         st.markdown("#### ⚙️ மதிப்பெண் விவரங்கள் (Fine-Tune Variables)")
         b1, b2 = st.columns(2)
         with b1:
@@ -391,103 +383,84 @@ with tab1:
             p4_val = st.selectbox("நெடுவினா மதிப்பெண்", [5, 8, 10], index=1 if is_eng or is_soc or marks_val==100 else 0, disabled=not show_p4)
             p4_get = st.number_input("நெடுவினா கொடுக்க வேண்டியவை (Given)", value=int(bp["p4g"]) if show_p4 else 0, step=1, disabled=not show_p4)
             p4_ask = st.number_input("நெடுவினா எழுத வேண்டியவை (Answer)", value=int(bp["p4a"]) if show_p4 else 0, step=1, disabled=not show_p4)
-            
+
         total_calculated = (p1_ask * 1) + (p2_ask * 2) + (p3_ask * 5) + (p4_ask * p4_val)
         can_generate = total_calculated == marks_val
-        
+
         if can_generate:
             st.success(f"✅ மதிப்பெண்கள் சரியாகப் பொருந்தியது: {total_calculated} மார்க்.")
         else:
             st.warning(f"⚠️ கணக்கீடு: {total_calculated} மார்க் | மொத்த மதிப்பெண்: {marks_val} மார்க். (தயவுசெய்து சமப்படுத்தவும்).")
-        # user = admin account for now
-# later replace with Google email       
-if st.button("🚀 Generate PRO Question Paper", use_container_width=True):
-    st.success("BUTTON CLICKED")
 
-    if can_generate and selected_lessons:
+        if st.button("🚀 Generate PRO Question Paper", use_container_width=True):
+            if can_generate and selected_lessons:
+                with st.spinner("⏳ வினாத்தாள் தயாராகிறது..."):
+                    blueprint_desc = f"- Part I: {p1_ask} Qs. - Part II: Given {p2_get}, Answer {p2_ask}. - Part III: Given {p3_get}, Answer {p3_ask}. - Part IV: Given {p4_get}, Answer {p4_ask}."
 
-        with st.spinner("⏳ வினாத்தாள் தயாராகிறது..."):
-            
-            blueprint_desc = f"- Part I: {p1_ask} Qs. - Part II: Given {p2_get}, Answer {p2_ask}. - Part III: Given {p3_get}, Answer {p3_ask}. - Part IV: Given {p4_get}, Answer {p4_ask}."
-
-            with st.spinner("⏳ வினாத்தாள் தயாராகிறது..."):
-
-                blueprint_desc = f"- Part I: {p1_ask} Qs. - Part II: Given {p2_get}, Answer {p2_ask}. - Part III: Given {p3_get}, Answer {p3_ask}. - Part IV: Given {p4_get}, Answer {p4_ask}."
-
-    prompt = generate_prompt_v18(
-        subject_val,
-        selected_lessons,
-        exam_type,
-        time_val,
-        marks_val,
-        exam_mode,
-        blueprint_desc,
-        p1_ask,
-        p2_ask,
-        p3_ask,
-        diff_level
-    )
-
-    st.success("PROMPT CREATED")
-
-    response = client.models.generate_content(
-        model="gemini-2.5-flash",
-        contents=prompt
-    )
-
-    st.success("GEMINI RESPONSE RECEIVED")
-
-            response = None
-            max_retries = 4
-
-            for attempt in range(max_retries):
-                try:
-                    response = client.models.generate_content(
-                        model='gemini-2.5-flash',
-                        contents=prompt
+                    prompt = generate_prompt_v18(
+                        subject_val,
+                        selected_lessons,
+                        exam_type,
+                        time_val,
+                        marks_val,
+                        exam_mode,
+                        blueprint_desc,
+                        p1_ask,
+                        p2_ask,
+                        p3_ask,
+                        diff_level
                     )
-                    break
 
-                except Exception as api_err:
+                    response = None
+                    max_retries = 4
 
-                    if ("429" in str(api_err) or "503" in str(api_err)) and attempt < max_retries - 1:
-                        wait_time = (attempt + 1) * 4
-                        time.sleep(wait_time)
-                        continue
+                    for attempt in range(max_retries):
+                        try:
+                            response = client.models.generate_content(
+                                model='gemini-2.5-flash',
+                                contents=prompt
+                            )
+                            break
+                        except Exception as api_err:
+                            if ("429" in str(api_err) or "503" in str(api_err)) and attempt < max_retries - 1:
+                                wait_time = (attempt + 1) * 4
+                                time.sleep(wait_time)
+                                continue
+                            else:
+                                st.error(f"சர்வர் தற்காலிகமாக ஓவர்லோடு ஆகியுள்ளது: {api_err}")
 
-                    else:
-                        st.error(f"சர்வர் தற்காலிகமாக ஓவர்லோடு ஆகியுள்ளது: {api_err}")
-
-            if response:
-                st.success("CREATING DOCX")
-                doc = create_professional_docx(
-                    response.text,
-                    school_name,
-                    class_val,
-                    subject_val,
-                    exam_type,
-                    time_val,
-                    marks_val
-                )
-
-                doc_io = io.BytesIO()
-                doc.save(doc_io)
-
-                st.session_state['docx_bytes'] = doc_io.getvalue()
-
-                st.success("✅ வினாத்தாள் வெற்றிகரமாகத் தயாராகிவிட்டது!")
+                    if response:
+                        doc = create_professional_docx(
+                            response.text,
+                            school_name,
+                            class_val,
+                            subject_val,
+                            exam_type,
+                            time_val,
+                            marks_val
+                        )
+                        doc_io = io.BytesIO()
+                        doc.save(doc_io)
+                        st.session_state['docx_bytes'] = doc_io.getvalue()
+                        st.success("✅ வினாத்தாள் வெற்றிகரமாகத் தயாராகிவிட்டது!")
 
         if 'docx_bytes' in st.session_state:
-            st.download_button(label="📥 Download Word File (.docx)", data=st.session_state['docx_bytes'], file_name=f"PMP_{subject_val}.docx", mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document", use_container_width=True)
+            st.download_button(
+                label="📥 Download Word File (.docx)",
+                data=st.session_state['docx_bytes'],
+                file_name=f"PMP_{subject_val}.docx",
+                mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                use_container_width=True
+            )
 
 with tab2:
     st.title("📝 AI Math Paper Evaluator (Multi-Format Edition)")
     uploaded_file = st.file_uploader("உங்கள் விடைத்தாளைத் தேர்ந்தெடுக்கவும் (Image / PDF)", type=["png", "jpg", "jpeg", "pdf"])
-    
+
     if uploaded_file is not None:
         file_type = uploaded_file.name.split(".")[-1].lower()
         eval_payload = []
-        
+
         if file_type == "pdf":
             st.info("📊 PDF கோப்பு கண்டறியப்பட்டது. ஜெமினி ஏஐ பகுப்பாய்வு செய்கிறது...")
             file_data = uploaded_file.read()
@@ -497,16 +470,14 @@ with tab2:
             image = Image.open(uploaded_file)
             st.image(image, caption="Uploaded Handwriting Page", width=420)
             eval_payload.append(image)
-            
+
         if st.button("🚀 Start AI Evaluation", use_container_width=True):
             with st.spinner("⏳ ஜெமினி AI விடைத்தாளைத் திருத்தி வருகிறது..."):
                 eval_prompt = "You are an official TN Board Math Evaluator. Read handwriting or PDF pages and correct step-by-step. Write fractions as $\\frac{a}{b}$ inside single dollar signs. Respond in Tamil."
-                
                 eval_payload.append(eval_prompt)
                 response = None
                 for attempt in range(3):
                     try:
-                        # 💡 மதிப்பீட்டு இன்ஜினும் 'gemini-2.5-flash' மாடலுக்கு மாற்றப்பட்டுள்ளது
                         response = client.models.generate_content(model='gemini-2.5-flash', contents=eval_payload)
                         break
                     except Exception as eval_err:
@@ -515,16 +486,12 @@ with tab2:
                             continue
                         else:
                             st.error(f"மதிப்பீட்டு சர்வர் பிழை: {eval_err}")
-                            
+
                 if response:
                     st.markdown(response.text)
-    # st.sidebar.button("Logout", on_click=lambda: st.session_state.update({"logged_in": False}))
-    
+
     st.markdown("---")
-st.subheader("Account")
-
-if st.button("🚪 Logout", use_container_width=True):
-    st.session_state.logged_in = False
-    st.rerun()
-    
-
+    st.subheader("Account")
+    if st.button("🚪 Logout", use_container_width=True):
+        st.session_state.logged_in = False
+        st.rerun()
