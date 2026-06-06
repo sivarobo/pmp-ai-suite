@@ -453,6 +453,12 @@ with tab1:
                 use_container_width=True
             )
 
+        st.markdown("---")
+        st.subheader("Account")
+        if st.button("🚪 Logout", key="logout_tab1", use_container_width=True):
+            st.session_state.logged_in = False
+            st.rerun()
+
 with tab2:
     st.title("📝 AI Math Paper Evaluator (Multi-Format Edition)")
     uploaded_file = st.file_uploader("உங்கள் விடைத்தாளைத் தேர்ந்தெடுக்கவும் (Image / PDF)", type=["png", "jpg", "jpeg", "pdf"])
