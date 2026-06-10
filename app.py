@@ -1,5 +1,6 @@
 import streamlit as st
 import pandas as pd
+from google import genai
 from PIL import Image
 from docx import Document
 from docx.shared import Pt, Inches
