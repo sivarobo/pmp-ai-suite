@@ -1,7 +1,6 @@
 streamlit
 streamlit-authenticator
 pandas
-google-generativeai
 python-docx
 matplotlib
 numpy
