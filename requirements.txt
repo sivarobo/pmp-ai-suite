@@ -6,4 +6,4 @@ matplotlib
 numpy
 pillow
 resend
-requests
+psycopg2-binary
