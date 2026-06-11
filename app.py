@@ -18,7 +18,7 @@ import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import numpy as np
-from supabase import create_client
+import requests as http_requests
 
 # ==========================================
 # st.set_page_config - MUST BE FIRST
@@ -51,20 +51,37 @@ st.markdown("""
 # ==========================================
 # Supabase Client
 # ==========================================
-@st.cache_resource
-def get_supabase():
+def supabase_request(method, table, data=None, filters=None):
+    """Direct REST API call to Supabase"""
     try:
-        url = st.secrets.get("SUPABASE_URL", "")
+        url = st.secrets.get("SUPABASE_URL", "").rstrip("/")
         key = st.secrets.get("SUPABASE_ANON_KEY", "")
-        if not url or not key:
-            return None
-        # Clean URL - remove trailing slash
-        url = url.rstrip("/")
-        return create_client(url, key)
-    except Exception as e:
-        return None
+        headers = {
+            "apikey": key,
+            "Authorization": f"Bearer {key}",
+            "Content-Type": "application/json",
+            "Prefer": "return=representation"
+        }
+        endpoint = f"{url}/rest/v1/{table}"
+        if filters:
+            filter_str = "&".join([f"{k}=eq.{v}" for k, v in filters.items()])
+            endpoint = f"{endpoint}?{filter_str}"
 
-supabase = get_supabase()
+        if method == "GET":
+            endpoint = endpoint + ("&" if "?" in endpoint else "?") + "select=*"
+            res = http_requests.get(endpoint, headers=headers, timeout=10)
+        elif method == "POST":
+            res = http_requests.post(endpoint, headers=headers, json=data, timeout=10)
+        elif method == "PATCH":
+            res = http_requests.patch(endpoint, headers=headers, json=data, timeout=10)
+
+        if res.status_code in [200, 201]:
+            return res.json()
+        else:
+            return None
+    except Exception as e:
+        st.error(f"DB Error: {e}")
+        return None
 
 # ==========================================
 # Email OTP Functions
@@ -112,60 +129,74 @@ def generate_otp():
 # ==========================================
 def get_user_by_email(email):
     try:
-        if supabase is None:
-            return None
-        res = supabase.table("users").select("*").eq("email", email).execute()
-        if res.data:
-            return res.data[0]
+        result = supabase_request("GET", "users", filters={"email": email})
+        if result and len(result) > 0:
+            return result[0]
         return None
     except:
         return None
 
 def create_user(email, name):
     try:
-        if supabase is None:
-            st.error("Database connection failed!")
-            return None
-        res = supabase.table("users").insert({
+        data = {
             "email": email,
             "name": name,
             "plan": "free",
             "daily_count": 0,
             "last_used": datetime.date.today().isoformat(),
             "created_at": datetime.datetime.now().isoformat()
-        }).execute()
-        return res.data[0] if res.data else None
+        }
+        result = supabase_request("POST", "users", data=data)
+        if result and len(result) > 0:
+            return result[0]
+        return None
     except Exception as e:
         st.error(f"User create பண்ண முடியவில்லை: {e}")
         return None
 
 def get_today_usage(user_id):
     try:
-        if supabase is None:
-            return 0
         today = datetime.date.today().isoformat()
-        res = supabase.table("daily_usage").select("*").eq("user_id", user_id).eq("usage_date", today).execute()
-        if res.data:
-            return res.data[0]["question_count"]
+        url = st.secrets.get("SUPABASE_URL", "").rstrip("/")
+        key = st.secrets.get("SUPABASE_ANON_KEY", "")
+        headers = {
+            "apikey": key,
+            "Authorization": f"Bearer {key}",
+            "Content-Type": "application/json"
+        }
+        endpoint = f"{url}/rest/v1/daily_usage?select=*&user_id=eq.{user_id}&usage_date=eq.{today}"
+        res = http_requests.get(endpoint, headers=headers, timeout=10)
+        if res.status_code == 200 and res.json():
+            return res.json()[0]["question_count"]
         return 0
     except:
         return 0
 
 def increment_usage(user_id):
     try:
-        if supabase is None:
-            return False
         today = datetime.date.today().isoformat()
-        res = supabase.table("daily_usage").select("*").eq("user_id", user_id).eq("usage_date", today).execute()
-        if res.data:
-            new_count = res.data[0]["question_count"] + 1
-            supabase.table("daily_usage").update({"question_count": new_count}).eq("user_id", user_id).eq("usage_date", today).execute()
+        url = st.secrets.get("SUPABASE_URL", "").rstrip("/")
+        key = st.secrets.get("SUPABASE_ANON_KEY", "")
+        headers = {
+            "apikey": key,
+            "Authorization": f"Bearer {key}",
+            "Content-Type": "application/json",
+            "Prefer": "return=representation"
+        }
+        # Check existing
+        get_ep = f"{url}/rest/v1/daily_usage?select=*&user_id=eq.{user_id}&usage_date=eq.{today}"
+        res = http_requests.get(get_ep, headers=headers, timeout=10)
+        if res.status_code == 200 and res.json():
+            new_count = res.json()[0]["question_count"] + 1
+            patch_ep = f"{url}/rest/v1/daily_usage?user_id=eq.{user_id}&usage_date=eq.{today}"
+            http_requests.patch(patch_ep, headers=headers, json={"question_count": new_count}, timeout=10)
         else:
-            supabase.table("daily_usage").insert({
+            post_ep = f"{url}/rest/v1/daily_usage"
+            http_requests.post(post_ep, headers=headers, json={
                 "user_id": user_id,
                 "usage_date": today,
                 "question_count": 1
-            }).execute()
+            }, timeout=10)
         return True
     except:
         return False
