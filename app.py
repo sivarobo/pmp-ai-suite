@@ -13,9 +13,7 @@ import re
 import time
 import datetime
 import random
-import smtplib
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
+import resend
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
@@ -66,19 +64,12 @@ supabase = get_supabase()
 # ==========================================
 def send_otp_email(to_email, otp_code, user_name=""):
     try:
-        gmail_user = st.secrets["GMAIL_USER"]
-        gmail_pass = st.secrets["GMAIL_APP_PASSWORD"]
-
-        msg = MIMEMultipart("alternative")
-        msg["Subject"] = "🎓 PMP AI Suite - உங்கள் OTP Code"
-        msg["From"] = gmail_user
-        msg["To"] = to_email
-
+        resend.api_key = st.secrets["RESEND_API_KEY"]
         html = f"""
         <html><body>
         <div style="font-family:Arial; max-width:500px; margin:auto; padding:20px;
                     border:2px solid #3b82f6; border-radius:12px;">
-            <h2 style="color:#1e3a8a; text-align:center;">🎓 PMP Master AI Suite</h2>
+            <h2 style="color:#1e3a8a; text-align:center;">PMP Master AI Suite</h2>
             <p>வணக்கம் {user_name}!</p>
             <p>உங்கள் OTP verification code:</p>
             <div style="background:#f0f9ff; border:2px solid #3b82f6; border-radius:8px;
@@ -90,17 +81,17 @@ def send_otp_email(to_email, otp_code, user_name=""):
             <p style="color:#64748b;">இந்த code 10 நிமிடம் மட்டுமே valid.</p>
             <p style="color:#64748b;">நீங்கள் request பண்ணவில்லை என்றால் ignore பண்ணுங்கள்.</p>
             <hr>
-            <p style="color:#94a3b8; font-size:12px; text-align:center;">
-                PMP Master AI Suite | Powered by Gemini AI
-            </p>
+            <p style="color:#94a3b8; font-size:12px; text-align:center;">PMP Master AI Suite | Powered by Gemini AI</p>
         </div>
         </body></html>
         """
-        msg.attach(MIMEText(html, "html"))
-
-        with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
-            server.login(gmail_user, gmail_pass)
-            server.sendmail(gmail_user, to_email, msg.as_string())
+        params = {
+            "from": "PMP AI Suite <onboarding@resend.dev>",
+            "to": [to_email],
+            "subject": "PMP AI Suite - OTP Code",
+            "html": html,
+        }
+        resend.Emails.send(params)
         return True
     except Exception as e:
         st.error(f"Email அனுப்ப முடியவில்லை: {e}")
