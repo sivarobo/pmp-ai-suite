@@ -18,7 +18,8 @@ import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import numpy as np
-import requests as http_requests
+import psycopg2
+import psycopg2.extras
 
 # ==========================================
 # st.set_page_config - MUST BE FIRST
@@ -51,36 +52,16 @@ st.markdown("""
 # ==========================================
 # Supabase Client
 # ==========================================
-def supabase_request(method, table, data=None, filters=None):
-    """Direct REST API call to Supabase"""
+def get_db():
+    """Neon PostgreSQL connection"""
     try:
-        url = st.secrets.get("SUPABASE_URL", "").rstrip("/")
-        key = st.secrets.get("SUPABASE_ANON_KEY", "")
-        headers = {
-            "apikey": key,
-            "Authorization": f"Bearer {key}",
-            "Content-Type": "application/json",
-            "Prefer": "return=representation"
-        }
-        endpoint = f"{url}/rest/v1/{table}"
-        if filters:
-            filter_str = "&".join([f"{k}=eq.{v}" for k, v in filters.items()])
-            endpoint = f"{endpoint}?{filter_str}"
-
-        if method == "GET":
-            endpoint = endpoint + ("&" if "?" in endpoint else "?") + "select=*"
-            res = http_requests.get(endpoint, headers=headers, timeout=10)
-        elif method == "POST":
-            res = http_requests.post(endpoint, headers=headers, json=data, timeout=10)
-        elif method == "PATCH":
-            res = http_requests.patch(endpoint, headers=headers, json=data, timeout=10)
-
-        if res.status_code in [200, 201]:
-            return res.json()
-        else:
-            return None
+        conn = psycopg2.connect(
+            st.secrets["NEON_DATABASE_URL"],
+            cursor_factory=psycopg2.extras.RealDictCursor
+        )
+        return conn
     except Exception as e:
-        st.error(f"DB Error: {e}")
+        st.error(f"DB Connection Error: {e}")
         return None
 
 # ==========================================
@@ -129,74 +110,68 @@ def generate_otp():
 # ==========================================
 def get_user_by_email(email):
     try:
-        result = supabase_request("GET", "users", filters={"email": email})
-        if result and len(result) > 0:
-            return result[0]
-        return None
-    except:
+        conn = get_db()
+        if not conn:
+            return None
+        cur = conn.cursor()
+        cur.execute("SELECT * FROM users WHERE email = %s", (email,))
+        row = cur.fetchone()
+        conn.close()
+        return dict(row) if row else None
+    except Exception as e:
         return None
 
 def create_user(email, name):
     try:
-        data = {
-            "email": email,
-            "name": name,
-            "plan": "free",
-            "daily_count": 0,
-            "last_used": datetime.date.today().isoformat(),
-            "created_at": datetime.datetime.now().isoformat()
-        }
-        result = supabase_request("POST", "users", data=data)
-        if result and len(result) > 0:
-            return result[0]
-        return None
+        conn = get_db()
+        if not conn:
+            return None
+        cur = conn.cursor()
+        cur.execute(
+            """INSERT INTO users (email, name, plan, daily_count, last_used, created_at)
+               VALUES (%s, %s, 'free', 0, CURRENT_DATE, NOW())
+               RETURNING *""",
+            (email, name)
+        )
+        row = cur.fetchone()
+        conn.commit()
+        conn.close()
+        return dict(row) if row else None
     except Exception as e:
         st.error(f"User create பண்ண முடியவில்லை: {e}")
         return None
 
 def get_today_usage(user_id):
     try:
-        today = datetime.date.today().isoformat()
-        url = st.secrets.get("SUPABASE_URL", "").rstrip("/")
-        key = st.secrets.get("SUPABASE_ANON_KEY", "")
-        headers = {
-            "apikey": key,
-            "Authorization": f"Bearer {key}",
-            "Content-Type": "application/json"
-        }
-        endpoint = f"{url}/rest/v1/daily_usage?select=*&user_id=eq.{user_id}&usage_date=eq.{today}"
-        res = http_requests.get(endpoint, headers=headers, timeout=10)
-        if res.status_code == 200 and res.json():
-            return res.json()[0]["question_count"]
-        return 0
+        conn = get_db()
+        if not conn:
+            return 0
+        cur = conn.cursor()
+        cur.execute(
+            "SELECT question_count FROM daily_usage WHERE user_id = %s AND usage_date = CURRENT_DATE",
+            (str(user_id),)
+        )
+        row = cur.fetchone()
+        conn.close()
+        return row["question_count"] if row else 0
     except:
         return 0
 
 def increment_usage(user_id):
     try:
-        today = datetime.date.today().isoformat()
-        url = st.secrets.get("SUPABASE_URL", "").rstrip("/")
-        key = st.secrets.get("SUPABASE_ANON_KEY", "")
-        headers = {
-            "apikey": key,
-            "Authorization": f"Bearer {key}",
-            "Content-Type": "application/json",
-            "Prefer": "return=representation"
-        }
-        # Check existing
-        get_ep = f"{url}/rest/v1/daily_usage?select=*&user_id=eq.{user_id}&usage_date=eq.{today}"
-        res = http_requests.get(get_ep, headers=headers, timeout=10)
-        if res.status_code == 200 and res.json():
-            new_count = res.json()[0]["question_count"] + 1
-            patch_ep = f"{url}/rest/v1/daily_usage?user_id=eq.{user_id}&usage_date=eq.{today}"
-            http_requests.patch(patch_ep, headers=headers, json={"question_count": new_count}, timeout=10)
-        else:
-            post_ep = f"{url}/rest/v1/daily_usage"
-            http_requests.post(post_ep, headers=headers, json={
-                "user_id": user_id,
-                "usage_date": today,
-                "question_count": 1
-            }, timeout=10)
+        conn = get_db()
+        if not conn:
+            return False
+        cur = conn.cursor()
+        cur.execute(
+            """INSERT INTO daily_usage (user_id, usage_date, question_count)
+               VALUES (%s, CURRENT_DATE, 1)
+               ON CONFLICT (user_id, usage_date)
+               DO UPDATE SET question_count = daily_usage.question_count + 1""",
+            (str(user_id),)
+        )
+        conn.commit()
+        conn.close()
         return True
     except:
         return False
