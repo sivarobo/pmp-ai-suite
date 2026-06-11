@@ -6,3 +6,4 @@ matplotlib
 numpy
 pillow
 supabase
+resend
