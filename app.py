@@ -53,9 +53,16 @@ st.markdown("""
 # ==========================================
 @st.cache_resource
 def get_supabase():
-    url = st.secrets["SUPABASE_URL"]
-    key = st.secrets["SUPABASE_ANON_KEY"]
-    return create_client(url, key)
+    try:
+        url = st.secrets.get("SUPABASE_URL", "")
+        key = st.secrets.get("SUPABASE_ANON_KEY", "")
+        if not url or not key:
+            return None
+        # Clean URL - remove trailing slash
+        url = url.rstrip("/")
+        return create_client(url, key)
+    except Exception as e:
+        return None
 
 supabase = get_supabase()
 
@@ -105,6 +112,8 @@ def generate_otp():
 # ==========================================
 def get_user_by_email(email):
     try:
+        if supabase is None:
+            return None
         res = supabase.table("users").select("*").eq("email", email).execute()
         if res.data:
             return res.data[0]
@@ -114,6 +123,9 @@ def get_user_by_email(email):
 
 def create_user(email, name):
     try:
+        if supabase is None:
+            st.error("Database connection failed!")
+            return None
         res = supabase.table("users").insert({
             "email": email,
             "name": name,
@@ -129,6 +141,8 @@ def create_user(email, name):
 
 def get_today_usage(user_id):
     try:
+        if supabase is None:
+            return 0
         today = datetime.date.today().isoformat()
         res = supabase.table("daily_usage").select("*").eq("user_id", user_id).eq("usage_date", today).execute()
         if res.data:
@@ -139,6 +153,8 @@ def get_today_usage(user_id):
 
 def increment_usage(user_id):
     try:
+        if supabase is None:
+            return False
         today = datetime.date.today().isoformat()
         res = supabase.table("daily_usage").select("*").eq("user_id", user_id).eq("usage_date", today).execute()
         if res.data:
