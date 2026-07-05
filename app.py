@@ -442,7 +442,24 @@ def generate_prompt_v18(subject, lessons_list, exam_type, exam_time, total_marks
   -> In the Answer Key write ONLY: [Refer Textbook - பாடநூல் பார்க்கவும்]
   -> Do NOT generate proof steps or reasoning under any circumstance.
 """
-    return f"Subject: {subject}\nLessons: {lessons_str}\nExam Type: {exam_type}\nTotal Marks: {total_marks}\nTime: {exam_time}\nMode: {exam_mode}\n{difficulty_directive}\n{blueprint_desc}\n{header_format}\n{option_format}\n{lang_instruction}\n{subject_blueprint_rules}\n{theorem_proof_rule}\n=== ANSWER KEY ==="
+
+    pyq_tagging_rule = """
+[PREVIOUS YEAR QUESTION (PYQ) TAGGING RULE - TN BOARD PUBLIC EXAMS]
+- Scope: Apply ONLY to 2-Mark, 5-Mark, and 8-Mark/Long-answer questions.
+- Do NOT apply to 1-Mark MCQ questions under any circumstance.
+- If a generated question appeared in a Tamil Nadu State Board PUBLIC EXAM
+  in the last 4 years (2022, 2023, 2024, 2025), append the exam session tag
+  at the END of that question in brackets.
+- Tag format (Tamil papers):  (செப் 2024) / (ஏப்ரல் 2023) / (ஜூன் 2022)
+- Tag format (English papers): (Sep 2024) / (Apr 2023) / (Jun 2022)
+- Multiple appearances: list all, comma-separated: (ஏப்ரல் 2023, செப் 2024)
+- CRITICAL ACCURACY RULE: Tag ONLY if you are HIGHLY CONFIDENT the question
+  appeared in that specific exam session. If uncertain about the year or month,
+  DO NOT tag at all. An untagged repeated question is acceptable;
+  a WRONGLY tagged question is NOT acceptable.
+- Do NOT invent or guess exam sessions. Do NOT tag more than 40% of questions.
+"""
+    return f"Subject: {subject}\nLessons: {lessons_str}\nExam Type: {exam_type}\nTotal Marks: {total_marks}\nTime: {exam_time}\nMode: {exam_mode}\n{difficulty_directive}\n{blueprint_desc}\n{header_format}\n{option_format}\n{lang_instruction}\n{subject_blueprint_rules}\n{theorem_proof_rule}\n{pyq_tagging_rule}\n=== ANSWER KEY ==="
 
 def set_cell_margins(cell, **kwargs):
     tcPr = cell._element.get_or_add_tcPr()
