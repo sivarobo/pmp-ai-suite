@@ -649,6 +649,41 @@ def generate_prompt_v18(subject, lessons_list, exam_type, exam_time, total_marks
     with each intermediate value actually computed (not just formula with symbols).
   * The final SD should be a clean value (whole number or one decimal).
 - If you cannot verify a calculation is correct, redesign the question with simpler numbers.
+
+[OUTPUT HYGIENE RULE - ABSOLUTELY CRITICAL]
+- This output is a FINAL PRINTED EXAM DOCUMENT given directly to students and teachers.
+- NEVER include any meta-commentary, thinking process, or self-correction text such as:
+  "Let me try a different approach", "Re-checking", "My initial analysis was correct",
+  "This is complex", "Re-design the question", "நான் ... கணக்கிடுகிறேன்",
+  "குறிப்பு: ... தெளிவாக குறிப்பிடப்படவில்லை" or ANY similar draft/verification notes.
+- Output ONLY the polished final content. Any visible reasoning = INVALID output.
+
+[QUESTION-ANSWER CONSISTENCY RULE - ABSOLUTELY CRITICAL]
+- The question printed in the paper and the question solved in the Answer Key
+  MUST be 100% IDENTICAL. NEVER solve a modified version in the Answer Key.
+- DESIGN QUESTIONS BACKWARDS: first choose the clean final answer, then build
+  the question from it. Examples:
+  * Perfect-square polynomial question: FIRST pick a quadratic like (2x²-3x+2),
+    square it, and use THAT expansion as the question polynomial. This guarantees
+    the question is solvable.
+  * Square root / factorisation: construct from known factors.
+  * Statistics: pick data whose mean and SD are clean by design.
+- If while writing the Answer Key you discover the question is unsolvable or messy,
+  you MUST go back and replace the QUESTION itself with the corrected version,
+  so the printed question matches its solution perfectly.
+
+[STATISTICS TWO-DATASET RULE]
+- If a statistics question gives two datasets (e.g. income x and expenditure y),
+  the question must state EXPLICITLY what to compute:
+  e.g. "இரு தரவுத்தொகுப்புகளின் மாறுபாட்டுக் கெழுக்களை (C.V.) கணக்கிட்டு ஒப்பிடுக" -
+  and the Answer Key must then compute BOTH datasets fully.
+- Never give two datasets and compute only one.
+
+[MENSURATION VALUES RULE]
+- When π = 22/7 is used, choose radius/height values that are multiples of 7
+  so answers come out as whole numbers (e.g. r=7, r=14, r=21, h=7).
+- Express intermediate fractions exactly (33000/7) only if they cancel later;
+  final answers must be clean numbers.
 """
 
     quality_rules = """
@@ -658,11 +693,15 @@ def generate_prompt_v18(subject, lessons_list, exam_type, exam_time, total_marks
    - தேல்ஸ் தேற்றம் → [DRAW_THALES] is NON-NEGOTIABLE. Never skip it.
    - A theorem question WITHOUT its diagram tag is an INVALID output.
 
-2. CONSTRUCTION QUESTIONS (வரைக / அமைக்க questions):
-   - After every construction question, add this line:
-     (உரிய அளவுகளுடன் வரைபடம் வரைந்து காட்டவும்)
-   - If the question refers to a given triangle/circle, state ALL measurements
-     explicitly in the question text itself.
+2. CONSTRUCTION QUESTIONS - STRICT SCOPE:
+   - The note "(உரிய அளவுகளுடன் வரைபடம் வரைந்து காட்டவும்)" must be added ONLY to
+     COMPASS-AND-RULER CONSTRUCTION questions - i.e. questions whose main verb is
+     "வரைக" or "அமைக்க" (construct/draw).
+   - NEVER add this note to: prove questions (நிரூபி), calculation questions (காண்க),
+     theorem questions, graph questions, or any non-construction question.
+   - EVERY construction question MUST state ALL required measurements explicitly
+     in the question text (side lengths, radius, scale factor etc). A construction
+     question without complete measurements is INVALID - redesign it with numbers.
 
 3. QUESTION CLARITY:
    - NEVER write vague questions like "வடிவொத்த முக்கோணங்கள் வரைய பயன்படும் தேற்றத்தை எழுதுக".
