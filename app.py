@@ -628,10 +628,27 @@ def generate_prompt_v18(subject, lessons_list, exam_type, exam_time, total_marks
 """
 
     theorem_proof_rule = """
-[STRICT THEOREM & PROOF ANSWER KEY RULE]
-- If a question contains: "நிரூபிக்கவும்", "Prove that", "தேற்றம்", "Theorem", "Definition", "வரையறு"
-  -> In the Answer Key write ONLY: [Refer Textbook - பாடநூல் பார்க்கவும்]
-  -> Do NOT generate proof steps or reasoning under any circumstance.
+[ANSWER KEY COMPLETENESS RULE - CRITICAL]
+- "Refer Textbook" ([பாடநூல் பார்க்கவும்]) is allowed ONLY for:
+  * Theorem PROOFS (தேற்றத்தை நிரூபிக்கவும்)
+  * Definitions (வரையறு)
+  * Compass/ruler CONSTRUCTION steps (வரைக/அமைக்க)
+- For ALL other questions - numerical problems, equations, statistics,
+  probability, coordinate geometry, mensuration, graph calculations -
+  the Answer Key MUST contain COMPLETE STEP-BY-STEP working with the final answer.
+  This is especially MANDATORY for compulsory questions and Part III/IV
+  high-mark questions. A numerical question answered with Refer-Textbook is INVALID.
+- For graph questions: Answer Key must include the table of values (x, y points)
+  and the final answer read from the graph.
+
+[ARITHMETIC ACCURACY RULE - CRITICAL]
+- Before writing any Answer Key calculation, VERIFY every arithmetic step.
+- For STATISTICS questions (mean, standard deviation, variance):
+  * Choose data values so that the sum, sum of squares, and mean are CLEAN numbers.
+  * Show working explicitly: n = ..., sum = ..., mean = ..., variance = ..., SD = ...
+    with each intermediate value actually computed (not just formula with symbols).
+  * The final SD should be a clean value (whole number or one decimal).
+- If you cannot verify a calculation is correct, redesign the question with simpler numbers.
 """
 
     quality_rules = """
@@ -665,6 +682,16 @@ def generate_prompt_v18(subject, lessons_list, exam_type, exam_time, total_marks
 6. REALISTIC VALUES:
    - Design numerical questions so answers are clean values (whole numbers or simple decimals
      like 4.5). Avoid awkward answers like 0.4 or 9.6 in geometry length problems.
+
+7. MCQ QUALITY STANDARD:
+   - Avoid trivial rote-memory MCQs (e.g. asking just the count of elements in a 3x2 matrix).
+   - Each MCQ should require at least one step of thinking or calculation.
+   - Mix: 40% concept application, 40% one-step calculation, maximum 20% pure recall.
+
+8. BILINGUAL TECHNICAL TERMS:
+   - For key technical concepts in Tamil medium papers, add the English term in
+     brackets on first use: "முடிவிலா எண்ணிக்கையிலான தீர்வுகள் (infinitely many solutions)",
+     "திட்ட விலக்கம் (Standard Deviation)". This matches TN Board pattern.
 """
 
     pyq_tagging_rule = """
