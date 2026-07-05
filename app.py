@@ -404,6 +404,70 @@ def generate_geometry_image(shape_type, label_text=""):
         ax.text(2.0, -0.35, 'DE ∥ BC', fontsize=11, ha='center', fontweight='bold')
         ax.set_xlim(-0.5, 4.4); ax.set_ylim(-0.7, 4.1)
 
+    elif "EXT_BISECTOR" in shape_upper or "EXTERNAL_BISECTOR" in shape_upper:
+        # வெளிப்புற கோண இருசமவெட்டி - AD meets BC EXTENSION at D
+        A = np.array([1.4, 3.0]); B = np.array([0.3, 0.5]); C = np.array([2.9, 0.5])
+        D = np.array([4.6, 0.5])  # on BC extension
+        tri = np.array([A, B, C, A])
+        ax.plot(tri[:, 0], tri[:, 1], 'k-', lw=2)
+        # BC extension (dashed)
+        ax.plot([C[0], D[0]], [C[1], D[1]], 'k--', lw=1.5)
+        # AD line
+        ax.plot([A[0], D[0]], [A[1], D[1]], 'k-', lw=1.8)
+        ax.plot(*D, 'ko', markersize=4)
+        ax.text(A[0], A[1]+0.15, 'A', fontsize=12, fontweight='bold', ha='center')
+        ax.text(B[0]-0.25, B[1]-0.15, 'B', fontsize=12, fontweight='bold')
+        ax.text(C[0]-0.1, C[1]-0.35, 'C', fontsize=12, fontweight='bold')
+        ax.text(D[0]+0.08, D[1]-0.15, 'D', fontsize=12, fontweight='bold')
+        ax.set_xlim(-0.3, 5.3); ax.set_ylim(-0.4, 3.6)
+
+    elif "ANGLE_BISECTOR" in shape_upper or "BISECTOR" in shape_upper:
+        # உட்புற கோண இருசமவெட்டி - AD bisects angle A, D on BC
+        A = np.array([2.0, 3.4]); B = np.array([0.3, 0.4]); C = np.array([3.9, 0.4])
+        D = np.array([2.35, 0.4])  # on BC (bisector foot, slightly right of midpoint)
+        tri = np.array([A, B, C, A])
+        ax.plot(tri[:, 0], tri[:, 1], 'k-', lw=2)
+        ax.plot([A[0], D[0]], [A[1], D[1]], 'k-', lw=1.8)
+        ax.plot(*D, 'ko', markersize=4)
+        # angle bisector arcs at A (two small equal-angle marks)
+        ax.annotate('', xy=(1.75, 2.85), xytext=(1.9, 3.0),
+                    arrowprops=dict(arrowstyle='-', lw=1))
+        ax.annotate('', xy=(2.25, 2.85), xytext=(2.1, 3.0),
+                    arrowprops=dict(arrowstyle='-', lw=1))
+        ax.text(A[0], A[1]+0.15, 'A', fontsize=12, fontweight='bold', ha='center')
+        ax.text(B[0]-0.25, B[1]-0.15, 'B', fontsize=12, fontweight='bold')
+        ax.text(C[0]+0.1, C[1]-0.15, 'C', fontsize=12, fontweight='bold')
+        ax.text(D[0]+0.05, D[1]-0.35, 'D', fontsize=12, fontweight='bold')
+        ax.set_xlim(-0.3, 4.5); ax.set_ylim(-0.5, 4.0)
+
+    elif "TWO_TANGENT" in shape_upper or "TANGENTS" in shape_upper:
+        # வெளிப்புள்ளியில் இருந்து இரண்டு தொடுகோடுகள் PA, PB
+        O = np.array([1.5, 2.0]); r = 1.1
+        P = np.array([4.3, 2.0])
+        circle = plt.Circle(O, r, fill=False, color='black', lw=2)
+        ax.add_patch(circle)
+        ax.plot(*O, 'ko', markersize=4)
+        ax.text(O[0]-0.05, O[1]+0.15, 'O', fontsize=11, fontweight='bold')
+        # Tangent points A (top) and B (bottom)
+        d = np.linalg.norm(P - O)
+        ang = np.arccos(r / d)
+        base = np.arctan2(P[1]-O[1], P[0]-O[0])
+        Apt = O + r * np.array([np.cos(base + ang), np.sin(base + ang)])
+        Bpt = O + r * np.array([np.cos(base - ang), np.sin(base - ang)])
+        ax.plot([P[0], Apt[0]], [P[1], Apt[1]], 'k-', lw=1.8)
+        ax.plot([P[0], Bpt[0]], [P[1], Bpt[1]], 'k-', lw=1.8)
+        # Radii OA, OB (dashed)
+        ax.plot([O[0], Apt[0]], [O[1], Apt[1]], 'k--', lw=1)
+        ax.plot([O[0], Bpt[0]], [O[1], Bpt[1]], 'k--', lw=1)
+        ax.plot(*Apt, 'ko', markersize=4)
+        ax.plot(*Bpt, 'ko', markersize=4)
+        ax.plot(*P, 'ko', markersize=4)
+        ax.text(Apt[0]-0.1, Apt[1]+0.18, 'A', fontsize=12, fontweight='bold')
+        ax.text(Bpt[0]-0.1, Bpt[1]-0.32, 'B', fontsize=12, fontweight='bold')
+        ax.text(P[0]+0.1, P[1]-0.05, 'P', fontsize=12, fontweight='bold')
+        ax.set_xlim(0, 5.2); ax.set_ylim(0.2, 3.8)
+        ax.set_aspect('equal')
+
     elif "PYTHAGORAS" in shape_upper or "RIGHT" in shape_upper:
         # செங்கோண முக்கோணம் - right angle at B
         A = np.array([0.3, 3.4]); B = np.array([0.3, 0.3]); C = np.array([3.9, 0.3])
@@ -528,10 +592,17 @@ def generate_prompt_v18(subject, lessons_list, exam_type, exam_time, total_marks
    - NEVER draw diagrams using text characters (/, \\, -, |). ASCII art is ABSOLUTELY BANNED.
    - Instead, write the FULL question text first, then on the NEXT separate line add ONE diagram tag.
    - The question text must always be complete. NEVER replace question text with a tag.
-   - THEOREM-SPECIFIC tags (use the MATCHING tag for the theorem):
-     * தேல்ஸ் தேற்றம் / Thales / Basic Proportionality Theorem (BPT) → [DRAW_THALES]
+   - TAG SELECTION MATRIX (match question content EXACTLY - wrong diagram = INVALID paper):
+     * Question mentions "DE" and "BC" or "DE ∥ BC" or "மிகைவிகித"/"விகிதசம" → [DRAW_THALES] (NEVER plain TRIANGLE)
+     * தேல்ஸ் தேற்றம் / Thales / BPT → [DRAW_THALES]
+     * உட்புற கோண இருசமவெட்டி / internal angle bisector / "AD bisects ∠A" → [DRAW_ANGLE_BISECTOR]
+     * வெளிப்புற கோண இருசமவெட்டி / external bisector / "D on BC extension"/"BC-ன் நீட்டிப்பு" → [DRAW_EXT_BISECTOR]
+     * ஒரு தொடுகோடு / single tangent → [DRAW_TANGENT]
+     * இரண்டு தொடுகோடுகள் / two tangents PA and PB from external point → [DRAW_TWO_TANGENTS]
      * பிதாகரஸ் தேற்றம் / Pythagoras / right-angle triangle → [DRAW_PYTHAGORAS]
-     * தொடுகோடு / tangent to circle → [DRAW_TANGENT]
+   - CRITICAL: If question text mentions points D, E on triangle sides → NEVER use [DRAW_TRIANGLE].
+     The diagram MUST show every point named in the question (A,B,C,D,E,P etc).
+     A diagram missing a point mentioned in the question is a CRITICAL ERROR.
    - GENERIC shape tags: [DRAW_TRIANGLE], [DRAW_SQUARE], [DRAW_RECTANGLE], [DRAW_CIRCLE], [DRAW_SEMICIRCLE]
    - Labels inside tags must be ENGLISH/numbers only (e.g. [DRAW_CIRCLE: r=7cm]). NO Tamil text inside tags.
    - Example CORRECT:
@@ -699,7 +770,7 @@ def write_markdown_to_word(doc, text):
         line = line.strip()
         if not line:
             continue
-        draw_match = re.search(r'\[DRAW_(THALES|BPT|PYTHAGORAS|RIGHT_TRIANGLE|TANGENT|TRIANGLE|SQUARE|RECTANGLE|CIRCLE|SEMICIRCLE)[:\s]*(.*?)\]', line, re.IGNORECASE)
+        draw_match = re.search(r'\[DRAW_(THALES|BPT|EXT_BISECTOR|EXTERNAL_BISECTOR|ANGLE_BISECTOR|BISECTOR|TWO_TANGENTS|TWO_TANGENT|PYTHAGORAS|RIGHT_TRIANGLE|TANGENT|TRIANGLE|SQUARE|RECTANGLE|CIRCLE|SEMICIRCLE)[:\s]*(.*?)\]', line, re.IGNORECASE)
         if draw_match:
             shape_type = draw_match.group(1)
             label_text = draw_match.group(2)
