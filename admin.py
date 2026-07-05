@@ -9,7 +9,7 @@ st.set_page_config(page_title="PMP Admin Dashboard", page_icon="🔧", layout="w
 # ==========================================
 # ADMIN CONFIG
 # ==========================================
-ADMIN_EMAIL = "sivarobo@gmail.com"
+ADMIN_EMAIL = st.secrets.get("ADMIN_EMAIL", "sivarobo@gmail.com")
 
 # ==========================================
 # DB Connection
@@ -204,7 +204,7 @@ with tab1:
                    COALESCE(SUM(d.question_count), 0) as total_questions,
                    MAX(d.usage_date) as last_active
             FROM users u
-            LEFT JOIN daily_usage d ON u.id = d.user_id
+            LEFT JOIN daily_usage d ON u.id::text = d.user_id
             GROUP BY u.id, u.email, u.name, u.plan, u.created_at
             ORDER BY u.created_at DESC
         """)
@@ -356,7 +356,7 @@ with tab4:
                     # Delete usage first
                     cur.execute("""
                         DELETE FROM daily_usage WHERE user_id = 
-                        (SELECT id FROM users WHERE email = %s)
+                        (SELECT id::text FROM users WHERE email = %s)
                     """, (del_email.strip().lower(),))
                     cur.execute("DELETE FROM users WHERE email = %s RETURNING email",
                                (del_email.strip().lower(),))
@@ -376,7 +376,7 @@ with tab4:
         cur.execute("""
             SELECT u.name, u.email, u.plan, d.question_count
             FROM daily_usage d
-            JOIN users u ON d.user_id = u.id
+            JOIN users u ON d.user_id = u.id::text
             WHERE d.usage_date = CURRENT_DATE
             ORDER BY d.question_count DESC
         """)
