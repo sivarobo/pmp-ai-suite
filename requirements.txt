@@ -7,3 +7,4 @@ numpy
 pillow
 resend
 psycopg2-binary
+streamlit-google-auth
