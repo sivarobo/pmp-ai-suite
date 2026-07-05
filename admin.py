@@ -204,7 +204,7 @@ with tab1:
                    COALESCE(SUM(d.question_count), 0) as total_questions,
                    MAX(d.usage_date) as last_active
             FROM users u
-            LEFT JOIN daily_usage d ON u.id::text = d.user_id
+            LEFT JOIN daily_usage d ON u.id::text = d.user_id::text
             GROUP BY u.id, u.email, u.name, u.plan, u.created_at
             ORDER BY u.created_at DESC
         """)
@@ -376,7 +376,7 @@ with tab4:
         cur.execute("""
             SELECT u.name, u.email, u.plan, d.question_count
             FROM daily_usage d
-            JOIN users u ON d.user_id = u.id::text
+            JOIN users u ON d.user_id::text = u.id::text
             WHERE d.usage_date = CURRENT_DATE
             ORDER BY d.question_count DESC
         """)
