@@ -13,13 +13,15 @@ import re
 import time
 import datetime
 import random
-import resend
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import numpy as np
 import psycopg2
 import psycopg2.extras
+import requests
+import urllib.parse
+import secrets
 
 # ==========================================
 # st.set_page_config - MUST BE FIRST
@@ -41,19 +43,46 @@ st.markdown("""
         color: #1E3A8A !important;
     }
     button { font-size: 18px !important; height: 50px !important; }
-    .auth-box {
-        background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%);
-        padding: 30px; border-radius: 16px; text-align: center;
-        color: white; margin-bottom: 20px;
+
+    /* Google Login Card */
+    .google-login-wrapper {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 20px 0;
+    }
+    .google-btn-link {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 12px;
+        background: #ffffff;
+        color: #3c4043;
+        border: 1.5px solid #dadce0;
+        border-radius: 8px;
+        padding: 14px 32px;
+        font-size: 16px;
+        font-weight: 600;
+        text-decoration: none !important;
+        width: 100%;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.10);
+        transition: box-shadow 0.2s, background 0.2s;
+        font-family: 'Segoe UI', sans-serif;
+        cursor: pointer;
+    }
+    .google-btn-link:hover {
+        box-shadow: 0 4px 16px rgba(0,0,0,0.16);
+        background: #f8faff;
+        text-decoration: none !important;
     }
 </style>
 """, unsafe_allow_html=True)
 
 # ==========================================
-# Supabase Client
+# DB Connection (Neon PostgreSQL)
 # ==========================================
 def get_db():
-    """Neon PostgreSQL connection"""
     try:
         conn = psycopg2.connect(
             st.secrets["NEON_DATABASE_URL"],
@@ -65,80 +94,101 @@ def get_db():
         return None
 
 # ==========================================
-# Email OTP Functions
+# Google OAuth Functions
 # ==========================================
-def send_otp_email(to_email, otp_code, user_name=""):
-    try:
-        resend.api_key = st.secrets["RESEND_API_KEY"]
-        html = f"""
-        <html><body>
-        <div style="font-family:Arial; max-width:500px; margin:auto; padding:20px;
-                    border:2px solid #3b82f6; border-radius:12px;">
-            <h2 style="color:#1e3a8a; text-align:center;">PMP Master AI Suite</h2>
-            <p>வணக்கம் {user_name}!</p>
-            <p>உங்கள் OTP verification code:</p>
-            <div style="background:#f0f9ff; border:2px solid #3b82f6; border-radius:8px;
-                        padding:20px; text-align:center; margin:20px 0;">
-                <h1 style="color:#1e3a8a; font-size:42px; letter-spacing:10px; margin:0;">
-                    {otp_code}
-                </h1>
-            </div>
-            <p style="color:#64748b;">இந்த code 10 நிமிடம் மட்டுமே valid.</p>
-            <p style="color:#64748b;">நீங்கள் request பண்ணவில்லை என்றால் ignore பண்ணுங்கள்.</p>
-            <hr>
-            <p style="color:#94a3b8; font-size:12px; text-align:center;">PMP Master AI Suite | Powered by Gemini AI</p>
-        </div>
-        </body></html>
-        """
-        params = {
-            "from": "PMP AI Suite <onboarding@resend.dev>",
-            "to": [to_email],
-            "subject": "PMP AI Suite - OTP Code",
-            "html": html,
-        }
-        resend.Emails.send(params)
-        return True
-    except Exception as e:
-        st.error(f"Email அனுப்ப முடியவில்லை: {e}")
-        return False
+def _build_google_auth_url():
+    """Google OAuth URL உருவாக்கு"""
+    state = secrets.token_urlsafe(16)
+    st.session_state["oauth_state"] = state
 
-def generate_otp():
-    return str(random.randint(100000, 999999))
+    params = {
+        "client_id":     st.secrets["google"]["client_id"],
+        "redirect_uri":  st.secrets["google"]["redirect_uri"],
+        "response_type": "code",
+        "scope":         "openid email profile",
+        "state":         state,
+        "access_type":   "offline",
+        "prompt":        "select_account",  # Always show account picker
+    }
+    return "https://accounts.google.com/o/oauth2/v2/auth?" + urllib.parse.urlencode(params)
+
+def _exchange_code_for_token(code):
+    """Auth code → Access token"""
+    resp = requests.post(
+        "https://oauth2.googleapis.com/token",
+        data={
+            "code":          code,
+            "client_id":     st.secrets["google"]["client_id"],
+            "client_secret": st.secrets["google"]["client_secret"],
+            "redirect_uri":  st.secrets["google"]["redirect_uri"],
+            "grant_type":    "authorization_code",
+        },
+        timeout=10,
+    )
+    return resp.json() if resp.status_code == 200 else None
+
+def _fetch_google_user_info(access_token):
+    """Access token → Google user info"""
+    resp = requests.get(
+        "https://www.googleapis.com/oauth2/v2/userinfo",
+        headers={"Authorization": f"Bearer {access_token}"},
+        timeout=10,
+    )
+    return resp.json() if resp.status_code == 200 else None
 
 # ==========================================
-# Supabase User Functions
+# User DB Functions (Google-based)
 # ==========================================
-def get_user_by_email(email):
-    try:
-        conn = get_db()
-        if not conn:
-            return None
-        cur = conn.cursor()
-        cur.execute("SELECT * FROM users WHERE email = %s", (email,))
-        row = cur.fetchone()
-        conn.close()
-        return dict(row) if row else None
-    except Exception as e:
-        return None
-
-def create_user(email, name):
+def upsert_google_user(google_info):
+    """
+    Google login → DB-ல் user save/update.
+    First time: insert. Return visit: last_login update.
+    """
     try:
         conn = get_db()
         if not conn:
             return None
         cur = conn.cursor()
-        cur.execute(
-            """INSERT INTO users (email, name, plan, daily_count, last_used, created_at)
-               VALUES (%s, %s, 'free', 0, CURRENT_DATE, NOW())
-               RETURNING *""",
-            (email, name)
-        )
+
+        # Table create (first run only - safe to run every time)
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS users (
+                id          SERIAL PRIMARY KEY,
+                google_id   TEXT UNIQUE,
+                email       TEXT UNIQUE,
+                name        TEXT,
+                picture     TEXT,
+                plan        TEXT DEFAULT 'free',
+                daily_count INTEGER DEFAULT 0,
+                last_used   DATE DEFAULT CURRENT_DATE,
+                created_at  TIMESTAMP DEFAULT NOW(),
+                last_login  TIMESTAMP DEFAULT NOW()
+            )
+        """)
+
+        # Upsert by google_id
+        cur.execute("""
+            INSERT INTO users (google_id, email, name, picture, last_login)
+            VALUES (%s, %s, %s, %s, NOW())
+            ON CONFLICT (google_id) DO UPDATE
+              SET name       = EXCLUDED.name,
+                  picture    = EXCLUDED.picture,
+                  last_login = NOW()
+            RETURNING id, google_id, email, name, picture, plan, created_at
+        """, (
+            google_info["id"],
+            google_info["email"],
+            google_info["name"],
+            google_info.get("picture", ""),
+        ))
+
         row = cur.fetchone()
         conn.commit()
         conn.close()
         return dict(row) if row else None
+
     except Exception as e:
-        st.error(f"User create பண்ண முடியவில்லை: {e}")
+        st.error(f"DB Error: {e}")
         return None
 
 def get_today_usage(user_id):
@@ -179,146 +229,100 @@ def increment_usage(user_id):
 FREE_DAILY_LIMIT = 2
 
 # ==========================================
-# AUTH UI - Register / Login / OTP
+# GOOGLE OAUTH CALLBACK HANDLER
+# ==========================================
+def handle_oauth_callback():
+    """URL-ல் ?code= இருந்தா handle பண்ணு"""
+    params = st.query_params
+    code  = params.get("code")
+    state = params.get("state")
+
+    if not code or not state:
+        return False
+
+    # CSRF state check
+    if state != st.session_state.get("oauth_state", ""):
+        st.error("❌ Invalid login session. Please try again.")
+        st.query_params.clear()
+        st.rerun()
+
+    with st.spinner("🔄 Google login processing..."):
+        token_data = _exchange_code_for_token(code)
+
+    if not token_data or "access_token" not in token_data:
+        st.error("❌ Google login failed. Please try again.")
+        st.query_params.clear()
+        st.rerun()
+
+    google_info = _fetch_google_user_info(token_data["access_token"])
+    if not google_info or "id" not in google_info:
+        st.error("❌ Google user info கிடைக்கவில்லை.")
+        st.query_params.clear()
+        st.rerun()
+
+    # DB save / update
+    db_user = upsert_google_user(google_info)
+    if not db_user:
+        st.error("❌ User save பண்ண முடியவில்லை.")
+        st.query_params.clear()
+        st.rerun()
+
+    # Session store
+    st.session_state["logged_in_user"] = db_user
+
+    # Clean URL
+    st.query_params.clear()
+    st.rerun()
+
+# ==========================================
+# LOGIN PAGE UI
 # ==========================================
 def show_auth_page():
     st.markdown("""
-    <div style='text-align:center; padding:20px 0 5px 0;'>
-        <h1 style='color:#1E3A8A;'>🎓 PMP Master AI Suite</h1>
-        <p style='color:#64748b;'>AI-Powered Question Paper Generator</p>
+    <div style='text-align:center; padding:30px 0 10px 0;'>
+        <div style='font-size:56px;'>🎓</div>
+        <h1 style='color:#1E3A8A; margin:8px 0 4px 0;'>PMP Master AI Suite</h1>
+        <p style='color:#64748b; font-size:16px;'>AI-Powered Question Paper Generator</p>
     </div>
     """, unsafe_allow_html=True)
 
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
-        tab_login, tab_register = st.tabs(["🔑 Login", "📝 Register"])
+        # Free plan info
+        st.markdown("""
+        <div style='background:#f0fdf4; border:1px solid #86efac; border-radius:10px;
+                    padding:14px 18px; margin:16px 0; text-align:left;'>
+            <b style='color:#166534;'>🎁 Free Plan:</b>
+            <ul style='color:#166534; margin:6px 0 0 0; padding-left:20px;'>
+                <li>தினமும் 2 Question Papers Free</li>
+                <li>Exceed ஆனால் Pay &amp; Generate</li>
+                <li>Always Free — No Expiry</li>
+            </ul>
+        </div>
+        """, unsafe_allow_html=True)
 
-        # ---- LOGIN TAB ----
-        with tab_login:
-            st.markdown("#### உங்கள் Email உள்ளிடுங்கள்:")
-            login_email = st.text_input("Email", placeholder="yourname@gmail.com", key="login_email")
+        # Google Sign-In Button
+        auth_url = _build_google_auth_url()
+        st.markdown(f"""
+        <div style='margin:8px 0 4px 0;'>
+            <a href="{auth_url}" class="google-btn-link" target="_self">
+                <svg width="22" height="22" viewBox="0 0 48 48">
+                    <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
+                    <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
+                    <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
+                    <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.18 1.48-4.97 2.31-8.16 2.31-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
+                </svg>
+                Google-ல் உள்நுழைக (Sign in with Google)
+            </a>
+        </div>
+        <p style='text-align:center; color:#94a3b8; font-size:13px; margin-top:10px;'>
+            OTP தேவையில்லை · Already login ஆன Gmail account தேர்ந்தெடுக்கவும்
+        </p>
+        """, unsafe_allow_html=True)
 
-            if st.button("📧 OTP அனுப்பு (Login)", use_container_width=True, key="login_otp_btn"):
-                if not login_email or "@" not in login_email:
-                    st.error("❌ சரியான email உள்ளிடுங்கள்!")
-                else:
-                    user = get_user_by_email(login_email.strip().lower())
-                    if not user:
-                        st.error("❌ இந்த email register ஆகவில்லை! முதலில் Register பண்ணுங்கள்.")
-                    else:
-                        otp = generate_otp()
-                        st.session_state["otp_code"] = otp
-                        st.session_state["otp_email"] = login_email.strip().lower()
-                        st.session_state["otp_expiry"] = time.time() + 600
-                        st.session_state["otp_mode"] = "login"
-                        if send_otp_email(login_email, otp, user["name"]):
-                            st.success(f"✅ OTP அனுப்பப்பட்டது! {login_email} check பண்ணுங்கள்.")
-                            st.session_state["show_otp_verify"] = True
-                            st.rerun()
-
-        # ---- REGISTER TAB ----
-        with tab_register:
-            st.markdown("#### புதிய account உருவாக்குங்கள்:")
-            reg_name = st.text_input("உங்கள் பெயர்", placeholder="உங்கள் பெயர்", key="reg_name")
-            reg_email = st.text_input("Email", placeholder="yourname@gmail.com", key="reg_email")
-
-            st.markdown("""
-            <div style='background:#f0fdf4; border:1px solid #86efac; border-radius:8px; padding:12px; margin:8px 0;'>
-                <b style='color:#166534;'>🎁 Free Plan:</b>
-                <ul style='color:#166534; margin:5px 0; padding-left:18px;'>
-                    <li>தினமும் 2 Question Papers Free</li>
-                    <li>Exceed ஆனால் Pay & Generate</li>
-                    <li>Always Free - No Expiry</li>
-                </ul>
-            </div>
-            """, unsafe_allow_html=True)
-
-            if st.button("📧 OTP அனுப்பு (Register)", use_container_width=True, key="reg_otp_btn"):
-                if not reg_name.strip():
-                    st.error("❌ உங்கள் பெயர் உள்ளிடுங்கள்!")
-                elif not reg_email or "@" not in reg_email:
-                    st.error("❌ சரியான email உள்ளிடுங்கள்!")
-                else:
-                    existing = get_user_by_email(reg_email.strip().lower())
-                    if existing:
-                        st.warning("⚠️ இந்த email already registered! Login tab பயன்படுத்துங்கள்.")
-                    else:
-                        otp = generate_otp()
-                        st.session_state["otp_code"] = otp
-                        st.session_state["otp_email"] = reg_email.strip().lower()
-                        st.session_state["otp_name"] = reg_name.strip()
-                        st.session_state["otp_expiry"] = time.time() + 600
-                        st.session_state["otp_mode"] = "register"
-                        if send_otp_email(reg_email, otp, reg_name):
-                            st.success(f"✅ OTP அனுப்பப்பட்டது! {reg_email} check பண்ணுங்கள்.")
-                            st.session_state["show_otp_verify"] = True
-                            st.rerun()
-
-def show_otp_verify_page():
-    email = st.session_state.get("otp_email", "")
-    mode = st.session_state.get("otp_mode", "login")
-
-    st.markdown(f"""
-    <div style='text-align:center; padding:20px;'>
-        <h2>📧 OTP Verification</h2>
-        <p style='color:#64748b;'><b>{email}</b> - க்கு OTP அனுப்பப்பட்டது</p>
-    </div>
-    """, unsafe_allow_html=True)
-
-    col1, col2, col3 = st.columns([1, 2, 1])
-    with col2:
-        otp_input = st.text_input("6-digit OTP உள்ளிடுங்கள்:", placeholder="123456", max_chars=6)
-
-        if st.button("✅ Verify OTP", use_container_width=True, type="primary"):
-            if not otp_input:
-                st.error("❌ OTP உள்ளிடுங்கள்!")
-            elif time.time() > st.session_state.get("otp_expiry", 0):
-                st.error("❌ OTP காலாவதியாகிவிட்டது! மீண்டும் try பண்ணுங்கள்.")
-                for k in ["show_otp_verify", "otp_code", "otp_email", "otp_expiry", "otp_mode"]:
-                    st.session_state.pop(k, None)
-                st.rerun()
-            elif otp_input.strip() != st.session_state.get("otp_code", ""):
-                st.error("❌ தவறான OTP! மீண்டும் try பண்ணுங்கள்.")
-            else:
-                # OTP Correct!
-                if mode == "register":
-                    name = st.session_state.get("otp_name", "User")
-                    user = create_user(email, name)
-                    if user:
-                        st.session_state["logged_in_user"] = user
-                        st.success("🎉 Registration வெற்றி! Welcome!")
-                    else:
-                        st.error("Registration பண்ண முடியவில்லை. மீண்டும் try பண்ணுங்கள்.")
-                        return
-                else:
-                    user = get_user_by_email(email)
-                    if user:
-                        st.session_state["logged_in_user"] = user
-                        st.success(f"✅ வரவேற்கிறோம் {user['name']}!")
-                    else:
-                        st.error("User கண்டறியவில்லை!")
-                        return
-
-                for k in ["show_otp_verify", "otp_code", "otp_email", "otp_expiry", "otp_mode", "otp_name"]:
-                    st.session_state.pop(k, None)
-                time.sleep(1)
-                st.rerun()
-
-        if st.button("← திரும்பு / Back", use_container_width=True):
-            for k in ["show_otp_verify", "otp_code", "otp_email", "otp_expiry", "otp_mode"]:
-                st.session_state.pop(k, None)
-            st.rerun()
-
-        # Resend OTP
-        st.markdown("---")
-        if st.button("🔄 OTP மீண்டும் அனுப்பு", use_container_width=True):
-            otp = generate_otp()
-            name = st.session_state.get("otp_name", "User")
-            st.session_state["otp_code"] = otp
-            st.session_state["otp_expiry"] = time.time() + 600
-            if send_otp_email(email, otp, name):
-                st.success("✅ புதிய OTP அனுப்பப்பட்டது!")
-
+# ==========================================
+# LIMIT REACHED PAGE (unchanged)
+# ==========================================
 def show_limit_reached_page(user, today_count):
     st.markdown(f"""
     <div style='text-align:center; padding:20px;'>
@@ -331,7 +335,6 @@ def show_limit_reached_page(user, today_count):
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
         st.markdown("### 💳 More Questions வேணுமா?")
-
         st.markdown("""
         <div style='background:#fefce8; border:1px solid #fde047; border-radius:10px; padding:16px; margin:8px 0;'>
             <h4 style='color:#854d0e; margin:0 0 8px 0;'>🌟 Plan Options (Coming Soon)</h4>
@@ -345,9 +348,7 @@ def show_limit_reached_page(user, today_count):
             </p>
         </div>
         """, unsafe_allow_html=True)
-
         st.info("⏰ நாளை காலை 12:00 AM-ல் உங்கள் free limit மீண்டும் கிடைக்கும்!")
-
         if st.button("🚪 Logout", use_container_width=True):
             st.session_state.pop("logged_in_user", None)
             st.rerun()
@@ -355,28 +356,29 @@ def show_limit_reached_page(user, today_count):
 # ==========================================
 # ACCESS GATE
 # ==========================================
-if st.session_state.get("show_otp_verify"):
-    show_otp_verify_page()
-    st.stop()
 
+# Step 1: OAuth callback handle பண்ணு (URL-ல் ?code= இருந்தா)
+handle_oauth_callback()
+
+# Step 2: Login இல்லாட்டி login page காட்டு
 if not st.session_state.get("logged_in_user"):
     show_auth_page()
     st.stop()
 
 # ==========================================
-# LOGGED IN - Get user & check usage
+# LOGGED IN — Get user & check usage
 # ==========================================
 current_user = st.session_state["logged_in_user"]
-user_id = current_user["id"]
+user_id   = current_user["id"]
 user_name = current_user["name"]
-user_email = current_user["email"]
+user_email= current_user["email"]
 user_plan = current_user.get("plan", "free")
+user_pic  = current_user.get("picture", "")
 
-today_usage = get_today_usage(user_id)
-is_premium = user_plan in ["premium", "paid"]
-limit_reached = (not is_premium) and (today_usage >= FREE_DAILY_LIMIT)
+today_usage  = get_today_usage(user_id)
+is_premium   = user_plan in ["premium", "paid"]
+limit_reached= (not is_premium) and (today_usage >= FREE_DAILY_LIMIT)
 
-# Show limit page if exceeded
 if limit_reached:
     show_limit_reached_page(current_user, today_usage)
     st.stop()
@@ -387,9 +389,9 @@ if limit_reached:
 remaining = FREE_DAILY_LIMIT - today_usage
 if not is_premium:
     if remaining <= 1:
-        st.warning(f"⚠️ இன்று {remaining} question paper மட்டுமே மிச்சம் உள்ளது! | 👤 {user_name}")
+        st.warning(f"⚠️ இன்று {remaining} question paper மட்டுமே மிச்சம் | 👤 {user_name}")
     else:
-        st.info(f"🎁 இன்று {remaining}/{FREE_DAILY_LIMIT} free questions மிச்சம் | 👤 {user_name}")
+        st.info(f"🎁 இன்று {remaining}/{FREE_DAILY_LIMIT} free papers மிச்சம் | 👤 {user_name}")
 else:
     st.success(f"⭐ Premium Plan | 👤 {user_name} | Unlimited Access")
 
@@ -411,13 +413,13 @@ def load_data():
 
 def get_math_dynamic_weightage(selected_lessons, part1_val, part2_val, part3_val):
     base_matrix = {
-        "Relations and Functions": {"1M": 1.5, "2M": 2, "5M": 1.5, "8M": 0},
-        "Numbers and Sequences":   {"1M": 2.0, "2M": 2, "5M": 2.0, "8M": 0},
-        "Algebra":                  {"1M": 2.0, "2M": 2, "5M": 2.0, "8M": 1},
-        "Geometry":                 {"1M": 2.0, "2M": 1, "5M": 1.0, "8M": 1},
-        "Coordinate Geometry":     {"1M": 1.5, "2M": 2, "5M": 2.0, "8M": 0},
-        "Mensuration":             {"1M": 1.5, "2M": 2, "5M": 2.0, "8M": 0},
-        "Statistics and Probability":{"1M": 2.0, "2M": 2, "5M": 2.0, "8M": 0}
+        "Relations and Functions":      {"1M": 1.5, "2M": 2, "5M": 1.5, "8M": 0},
+        "Numbers and Sequences":        {"1M": 2.0, "2M": 2, "5M": 2.0, "8M": 0},
+        "Algebra":                      {"1M": 2.0, "2M": 2, "5M": 2.0, "8M": 1},
+        "Geometry":                     {"1M": 2.0, "2M": 1, "5M": 1.0, "8M": 1},
+        "Coordinate Geometry":          {"1M": 1.5, "2M": 2, "5M": 2.0, "8M": 0},
+        "Mensuration":                  {"1M": 1.5, "2M": 2, "5M": 2.0, "8M": 0},
+        "Statistics and Probability":   {"1M": 2.0, "2M": 2, "5M": 2.0, "8M": 0}
     }
     rules = []
     for lesson in selected_lessons:
@@ -490,9 +492,9 @@ def generate_prompt_v18(subject, lessons_list, exam_type, exam_time, total_marks
     lessons_str = ", ".join(lessons_list)
     sub_lower = subject.lower()
     is_english = "english" in sub_lower or "ஆங்கிலம்" in sub_lower
-    is_tamil = "tamil" in sub_lower or "தமிழ்" in sub_lower
-    is_social = "social" in sub_lower or "சமூக" in sub_lower
-    is_math = "math" in sub_lower or "கணிதம்" in sub_lower
+    is_tamil   = "tamil"   in sub_lower or "தமிழ்"    in sub_lower
+    is_social  = "social"  in sub_lower or "சமூக"     in sub_lower
+    is_math    = "math"    in sub_lower or "கணிதம்"   in sub_lower
 
     if diff_level == "எளிமை (Easy)":
         difficulty_directive = "DIFFICULTY CRITERIA: Focus 80% on direct textbook back questions and formulas."
@@ -506,29 +508,29 @@ def generate_prompt_v18(subject, lessons_list, exam_type, exam_time, total_marks
         math_weightage_directive = f"[STRICT LESSON-WISE MARKS WEIGHTAGE MATRIX]\n{get_math_dynamic_weightage(lessons_list, part1_val, part2_val, part3_val)}"
 
     if is_english:
-        lang_instruction = "5. Language: Pure ENGLISH only."
-        header_format = "PART [ROMAN_NUM] - [Section Description] (No_of_Qs x Marks = Total_Marks)"
-        option_format = "Options marker: a) , b) , c) , d)"
+        lang_instruction      = "5. Language: Pure ENGLISH only."
+        header_format         = "PART [ROMAN_NUM] - [Section Description] (No_of_Qs x Marks = Total_Marks)"
+        option_format         = "Options marker: a) , b) , c) , d)"
         subject_blueprint_rules = f"[STRICT TN BOARD ENGLISH BLUEPRINT LOCK]\n{get_english_blueprint_rules()}"
     elif is_tamil:
-        lang_instruction = "5. Language: Pure TAMIL only."
-        header_format = "பகுதி [ROMAN_NUM] - [பிரிவின் விளக்கம்] (வினாக்கள் எண்ணிக்கை x மதிப்பெண் = மொத்த மதிப்பெண்கள்)"
-        option_format = "Options marker: அ) , ஆ) , இ) , ஈ)"
+        lang_instruction      = "5. Language: Pure TAMIL only."
+        header_format         = "பகுதி [ROMAN_NUM] - [பிரிவின் விளக்கம்] (வினாக்கள் எண்ணிக்கை x மதிப்பெண் = மொத்த மதிப்பெண்கள்)"
+        option_format         = "Options marker: அ) , ஆ) , இ) , ஈ)"
         subject_blueprint_rules = "[அசல் தமிழ் பாடத்திட்ட ப்ளூபிரின்ட்] சொல்வளம், இலக்கணம் லாக்."
     elif is_social:
-        lang_instruction = "5. Language: Pure TAMIL only."
-        header_format = "பகுதி [ROMAN_NUM] - [பிரிவின் விளக்கம்]"
-        option_format = "Options marker: அ) , ஆ) , இ) , ஈ)"
+        lang_instruction      = "5. Language: Pure TAMIL only."
+        header_format         = "பகுதி [ROMAN_NUM] - [பிரிவின் விளக்கம்]"
+        option_format         = "Options marker: அ) , ஆ) , இ) , ஈ)"
         subject_blueprint_rules = "[MANDATORY CRITICAL SOCIAL SCIENCE BLUEPRINT] Assertion-Reason, Map locked."
     elif is_math:
-        lang_instruction = "5. Language: Pure TAMIL only."
-        header_format = "பகுதி [ROMAN_NUM] - [பிரிவின் விளக்கம்] (No_of_Qs x Marks = Total_Marks)"
-        option_format = "Options marker: அ) , ஆ) , இ) , ஈ)"
+        lang_instruction      = "5. Language: Pure TAMIL only."
+        header_format         = "பகுதி [ROMAN_NUM] - [பிரிவின் விளக்கம்] (No_of_Qs x Marks = Total_Marks)"
+        option_format         = "Options marker: அ) , ஆ) , இ) , ஈ)"
         subject_blueprint_rules = f"[MANDATORY CRITICAL MATHEMATICS CORE EMBEDDED LOCK]\n1. ABSOLUTE BAN ON AI DISCLAIMERS.\n2. DYNAMIC GEOMETRY TAGS: [DRAW_TRIANGLE: AB=5cm].\n3. GRAPH PAPER COORDINATES.\n{math_weightage_directive}"
     else:
-        lang_instruction = "5. Language: Pure TAMIL language only."
-        header_format = "பகுதி [ROMAN_NUM]"
-        option_format = "Options marker: அ) , ஆ) , இ) , ஈ)"
+        lang_instruction      = "5. Language: Pure TAMIL language only."
+        header_format         = "பகுதி [ROMAN_NUM]"
+        option_format         = "Options marker: அ) , ஆ) , இ) , ஈ)"
         subject_blueprint_rules = ""
 
     theorem_proof_rule = """
@@ -582,7 +584,7 @@ def write_markdown_to_word(doc, text):
         if "பகுதி" in clean_line or "PART" in clean_line.upper():
             marks_match = re.search(r'\(?\d+\s*[xX*]\s*\d+\s*=\s*\d+\)?', clean_line)
             if marks_match:
-                calc_str = marks_match.group(0)
+                calc_str  = marks_match.group(0)
                 title_str = clean_line.replace(calc_str, "").strip(":- ")
                 table = doc.add_table(rows=1, cols=2)
                 c1, c2 = table.rows[0].cells
@@ -615,7 +617,7 @@ def write_markdown_to_word(doc, text):
                 continue
         p = doc.add_paragraph()
         if re.match(r'^\d+\.', clean_line):
-            p.paragraph_format.left_indent = Inches(0.25)
+            p.paragraph_format.left_indent       = Inches(0.25)
             p.paragraph_format.first_line_indent = Inches(-0.25)
         parts = re.split(r'\*\*(.*?)\*\*', line)
         for i, part in enumerate(parts):
@@ -626,7 +628,8 @@ def write_markdown_to_word(doc, text):
 def create_professional_docx(ai_response, school_name, class_val, subject_val, exam_type, time_val, marks_val):
     doc = Document()
     section = doc.sections[0]
-    section.page_width, section.page_height = Inches(8.27), Inches(11.69)
+    section.page_width = section.page_height = Inches(8.27)
+    section.page_height = Inches(11.69)
     section.left_margin = section.right_margin = section.top_margin = section.bottom_margin = Inches(0.5)
     style = doc.styles['Normal']
     style.font.name = 'Nirmala UI'
@@ -660,17 +663,17 @@ with tab1:
     if not df.empty:
         col1, col2 = st.columns(2)
         with col1:
-            school_name = st.text_input("School Name", value="ABC SCHOOL")
-            class_val = st.selectbox("Class", ["10"])
-            subject_list = df['Subject'].unique()
-            subject_val = st.selectbox("Subject", subject_list)
+            school_name    = st.text_input("School Name", value="ABC SCHOOL")
+            class_val      = st.selectbox("Class", ["10"])
+            subject_list   = df['Subject'].unique()
+            subject_val    = st.selectbox("Subject", subject_list)
         with col2:
-            exam_type = st.selectbox("Exam Type", ["Unit Test", "Quarterly Exam", "Half-Yearly Exam", "Annual Exam"])
-            time_val = st.selectbox("Time (நேரம்)", ["1.00 Hour", "2.00 Hours", "3.00 Hours"], index=2)
-            marks_val = st.number_input("Total Marks", value=100, step=1)
+            exam_type  = st.selectbox("Exam Type", ["Unit Test", "Quarterly Exam", "Half-Yearly Exam", "Annual Exam"])
+            time_val   = st.selectbox("Time (நேரம்)", ["1.00 Hour", "2.00 Hours", "3.00 Hours"], index=2)
+            marks_val  = st.number_input("Total Marks", value=100, step=1)
 
-        exam_mode = st.selectbox("Exam Mode", ["🏛️ Public Exam Mode", "🏫 School Elite Mode"])
-        lesson_list = df[df['Subject'] == subject_val]['Lesson'].unique()
+        exam_mode        = st.selectbox("Exam Mode", ["🏛️ Public Exam Mode", "🏫 School Elite Mode"])
+        lesson_list      = df[df['Subject'] == subject_val]['Lesson'].unique()
         selected_lessons = st.multiselect("பாடங்களைத் தேர்ந்தெடுக்கவும்", lesson_list)
 
         st.markdown("---")
@@ -678,30 +681,30 @@ with tab1:
         st.markdown("---")
 
         is_eng = "english" in subject_val.lower() or "ஆங்கிலம்" in subject_val.lower()
-        is_soc = "social" in subject_val.lower() or "சமூக" in subject_val.lower()
-        bp = get_blueprint_defaults(marks_val, is_social=is_soc, is_english=is_eng)
+        is_soc = "social"  in subject_val.lower() or "சமூக"     in subject_val.lower()
+        bp     = get_blueprint_defaults(marks_val, is_social=is_soc, is_english=is_eng)
 
         st.markdown("### 📋 வினா வடிவமைப்பு பிரிவு")
-        show_p1 = st.checkbox("பகுதி I (1-Mark Questions)", value=True)
-        show_p2 = st.checkbox("பகுதி II (2-Mark Questions)", value=True)
+        show_p1 = st.checkbox("பகுதி I (1-Mark Questions)",   value=True)
+        show_p2 = st.checkbox("பகுதி II (2-Mark Questions)",  value=True)
         show_p3 = st.checkbox("பகுதி III (5-Mark Questions)", value=True)
-        show_p4 = st.checkbox("பகுதி IV (Long Questions)", value=True)
+        show_p4 = st.checkbox("பகுதி IV (Long Questions)",    value=True)
 
         st.markdown("#### ⚙️ மதிப்பெண் விவரங்கள்")
         b1, b2 = st.columns(2)
         with b1:
-            p1_ask = st.number_input("1-மார்க் வினாக்கள்", value=int(bp["p1"]) if show_p1 else 0, step=1, disabled=not show_p1)
-            p2_get = st.number_input("2-மார்க் கொடுக்க (Given)", value=int(bp["p2g"]) if show_p2 else 0, step=1, disabled=not show_p2)
-            p2_ask = st.number_input("2-மார்க் எழுத (Answer)", value=int(bp["p2a"]) if show_p2 else 0, step=1, disabled=not show_p2)
+            p1_ask  = st.number_input("1-மார்க் வினாக்கள்",       value=int(bp["p1"])  if show_p1 else 0, step=1, disabled=not show_p1)
+            p2_get  = st.number_input("2-மார்க் கொடுக்க (Given)", value=int(bp["p2g"]) if show_p2 else 0, step=1, disabled=not show_p2)
+            p2_ask  = st.number_input("2-மார்க் எழுத (Answer)",   value=int(bp["p2a"]) if show_p2 else 0, step=1, disabled=not show_p2)
         with b2:
-            p3_get = st.number_input("5-மார்க் கொடுக்க (Given)", value=int(bp["p3g"]) if show_p3 else 0, step=1, disabled=not show_p3)
-            p3_ask = st.number_input("5-மார்க் எழுத (Answer)", value=int(bp["p3a"]) if show_p3 else 0, step=1, disabled=not show_p3)
-            p4_val = st.selectbox("நெடுவினா மதிப்பெண்", [5, 8, 10], index=1 if is_eng or is_soc or marks_val==100 else 0, disabled=not show_p4)
-            p4_get = st.number_input("நெடுவினா கொடுக்க (Given)", value=int(bp["p4g"]) if show_p4 else 0, step=1, disabled=not show_p4)
-            p4_ask = st.number_input("நெடுவினா எழுத (Answer)", value=int(bp["p4a"]) if show_p4 else 0, step=1, disabled=not show_p4)
+            p3_get  = st.number_input("5-மார்க் கொடுக்க (Given)", value=int(bp["p3g"]) if show_p3 else 0, step=1, disabled=not show_p3)
+            p3_ask  = st.number_input("5-மார்க் எழுத (Answer)",   value=int(bp["p3a"]) if show_p3 else 0, step=1, disabled=not show_p3)
+            p4_val  = st.selectbox("நெடுவினா மதிப்பெண்", [5, 8, 10], index=1 if is_eng or is_soc or marks_val==100 else 0, disabled=not show_p4)
+            p4_get  = st.number_input("நெடுவினா கொடுக்க (Given)", value=int(bp["p4g"]) if show_p4 else 0, step=1, disabled=not show_p4)
+            p4_ask  = st.number_input("நெடுவினா எழுத (Answer)",   value=int(bp["p4a"]) if show_p4 else 0, step=1, disabled=not show_p4)
 
         total_calculated = (p1_ask * 1) + (p2_ask * 2) + (p3_ask * 5) + (p4_ask * p4_val)
-        can_generate = total_calculated == marks_val
+        can_generate     = total_calculated == marks_val
 
         if can_generate:
             st.success(f"✅ மதிப்பெண்கள் சரியாகப் பொருந்தியது: {total_calculated} மார்க்.")
@@ -725,7 +728,7 @@ with tab1:
                                 st.error(f"சர்வர் பிழை: {api_err}")
                     if response:
                         increment_usage(user_id)
-                        doc = create_professional_docx(response.text, school_name, class_val, subject_val, exam_type, time_val, marks_val)
+                        doc    = create_professional_docx(response.text, school_name, class_val, subject_val, exam_type, time_val, marks_val)
                         doc_io = io.BytesIO()
                         doc.save(doc_io)
                         st.session_state['docx_bytes'] = doc_io.getvalue()
@@ -748,12 +751,12 @@ with tab2:
     st.title("📝 AI Answer Sheet Evaluator")
     uploaded_file = st.file_uploader("விடைத்தாளைத் தேர்ந்தெடுக்கவும் (Image / PDF)", type=["png", "jpg", "jpeg", "pdf"])
     if uploaded_file is not None:
-        file_type = uploaded_file.name.split(".")[-1].lower()
-        eval_payload = []
+        file_type   = uploaded_file.name.split(".")[-1].lower()
+        eval_payload= []
         if file_type == "pdf":
             st.info("📊 PDF கோப்பு கண்டறியப்பட்டது.")
             file_data = uploaded_file.read()
-            pdf_part = types.Part.from_bytes(data=file_data, mime_type="application/pdf")
+            pdf_part  = types.Part.from_bytes(data=file_data, mime_type="application/pdf")
             eval_payload.append(pdf_part)
         else:
             image = Image.open(uploaded_file)
@@ -780,6 +783,14 @@ with tab2:
     st.markdown("---")
     col_l, col_m, col_r = st.columns([1, 2, 1])
     with col_m:
+        # User info with profile picture
+        if user_pic:
+            st.markdown(f"""
+            <div style='text-align:center; margin-bottom:8px;'>
+                <img src="{user_pic}" width="48" height="48"
+                     style='border-radius:50%; border:2px solid #3b82f6;'/>
+            </div>
+            """, unsafe_allow_html=True)
         st.markdown(f"**👤 {user_name}** ({user_email})")
         if st.button("🚪 Logout", use_container_width=True):
             st.session_state.pop("logged_in_user", None)
