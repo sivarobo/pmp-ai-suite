@@ -19,9 +19,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 import psycopg2
 import psycopg2.extras
+from streamlit_oauth import OAuth2Component
 import requests
-import urllib.parse
-import secrets as _secrets
 
 # ==========================================
 # st.set_page_config - MUST BE FIRST
@@ -94,34 +93,27 @@ def get_db():
         return None
 
 # ==========================================
-# Google OAuth — Pure Python (no extra lib)
+# Google OAuth — streamlit-oauth library
 # ==========================================
-def _google_auth_url():
-    state = _secrets.token_urlsafe(16)
-    st.session_state["_oauth_state"] = state
-    p = {
-        "client_id":     st.secrets["google"]["client_id"],
-        "redirect_uri":  st.secrets["google"]["redirect_uri"],
-        "response_type": "code",
-        "scope":         "openid email profile",
-        "state":         state,
-        "prompt":        "select_account",
-    }
-    return "https://accounts.google.com/o/oauth2/v2/auth?" + urllib.parse.urlencode(p)
+GOOGLE_CLIENT_ID     = st.secrets["google"]["client_id"]
+GOOGLE_CLIENT_SECRET = st.secrets["google"]["client_secret"]
+GOOGLE_REDIRECT_URI  = st.secrets["google"]["redirect_uri"]
 
-def _google_token(code):
-    r = requests.post("https://oauth2.googleapis.com/token", data={
-        "code":          code,
-        "client_id":     st.secrets["google"]["client_id"],
-        "client_secret": st.secrets["google"]["client_secret"],
-        "redirect_uri":  st.secrets["google"]["redirect_uri"],
-        "grant_type":    "authorization_code",
-    }, timeout=10)
-    return r.json() if r.status_code == 200 else None
+oauth2 = OAuth2Component(
+    client_id=GOOGLE_CLIENT_ID,
+    client_secret=GOOGLE_CLIENT_SECRET,
+    authorize_endpoint="https://accounts.google.com/o/oauth2/v2/auth",
+    token_endpoint="https://oauth2.googleapis.com/token",
+    refresh_token_endpoint="https://oauth2.googleapis.com/token",
+    revoke_token_endpoint="https://oauth2.googleapis.com/revoke",
+)
 
-def _google_userinfo(token):
-    r = requests.get("https://www.googleapis.com/oauth2/v2/userinfo",
-        headers={"Authorization": f"Bearer {token}"}, timeout=10)
+def _google_userinfo(access_token):
+    r = requests.get(
+        "https://www.googleapis.com/oauth2/v2/userinfo",
+        headers={"Authorization": f"Bearer {access_token}"},
+        timeout=10
+    )
     return r.json() if r.status_code == 200 else None
 
 # ==========================================
@@ -220,30 +212,8 @@ FREE_DAILY_LIMIT = 2
 # GOOGLE OAUTH CALLBACK HANDLER
 # ==========================================
 # ==========================================
-# ACCESS GATE
+# ACCESS GATE — streamlit-oauth
 # ==========================================
-
-# Handle OAuth callback
-qp = st.query_params
-if "code" in qp and "state" in qp:
-    if qp["state"] == st.session_state.get("_oauth_state", ""):
-        with st.spinner("🔄 Google login..."):
-            tok = _google_token(qp["code"])
-        if tok and "access_token" in tok:
-            guser = _google_userinfo(tok["access_token"])
-            if guser and "email" in guser:
-                db_user = upsert_google_user(guser)
-                st.session_state["logged_in_user"] = db_user or {
-                    "id": 0,
-                    "email":   guser.get("email",""),
-                    "name":    guser.get("name","User"),
-                    "picture": guser.get("picture",""),
-                    "plan":    "free",
-                }
-    st.query_params.clear()
-    st.rerun()
-
-# Show login page if not logged in
 if not st.session_state.get("logged_in_user"):
     st.markdown("""
     <div style='text-align:center; padding:30px 0 10px 0;'>
@@ -252,6 +222,7 @@ if not st.session_state.get("logged_in_user"):
         <p style='color:#64748b; font-size:16px;'>AI-Powered Question Paper Generator</p>
     </div>
     """, unsafe_allow_html=True)
+
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
         st.markdown("""
@@ -264,22 +235,33 @@ if not st.session_state.get("logged_in_user"):
             </ul>
         </div>
         """, unsafe_allow_html=True)
-        gurl = _google_auth_url()
-        st.markdown(f"""
-        <a href="{gurl}" target="_self" style="
-            display:flex; align-items:center; justify-content:center; gap:12px;
-            background:#fff; color:#3c4043; border:1.5px solid #dadce0;
-            border-radius:8px; padding:14px 24px; font-size:16px; font-weight:600;
-            text-decoration:none; box-shadow:0 2px 8px rgba(0,0,0,0.10);
-            font-family:sans-serif; margin:8px 0;">
-            <svg width="22" height="22" viewBox="0 0 48 48">
-              <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
-              <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
-              <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
-              <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.18 1.48-4.97 2.31-8.16 2.31-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
-            </svg>
-            Google-ல் உள்நுழைக
-        </a>
+
+        result = oauth2.authorize_button(
+            name="Google-ல் உள்நுழைக",
+            icon="https://www.google.com/favicon.ico",
+            redirect_uri=GOOGLE_REDIRECT_URI,
+            scope="openid email profile",
+            key="google_login",
+            extras_params={"prompt": "select_account"},
+            use_container_width=True,
+        )
+
+        if result and "token" in result:
+            token = result["token"]
+            access_token = token.get("access_token", "")
+            guser = _google_userinfo(access_token)
+            if guser and "email" in guser:
+                db_user = upsert_google_user(guser)
+                st.session_state["logged_in_user"] = db_user or {
+                    "id":      0,
+                    "email":   guser.get("email", ""),
+                    "name":    guser.get("name", "User"),
+                    "picture": guser.get("picture", ""),
+                    "plan":    "free",
+                }
+                st.rerun()
+
+        st.markdown("""
         <p style='text-align:center;color:#94a3b8;font-size:13px;margin-top:8px;'>
             OTP தேவையில்லை · Gmail account தேர்ந்தெடுக்கவும்
         </p>
