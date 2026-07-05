@@ -376,13 +376,35 @@ def generate_geometry_image(shape_type, label_text=""):
         ax.text(2, 3.2, 'C', fontsize=11, fontweight='bold')
         if clean_label:
             ax.text(2, -0.6, clean_label, fontsize=10, ha='center', fontweight='bold', color='blue')
-    elif "SQUARE" in shape_upper:
-        points = np.array([[0, 0], [3, 0], [3, 3], [0, 3], [0, 0]])
+    elif "SQUARE" in shape_upper or "RECTANGLE" in shape_upper:
+        w = 4 if "RECTANGLE" in shape_upper else 3
+        points = np.array([[0, 0], [w, 0], [w, 3], [0, 3], [0, 0]])
         ax.plot(points[:, 0], points[:, 1], 'k-', lw=2)
-        ax.text(-0.2, -0.2, 'A', fontsize=10)
-        ax.text(3.2, -0.2, 'B', fontsize=10)
+        ax.text(-0.25, -0.25, 'A', fontsize=10, fontweight='bold')
+        ax.text(w+0.1, -0.25, 'B', fontsize=10, fontweight='bold')
+        ax.text(w+0.1, 3.1, 'C', fontsize=10, fontweight='bold')
+        ax.text(-0.25, 3.1, 'D', fontsize=10, fontweight='bold')
         if clean_label:
-            ax.text(1.5, -0.6, clean_label, fontsize=10, ha='center', fontweight='bold', color='blue')
+            ax.text(w/2, -0.6, clean_label, fontsize=10, ha='center', fontweight='bold', color='blue')
+    elif "CIRCLE" in shape_upper:
+        circle = plt.Circle((2, 2), 1.6, fill=False, color='black', lw=2)
+        ax.add_patch(circle)
+        ax.plot(2, 2, 'ko', markersize=4)
+        ax.text(2.1, 2.1, 'O', fontsize=11, fontweight='bold')
+        ax.plot([2, 3.6], [2, 2], 'k-', lw=1.2)
+        ax.text(2.8, 2.12, 'r', fontsize=10, style='italic')
+        ax.set_xlim(0, 4); ax.set_ylim(0, 4)
+        if clean_label:
+            ax.text(2, -0.1, clean_label, fontsize=10, ha='center', fontweight='bold', color='blue')
+    elif "SEMICIRCLE" in shape_upper or "SEMI" in shape_upper:
+        theta = np.linspace(0, np.pi, 100)
+        ax.plot(2 + 1.6*np.cos(theta), 1 + 1.6*np.sin(theta), 'k-', lw=2)
+        ax.plot([0.4, 3.6], [1, 1], 'k-', lw=2)
+        ax.plot(2, 1, 'ko', markersize=4)
+        ax.text(2.05, 0.8, 'O', fontsize=11, fontweight='bold')
+        ax.set_xlim(0, 4); ax.set_ylim(0, 3.2)
+        if clean_label:
+            ax.text(2, 0.3, clean_label, fontsize=10, ha='center', fontweight='bold', color='blue')
     ax.set_aspect('equal')
     ax.axis('off')
     img_buf = io.BytesIO()
@@ -429,12 +451,23 @@ def generate_prompt_v18(subject, lessons_list, exam_type, exam_time, total_marks
         lang_instruction      = "5. Language: Pure TAMIL only."
         header_format         = "பகுதி [ROMAN_NUM] - [பிரிவின் விளக்கம்] (No_of_Qs x Marks = Total_Marks)"
         option_format         = "Options marker: அ) , ஆ) , இ) , ஈ)"
-        subject_blueprint_rules = f"[MANDATORY CRITICAL MATHEMATICS CORE EMBEDDED LOCK]\n1. ABSOLUTE BAN ON AI DISCLAIMERS.\n2. DYNAMIC GEOMETRY TAGS: [DRAW_TRIANGLE: AB=5cm].\n3. GRAPH PAPER COORDINATES.\n{math_weightage_directive}"
+        subject_blueprint_rules = f"[MANDATORY CRITICAL MATHEMATICS CORE EMBEDDED LOCK]\n1. ABSOLUTE BAN ON AI DISCLAIMERS.\n2. DYNAMIC GEOMETRY TAGS: When a question involves a geometric shape, add the tag on a separate line after the question. Available tags: [DRAW_TRIANGLE: label], [DRAW_SQUARE: label], [DRAW_RECTANGLE: label], [DRAW_CIRCLE: label], [DRAW_SEMICIRCLE: label]. Example: [DRAW_CIRCLE: r=7cm]\n3. GRAPH PAPER COORDINATES.\n{math_weightage_directive}"
     else:
         lang_instruction      = "5. Language: Pure TAMIL language only."
         header_format         = "பகுதி [ROMAN_NUM]"
         option_format         = "Options marker: அ) , ஆ) , இ) , ஈ)"
         subject_blueprint_rules = ""
+
+    no_latex_rule = """
+[STRICT NO-LATEX OUTPUT RULE - CRITICAL]
+- NEVER output LaTeX syntax. This is a printable exam paper, not a LaTeX document.
+- BANNED: \\rightarrow, \\frac{}{}, \\{ \\}, \\times, \\sqrt{}, x^{2}, $...$, \\in, \\triangle etc.
+- USE INSTEAD plain Unicode: → for arrows, { } for sets, × for multiply,
+  √ for root, x² x³ superscripts, ∈ for element-of, ∠ for angle, △ for triangle,
+  a/b format for fractions, θ π α β for Greek letters.
+- Example CORRECT: f: A → B, f(x) = 3x - 1, A = {1, 2, 3, 4}, x² + y² = r²
+- Example WRONG: f: A \\rightarrow B, A = \\{1, 2, 3\\}, x^{2}
+"""
 
     theorem_proof_rule = """
 [STRICT THEOREM & PROOF ANSWER KEY RULE]
@@ -459,7 +492,64 @@ def generate_prompt_v18(subject, lessons_list, exam_type, exam_time, total_marks
   a WRONGLY tagged question is NOT acceptable.
 - Do NOT invent or guess exam sessions. Do NOT tag more than 40% of questions.
 """
-    return f"Subject: {subject}\nLessons: {lessons_str}\nExam Type: {exam_type}\nTotal Marks: {total_marks}\nTime: {exam_time}\nMode: {exam_mode}\n{difficulty_directive}\n{blueprint_desc}\n{header_format}\n{option_format}\n{lang_instruction}\n{subject_blueprint_rules}\n{theorem_proof_rule}\n{pyq_tagging_rule}\n=== ANSWER KEY ==="
+
+    no_latex_rule = """
+[ABSOLUTE NO-LATEX FORMATTING RULE]
+- NEVER use LaTeX syntax in the output. This is a Word document, not LaTeX.
+- BANNED: \\{ \\} \\rightarrow \\leftarrow \\times \\div \\le \\ge \\ne \\in \\subset \\cup \\cap \\sqrt{} \\frac{}{} \\pi \\theta \\alpha \\beta \\angle \\triangle \\cdot $...$ etc.
+- USE plain Unicode symbols instead:
+  * Sets: {1, 2, 3} — plain curly braces WITHOUT backslash
+  * Arrow: → (f: A → B)
+  * Multiply: × | Divide: ÷ | Not equal: ≠ | Less/greater equal: ≤ ≥
+  * Element of: ∈ | Subset: ⊂ | Union: ∪ | Intersection: ∩
+  * Square root: √2, √(x+1) | Fraction: a/b or (x+1)/(x-2)
+  * Pi: π | Theta: θ | Degree: 45° | Angle: ∠ABC | Triangle: △ABC
+  * Squared: x² | Cubed: x³ | Subscript: a₁, a₂, aₙ
+- Example CORRECT: "A = {1, 2, 3, 4}, B = {2, 5, 8} மற்றும் f: A → B ஆனது f(x) = 3x - 1"
+- Example WRONG: "A = \\{1, 2, 3, 4\\}, f: A \\rightarrow B"
+"""
+    return f"Subject: {subject}\nLessons: {lessons_str}\nExam Type: {exam_type}\nTotal Marks: {total_marks}\nTime: {exam_time}\nMode: {exam_mode}\n{difficulty_directive}\n{blueprint_desc}\n{header_format}\n{option_format}\n{lang_instruction}\n{subject_blueprint_rules}\n{no_latex_rule}\n{theorem_proof_rule}\n{pyq_tagging_rule}\n{no_latex_rule}\n=== ANSWER KEY ==="
+
+
+# ==========================================
+# LaTeX → Normal Text Converter
+# ==========================================
+LATEX_REPLACEMENTS = [
+    (r'\\rightarrow', '→'), (r'\\to\b', '→'), (r'\\leftarrow', '←'),
+    (r'\\Rightarrow', '⇒'), (r'\\leftrightarrow', '↔'),
+    (r'\\in\b', '∈'), (r'\\notin', '∉'), (r'\\subseteq', '⊆'), (r'\\subset', '⊂'),
+    (r'\\cup', '∪'), (r'\\cap', '∩'), (r'\\emptyset', '∅'), (r'\\phi', 'φ'),
+    (r'\\times', '×'), (r'\\div', '÷'), (r'\\pm', '±'),
+    (r'\\cdot', '·'), (r'\\neq', '≠'), (r'\\ne\b', '≠'),
+    (r'\\leq', '≤'), (r'\\le\b', '≤'), (r'\\geq', '≥'), (r'\\ge\b', '≥'),
+    (r'\\approx', '≈'), (r'\\equiv', '≡'), (r'\\infty', '∞'),
+    (r'\\angle', '∠'), (r'\\triangle', '△'),
+    (r'\\perp', '⊥'), (r'\\parallel', '∥'), (r'\\cong', '≅'), (r'\\sim\b', '∼'),
+    (r'\\degree', '°'), (r'\\circ\b', '°'),
+    (r'\\alpha', 'α'), (r'\\beta', 'β'), (r'\\gamma', 'γ'), (r'\\delta', 'δ'),
+    (r'\\theta', 'θ'), (r'\\lambda', 'λ'), (r'\\mu\b', 'μ'), (r'\\pi\b', 'π'),
+    (r'\\sigma', 'σ'), (r'\\omega', 'ω'), (r'\\Delta', 'Δ'), (r'\\Sigma', 'Σ'),
+    (r'\\mathbb\{R\}', 'ℝ'), (r'\\mathbb\{N\}', 'ℕ'), (r'\\mathbb\{Z\}', 'ℤ'), (r'\\mathbb\{Q\}', 'ℚ'),
+]
+
+SUPERSCRIPT_MAP = {'0':'⁰','1':'¹','2':'²','3':'³','4':'⁴','5':'⁵','6':'⁶','7':'⁷','8':'⁸','9':'⁹','n':'ⁿ','-':'⁻','+':'⁺'}
+SUBSCRIPT_MAP   = {'0':'₀','1':'₁','2':'₂','3':'₃','4':'₄','5':'₅','6':'₆','7':'₇','8':'₈','9':'₉','n':'ₙ','-':'₋','+':'₊'}
+
+def latex_to_normal(text):
+    """LaTeX symbols → normal Unicode text"""
+    text = re.sub(r'\\d?frac\{([^{}]+)\}\{([^{}]+)\}', r'(\1/\2)', text)
+    text = re.sub(r'\\sqrt\{([^{}]+)\}', r'√(\1)', text)
+    text = re.sub(r'\\sqrt\s*', '√', text)
+    for pattern, repl in LATEX_REPLACEMENTS:
+        text = re.sub(pattern, repl, text)
+    text = re.sub(r'\^\{([^{}]+)\}', lambda m: ''.join(SUPERSCRIPT_MAP.get(c, c) for c in m.group(1)), text)
+    text = re.sub(r'\^(\d)', lambda m: SUPERSCRIPT_MAP.get(m.group(1), m.group(1)), text)
+    text = re.sub(r'_\{([^{}]+)\}', lambda m: ''.join(SUBSCRIPT_MAP.get(c, c) for c in m.group(1)), text)
+    text = re.sub(r'_(\d)', lambda m: SUBSCRIPT_MAP.get(m.group(1), m.group(1)), text)
+    text = text.replace('\\{', '{').replace('\\}', '}')
+    text = text.replace('$', '')
+    text = re.sub(r'\\(?=[a-zA-Z])', '', text)  # strip leftover backslashes
+    return text
 
 def set_cell_margins(cell, **kwargs):
     tcPr = cell._element.get_or_add_tcPr()
@@ -484,11 +574,12 @@ def add_solid_line(doc):
     p.paragraph_format.element.get_or_add_pPr().append(pBdr)
 
 def write_markdown_to_word(doc, text):
+    text = latex_to_normal(text)
     for line in text.split('\n'):
         line = line.strip()
         if not line:
             continue
-        draw_match = re.search(r'\[DRAW_(TRIANGLE|SQUARE)[:\s]*(.*?)\]', line, re.IGNORECASE)
+        draw_match = re.search(r'\[DRAW_(TRIANGLE|SQUARE|RECTANGLE|CIRCLE|SEMICIRCLE)[:\s]*(.*?)\]', line, re.IGNORECASE)
         if draw_match:
             shape_type = draw_match.group(1)
             label_text = draw_match.group(2)
