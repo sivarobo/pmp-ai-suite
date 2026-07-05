@@ -19,9 +19,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import psycopg2
 import psycopg2.extras
-import requests
-import urllib.parse
-import secrets
+from streamlit_google_auth import Authenticate
 
 # ==========================================
 # st.set_page_config - MUST BE FIRST
@@ -94,47 +92,16 @@ def get_db():
         return None
 
 # ==========================================
-# Google OAuth Functions
+# Google Auth Setup (streamlit-google-auth)
 # ==========================================
-def _build_google_auth_url():
-    """Google OAuth URL உருவாக்கு"""
-    state = secrets.token_urlsafe(16)
-    st.session_state["oauth_state"] = state
-
-    params = {
-        "client_id":     st.secrets["google"]["client_id"],
-        "redirect_uri":  st.secrets["google"]["redirect_uri"],
-        "response_type": "code",
-        "scope":         "openid email profile",
-        "state":         state,
-        "access_type":   "offline",
-        "prompt":        "select_account",  # Always show account picker
-    }
-    return "https://accounts.google.com/o/oauth2/v2/auth?" + urllib.parse.urlencode(params)
-
-def _exchange_code_for_token(code):
-    """Auth code → Access token"""
-    resp = requests.post(
-        "https://oauth2.googleapis.com/token",
-        data={
-            "code":          code,
-            "client_id":     st.secrets["google"]["client_id"],
-            "client_secret": st.secrets["google"]["client_secret"],
-            "redirect_uri":  st.secrets["google"]["redirect_uri"],
-            "grant_type":    "authorization_code",
-        },
-        timeout=10,
-    )
-    return resp.json() if resp.status_code == 200 else None
-
-def _fetch_google_user_info(access_token):
-    """Access token → Google user info"""
-    resp = requests.get(
-        "https://www.googleapis.com/oauth2/v2/userinfo",
-        headers={"Authorization": f"Bearer {access_token}"},
-        timeout=10,
-    )
-    return resp.json() if resp.status_code == 200 else None
+auth = Authenticate(
+    secret_credentials_path=None,
+    cookie_name="pmp_auth",
+    cookie_key=st.secrets.get("COOKIE_KEY", "pmp_secret_2026"),
+    redirect_uri=st.secrets["google"]["redirect_uri"],
+    client_id=st.secrets["google"]["client_id"],
+    client_secret=st.secrets["google"]["client_secret"],
+)
 
 # ==========================================
 # User DB Functions (Google-based)
@@ -142,7 +109,7 @@ def _fetch_google_user_info(access_token):
 def upsert_google_user(google_info):
     """
     Google login → DB-ல் user save/update.
-    First time: insert. Return visit: last_login update.
+    streamlit-google-auth provides: name, email, picture
     """
     try:
         conn = get_db()
@@ -170,13 +137,13 @@ def upsert_google_user(google_info):
         cur.execute("""
             INSERT INTO users (google_id, email, name, picture, last_login)
             VALUES (%s, %s, %s, %s, NOW())
-            ON CONFLICT (google_id) DO UPDATE
+            ON CONFLICT (email) DO UPDATE
               SET name       = EXCLUDED.name,
                   picture    = EXCLUDED.picture,
                   last_login = NOW()
             RETURNING id, google_id, email, name, picture, plan, created_at
         """, (
-            google_info["id"],
+            google_info.get("sub", google_info.get("id", "")),
             google_info["email"],
             google_info["name"],
             google_info.get("picture", ""),
@@ -231,53 +198,12 @@ FREE_DAILY_LIMIT = 2
 # ==========================================
 # GOOGLE OAUTH CALLBACK HANDLER
 # ==========================================
-def handle_oauth_callback():
-    """URL-ல் ?code= இருந்தா handle பண்ணு"""
-    params = st.query_params
-    code  = params.get("code")
-    state = params.get("state")
-
-    if not code or not state:
-        return False
-
-    # CSRF state check
-    if state != st.session_state.get("oauth_state", ""):
-        st.error("❌ Invalid login session. Please try again.")
-        st.query_params.clear()
-        st.rerun()
-
-    with st.spinner("🔄 Google login processing..."):
-        token_data = _exchange_code_for_token(code)
-
-    if not token_data or "access_token" not in token_data:
-        st.error("❌ Google login failed. Please try again.")
-        st.query_params.clear()
-        st.rerun()
-
-    google_info = _fetch_google_user_info(token_data["access_token"])
-    if not google_info or "id" not in google_info:
-        st.error("❌ Google user info கிடைக்கவில்லை.")
-        st.query_params.clear()
-        st.rerun()
-
-    # DB save / update
-    db_user = upsert_google_user(google_info)
-    if not db_user:
-        st.error("❌ User save பண்ண முடியவில்லை.")
-        st.query_params.clear()
-        st.rerun()
-
-    # Session store
-    st.session_state["logged_in_user"] = db_user
-
-    # Clean URL
-    st.query_params.clear()
-    st.rerun()
-
 # ==========================================
-# LOGIN PAGE UI
+# ACCESS GATE — streamlit-google-auth
 # ==========================================
-def show_auth_page():
+auth.check_authentification()
+
+if not st.session_state.get("connected"):
     st.markdown("""
     <div style='text-align:center; padding:30px 0 10px 0;'>
         <div style='font-size:56px;'>🎓</div>
@@ -285,85 +211,35 @@ def show_auth_page():
         <p style='color:#64748b; font-size:16px;'>AI-Powered Question Paper Generator</p>
     </div>
     """, unsafe_allow_html=True)
-
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
-        # Free plan info
         st.markdown("""
         <div style='background:#f0fdf4; border:1px solid #86efac; border-radius:10px;
-                    padding:14px 18px; margin:16px 0; text-align:left;'>
+                    padding:14px 18px; margin:16px 0;'>
             <b style='color:#166534;'>🎁 Free Plan:</b>
             <ul style='color:#166534; margin:6px 0 0 0; padding-left:20px;'>
                 <li>தினமும் 2 Question Papers Free</li>
-                <li>Exceed ஆனால் Pay &amp; Generate</li>
                 <li>Always Free — No Expiry</li>
             </ul>
         </div>
         """, unsafe_allow_html=True)
-
-        # Google Sign-In Button
-        auth_url = _build_google_auth_url()
-        st.markdown(f"""
-        <div style='margin:8px 0 4px 0;'>
-            <a href="{auth_url}" class="google-btn-link" target="_self">
-                <svg width="22" height="22" viewBox="0 0 48 48">
-                    <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
-                    <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
-                    <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
-                    <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.18 1.48-4.97 2.31-8.16 2.31-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
-                </svg>
-                Google-ல் உள்நுழைக (Sign in with Google)
-            </a>
-        </div>
-        <p style='text-align:center; color:#94a3b8; font-size:13px; margin-top:10px;'>
-            OTP தேவையில்லை · Already login ஆன Gmail account தேர்ந்தெடுக்கவும்
-        </p>
-        """, unsafe_allow_html=True)
-
-# ==========================================
-# LIMIT REACHED PAGE (unchanged)
-# ==========================================
-def show_limit_reached_page(user, today_count):
-    st.markdown(f"""
-    <div style='text-align:center; padding:20px;'>
-        <h2>⚡ இன்றைய Free Limit முடிந்தது</h2>
-        <p style='color:#64748b;'>நீங்கள் இன்று <b>{today_count}</b> question papers generate பண்ணிவிட்டீர்கள்.</p>
-        <p style='color:#64748b;'>Free limit: <b>{FREE_DAILY_LIMIT} per day</b></p>
-    </div>
-    """, unsafe_allow_html=True)
-
-    col1, col2, col3 = st.columns([1, 2, 1])
-    with col2:
-        st.markdown("### 💳 More Questions வேணுமா?")
-        st.markdown("""
-        <div style='background:#fefce8; border:1px solid #fde047; border-radius:10px; padding:16px; margin:8px 0;'>
-            <h4 style='color:#854d0e; margin:0 0 8px 0;'>🌟 Plan Options (Coming Soon)</h4>
-            <ul style='color:#854d0e; margin:0; padding-left:18px;'>
-                <li>₹5 per extra question paper</li>
-                <li>₹49 = Unlimited (1 Day)</li>
-                <li>₹299 = Unlimited (30 Days)</li>
-            </ul>
-            <p style='color:#854d0e; margin:8px 0 0 0; font-size:14px;'>
-                Payment system விரைவில் வருகிறது! 🚀
-            </p>
-        </div>
-        """, unsafe_allow_html=True)
-        st.info("⏰ நாளை காலை 12:00 AM-ல் உங்கள் free limit மீண்டும் கிடைக்கும்!")
-        if st.button("🚪 Logout", use_container_width=True):
-            st.session_state.pop("logged_in_user", None)
-            st.rerun()
-
-# ==========================================
-# ACCESS GATE
-# ==========================================
-
-# Step 1: OAuth callback handle பண்ணு (URL-ல் ?code= இருந்தா)
-handle_oauth_callback()
-
-# Step 2: Login இல்லாட்டி login page காட்டு
-if not st.session_state.get("logged_in_user"):
-    show_auth_page()
+        auth.login()
     st.stop()
+
+# ── Google user info → DB save ──
+google_info = st.session_state.get("user_info", {})
+if not st.session_state.get("logged_in_user") and google_info:
+    db_user = upsert_google_user(google_info)
+    if db_user:
+        st.session_state["logged_in_user"] = db_user
+    else:
+        st.session_state["logged_in_user"] = {
+            "id":      0,
+            "email":   google_info.get("email", ""),
+            "name":    google_info.get("name", "User"),
+            "picture": google_info.get("picture", ""),
+            "plan":    "free",
+        }
 
 # ==========================================
 # LOGGED IN — Get user & check usage
@@ -793,5 +669,6 @@ with tab2:
             """, unsafe_allow_html=True)
         st.markdown(f"**👤 {user_name}** ({user_email})")
         if st.button("🚪 Logout", use_container_width=True):
+            auth.logout()
             st.session_state.pop("logged_in_user", None)
             st.rerun()
