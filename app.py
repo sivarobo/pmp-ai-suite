@@ -563,6 +563,39 @@ def generate_prompt_v18(subject, lessons_list, exam_type, exam_time, total_marks
   -> Do NOT generate proof steps or reasoning under any circumstance.
 """
 
+    quality_rules = """
+[QUESTION PAPER QUALITY RULES - MANDATORY]
+1. THEOREM DIAGRAMS ARE COMPULSORY:
+   - EVERY theorem proof question (தேற்றம் எழுதி நிரூபிக்கவும்) MUST have its diagram tag.
+   - தேல்ஸ் தேற்றம் → [DRAW_THALES] is NON-NEGOTIABLE. Never skip it.
+   - A theorem question WITHOUT its diagram tag is an INVALID output.
+
+2. CONSTRUCTION QUESTIONS (வரைக / அமைக்க questions):
+   - After every construction question, add this line:
+     (உரிய அளவுகளுடன் வரைபடம் வரைந்து காட்டவும்)
+   - If the question refers to a given triangle/circle, state ALL measurements
+     explicitly in the question text itself.
+
+3. QUESTION CLARITY:
+   - NEVER write vague questions like "வடிவொத்த முக்கோணங்கள் வரைய பயன்படும் தேற்றத்தை எழுதுக".
+   - Always name the EXACT theorem: e.g. "அடிப்படை விகிதசம தேற்றத்தை (தேல்ஸ் தேற்றம்) எழுதி நிரூபிக்கவும்".
+   - If a question asks about angle bisector, specify internal (உட்புற) or external (வெளிப்புற)
+     AND state clearly where the intersection point lies (e.g. "D என்பது BC-ன் நீட்டிப்பில் உள்ளது").
+
+4. MULTI-PART QUESTIONS:
+   - If a question has two tasks (e.g. "நிரூபிக்கவும்" + "மதிப்பு காண்க"),
+     split into (அ) and (ஆ) sub-parts explicitly.
+
+5. ANSWER KEY CONSISTENCY:
+   - The ratio/expression in the Answer Key MUST be IDENTICAL to the one asked in the question.
+   - If question asks AO/BO = CO/DO, answer key must use AO/BO = CO/DO. Never switch to a different
+     equivalent form. Never write "(அல்லது ...)" alternate forms.
+
+6. REALISTIC VALUES:
+   - Design numerical questions so answers are clean values (whole numbers or simple decimals
+     like 4.5). Avoid awkward answers like 0.4 or 9.6 in geometry length problems.
+"""
+
     pyq_tagging_rule = """
 [PREVIOUS YEAR QUESTION (PYQ) TAGGING RULE - TN BOARD PUBLIC EXAMS]
 - Scope: Apply ONLY to 2-Mark, 5-Mark, and 8-Mark/Long-answer questions.
@@ -595,7 +628,7 @@ def generate_prompt_v18(subject, lessons_list, exam_type, exam_time, total_marks
 - Example CORRECT: "A = {1, 2, 3, 4}, B = {2, 5, 8} மற்றும் f: A → B ஆனது f(x) = 3x - 1"
 - Example WRONG: "A = \\{1, 2, 3, 4\\}, f: A \\rightarrow B"
 """
-    return f"Subject: {subject}\nLessons: {lessons_str}\nExam Type: {exam_type}\nTotal Marks: {total_marks}\nTime: {exam_time}\nMode: {exam_mode}\n{difficulty_directive}\n{blueprint_desc}\n{header_format}\n{option_format}\n{lang_instruction}\n{subject_blueprint_rules}\n{no_latex_rule}\n{theorem_proof_rule}\n{pyq_tagging_rule}\n{no_latex_rule}\n=== ANSWER KEY ==="
+    return f"Subject: {subject}\nLessons: {lessons_str}\nExam Type: {exam_type}\nTotal Marks: {total_marks}\nTime: {exam_time}\nMode: {exam_mode}\n{difficulty_directive}\n{blueprint_desc}\n{header_format}\n{option_format}\n{lang_instruction}\n{subject_blueprint_rules}\n{no_latex_rule}\n{quality_rules}\n{theorem_proof_rule}\n{pyq_tagging_rule}\n{no_latex_rule}\n=== ANSWER KEY ==="
 
 
 # ==========================================
