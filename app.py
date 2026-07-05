@@ -364,51 +364,122 @@ def get_blueprint_defaults(total_marks, is_social=False, is_english=False):
         defaults = {"p1": 5, "p2g": 6, "p2a": 5, "p3g": 3, "p3a": 2, "p4v": 8, "p4g": 0, "p4a": 0}
     return defaults
 
+def _clean_diagram_label(label_text):
+    """matplotlib Tamil render பண்ணாது - ASCII மட்டும் வைக்கிறோம்"""
+    import unicodedata
+    cleaned = label_text.replace("Angle", "∠").replace("angle", "∠")
+    # Keep only ASCII + common math symbols (Tamil letters become boxes in matplotlib)
+    safe = ''.join(c for c in cleaned if ord(c) < 0x0B80 or ord(c) > 0x0BFF)
+    return safe.strip()
+
 def generate_geometry_image(shape_type, label_text=""):
-    fig, ax = plt.subplots(figsize=(2.5, 2.5))
+    fig, ax = plt.subplots(figsize=(2.8, 2.8))
     shape_upper = shape_type.upper()
-    clean_label = label_text.replace("Angle", r"$\angle$").replace("angle", r"$\angle$")
-    if "TRIANGLE" in shape_upper:
-        points = np.array([[0, 0], [4, 0], [2, 3], [0, 0]])
+    clean_label = _clean_diagram_label(label_text)
+
+    if "THALES" in shape_upper or "BPT" in shape_upper:
+        # தேல்ஸ் தேற்றம் / Basic Proportionality Theorem
+        # Triangle ABC with D on AB, E on AC, DE parallel to BC
+        A = np.array([2.0, 3.6]); B = np.array([0.2, 0.2]); C = np.array([3.8, 0.2])
+        # D and E at 45% down from A
+        t = 0.45
+        D = A + t * (B - A)
+        E = A + t * (C - A)
+        # Main triangle
+        tri = np.array([A, B, C, A])
+        ax.plot(tri[:, 0], tri[:, 1], 'k-', lw=2)
+        # DE parallel line
+        ax.plot([D[0], E[0]], [D[1], E[1]], 'k-', lw=2)
+        # Parallel marks on DE and BC (small double ticks)
+        for seg_p1, seg_p2 in [(D, E), (B, C)]:
+            mid = (seg_p1 + seg_p2) / 2
+            ax.annotate('▸', xy=mid, fontsize=8, ha='center', va='center')
+        # Labels
+        ax.text(A[0], A[1]+0.15, 'A', fontsize=12, fontweight='bold', ha='center')
+        ax.text(B[0]-0.2, B[1]-0.1, 'B', fontsize=12, fontweight='bold')
+        ax.text(C[0]+0.1, C[1]-0.1, 'C', fontsize=12, fontweight='bold')
+        ax.text(D[0]-0.25, D[1], 'D', fontsize=12, fontweight='bold')
+        ax.text(E[0]+0.12, E[1], 'E', fontsize=12, fontweight='bold')
+        # DE ∥ BC annotation
+        ax.text(2.0, -0.35, 'DE ∥ BC', fontsize=11, ha='center', fontweight='bold')
+        ax.set_xlim(-0.5, 4.4); ax.set_ylim(-0.7, 4.1)
+
+    elif "PYTHAGORAS" in shape_upper or "RIGHT" in shape_upper:
+        # செங்கோண முக்கோணம் - right angle at B
+        A = np.array([0.3, 3.4]); B = np.array([0.3, 0.3]); C = np.array([3.9, 0.3])
+        tri = np.array([A, B, C, A])
+        ax.plot(tri[:, 0], tri[:, 1], 'k-', lw=2)
+        # Right angle square at B
+        ax.plot([0.3, 0.7], [0.7, 0.7], 'k-', lw=1)
+        ax.plot([0.7, 0.7], [0.3, 0.7], 'k-', lw=1)
+        ax.text(A[0]-0.05, A[1]+0.15, 'A', fontsize=12, fontweight='bold', ha='center')
+        ax.text(B[0]-0.25, B[1]-0.15, 'B', fontsize=12, fontweight='bold')
+        ax.text(C[0]+0.1, C[1]-0.15, 'C', fontsize=12, fontweight='bold')
+        ax.set_xlim(-0.4, 4.4); ax.set_ylim(-0.6, 4.0)
+
+    elif "TANGENT" in shape_upper:
+        # வட்டத்துக்கு தொடுகோடு
+        circle = plt.Circle((1.8, 2.0), 1.2, fill=False, color='black', lw=2)
+        ax.add_patch(circle)
+        ax.plot(1.8, 2.0, 'ko', markersize=4)
+        ax.text(1.85, 2.1, 'O', fontsize=11, fontweight='bold')
+        # Tangent point P at right side of circle
+        P = np.array([3.0, 2.0])
+        ax.plot(*P, 'ko', markersize=4)
+        ax.text(P[0]+0.1, P[1]+0.1, 'P', fontsize=11, fontweight='bold')
+        # Radius OP
+        ax.plot([1.8, P[0]], [2.0, P[1]], 'k-', lw=1.2)
+        # Tangent line (vertical through P)
+        ax.plot([P[0], P[0]], [0.4, 3.6], 'k-', lw=2)
+        # Right angle mark at P
+        ax.plot([P[0]-0.22, P[0]-0.22], [2.0, 2.22], 'k-', lw=1)
+        ax.plot([P[0]-0.22, P[0]], [2.22, 2.22], 'k-', lw=1)
+        ax.set_xlim(0, 4.2); ax.set_ylim(0, 4.0)
+
+    elif "TRIANGLE" in shape_upper:
+        points = np.array([[0.3, 0.3], [4.1, 0.3], [2.2, 3.3], [0.3, 0.3]])
         ax.plot(points[:, 0], points[:, 1], 'k-', lw=2)
-        ax.text(-0.2, -0.2, 'A', fontsize=11, fontweight='bold')
-        ax.text(4.1, -0.2, 'B', fontsize=11, fontweight='bold')
-        ax.text(2, 3.2, 'C', fontsize=11, fontweight='bold')
-        if clean_label:
-            ax.text(2, -0.6, clean_label, fontsize=10, ha='center', fontweight='bold', color='blue')
+        ax.text(0.1, 0.05, 'A', fontsize=12, fontweight='bold')
+        ax.text(4.2, 0.05, 'B', fontsize=12, fontweight='bold')
+        ax.text(2.2, 3.45, 'C', fontsize=12, fontweight='bold', ha='center')
+        ax.set_xlim(-0.3, 4.7); ax.set_ylim(-0.6, 3.9)
+
     elif "SQUARE" in shape_upper or "RECTANGLE" in shape_upper:
         w = 4 if "RECTANGLE" in shape_upper else 3
-        points = np.array([[0, 0], [w, 0], [w, 3], [0, 3], [0, 0]])
+        points = np.array([[0.3, 0.3], [w+0.3, 0.3], [w+0.3, 3.3], [0.3, 3.3], [0.3, 0.3]])
         ax.plot(points[:, 0], points[:, 1], 'k-', lw=2)
-        ax.text(-0.25, -0.25, 'A', fontsize=10, fontweight='bold')
-        ax.text(w+0.1, -0.25, 'B', fontsize=10, fontweight='bold')
-        ax.text(w+0.1, 3.1, 'C', fontsize=10, fontweight='bold')
-        ax.text(-0.25, 3.1, 'D', fontsize=10, fontweight='bold')
-        if clean_label:
-            ax.text(w/2, -0.6, clean_label, fontsize=10, ha='center', fontweight='bold', color='blue')
+        ax.text(0.05, 0.05, 'A', fontsize=11, fontweight='bold')
+        ax.text(w+0.4, 0.05, 'B', fontsize=11, fontweight='bold')
+        ax.text(w+0.4, 3.4, 'C', fontsize=11, fontweight='bold')
+        ax.text(0.05, 3.4, 'D', fontsize=11, fontweight='bold')
+        ax.set_xlim(-0.4, w+1); ax.set_ylim(-0.6, 3.9)
+
+    elif "SEMICIRCLE" in shape_upper or "SEMI" in shape_upper:
+        theta = np.linspace(0, np.pi, 100)
+        ax.plot(2 + 1.6*np.cos(theta), 1 + 1.6*np.sin(theta), 'k-', lw=2)
+        ax.plot([0.4, 3.6], [1, 1], 'k-', lw=2)
+        ax.plot(2, 1, 'ko', markersize=4)
+        ax.text(2.05, 0.78, 'O', fontsize=11, fontweight='bold')
+        ax.set_xlim(0, 4); ax.set_ylim(0, 3.2)
+
     elif "CIRCLE" in shape_upper:
         circle = plt.Circle((2, 2), 1.6, fill=False, color='black', lw=2)
         ax.add_patch(circle)
         ax.plot(2, 2, 'ko', markersize=4)
         ax.text(2.1, 2.1, 'O', fontsize=11, fontweight='bold')
         ax.plot([2, 3.6], [2, 2], 'k-', lw=1.2)
-        ax.text(2.8, 2.12, 'r', fontsize=10, style='italic')
+        ax.text(2.8, 2.14, 'r', fontsize=10, style='italic')
         ax.set_xlim(0, 4); ax.set_ylim(0, 4)
-        if clean_label:
-            ax.text(2, -0.1, clean_label, fontsize=10, ha='center', fontweight='bold', color='blue')
-    elif "SEMICIRCLE" in shape_upper or "SEMI" in shape_upper:
-        theta = np.linspace(0, np.pi, 100)
-        ax.plot(2 + 1.6*np.cos(theta), 1 + 1.6*np.sin(theta), 'k-', lw=2)
-        ax.plot([0.4, 3.6], [1, 1], 'k-', lw=2)
-        ax.plot(2, 1, 'ko', markersize=4)
-        ax.text(2.05, 0.8, 'O', fontsize=11, fontweight='bold')
-        ax.set_xlim(0, 4); ax.set_ylim(0, 3.2)
-        if clean_label:
-            ax.text(2, 0.3, clean_label, fontsize=10, ha='center', fontweight='bold', color='blue')
+
+    # Label (ASCII-safe only)
+    if clean_label:
+        ax.text(0.5, 0.01, clean_label, fontsize=9, ha='center',
+                fontweight='bold', color='blue', transform=ax.transAxes)
+
     ax.set_aspect('equal')
     ax.axis('off')
     img_buf = io.BytesIO()
-    plt.savefig(img_buf, format='png', bbox_inches='tight', dpi=100)
+    plt.savefig(img_buf, format='png', bbox_inches='tight', dpi=110)
     img_buf.seek(0)
     plt.close(fig)
     return img_buf
@@ -451,7 +522,23 @@ def generate_prompt_v18(subject, lessons_list, exam_type, exam_time, total_marks
         lang_instruction      = "5. Language: Pure TAMIL only."
         header_format         = "பகுதி [ROMAN_NUM] - [பிரிவின் விளக்கம்] (No_of_Qs x Marks = Total_Marks)"
         option_format         = "Options marker: அ) , ஆ) , இ) , ஈ)"
-        subject_blueprint_rules = f"[MANDATORY CRITICAL MATHEMATICS CORE EMBEDDED LOCK]\n1. ABSOLUTE BAN ON AI DISCLAIMERS.\n2. DYNAMIC GEOMETRY TAGS: When a question involves a geometric shape, add the tag on a separate line after the question. Available tags: [DRAW_TRIANGLE: label], [DRAW_SQUARE: label], [DRAW_RECTANGLE: label], [DRAW_CIRCLE: label], [DRAW_SEMICIRCLE: label]. Example: [DRAW_CIRCLE: r=7cm]\n3. GRAPH PAPER COORDINATES.\n{math_weightage_directive}"
+        subject_blueprint_rules = f"""[MANDATORY CRITICAL MATHEMATICS CORE EMBEDDED LOCK]
+1. ABSOLUTE BAN ON AI DISCLAIMERS.
+2. GEOMETRY DIAGRAM TAGS - STRICT RULES:
+   - NEVER draw diagrams using text characters (/, \\, -, |). ASCII art is ABSOLUTELY BANNED.
+   - Instead, write the FULL question text first, then on the NEXT separate line add ONE diagram tag.
+   - The question text must always be complete. NEVER replace question text with a tag.
+   - THEOREM-SPECIFIC tags (use the MATCHING tag for the theorem):
+     * தேல்ஸ் தேற்றம் / Thales / Basic Proportionality Theorem (BPT) → [DRAW_THALES]
+     * பிதாகரஸ் தேற்றம் / Pythagoras / right-angle triangle → [DRAW_PYTHAGORAS]
+     * தொடுகோடு / tangent to circle → [DRAW_TANGENT]
+   - GENERIC shape tags: [DRAW_TRIANGLE], [DRAW_SQUARE], [DRAW_RECTANGLE], [DRAW_CIRCLE], [DRAW_SEMICIRCLE]
+   - Labels inside tags must be ENGLISH/numbers only (e.g. [DRAW_CIRCLE: r=7cm]). NO Tamil text inside tags.
+   - Example CORRECT:
+     35. தேல்ஸ் தேற்றத்தை எழுதி நிரூபிக்கவும்.
+     [DRAW_THALES]
+3. GRAPH PAPER COORDINATES.
+{math_weightage_directive}"""
     else:
         lang_instruction      = "5. Language: Pure TAMIL language only."
         header_format         = "பகுதி [ROMAN_NUM]"
@@ -579,7 +666,7 @@ def write_markdown_to_word(doc, text):
         line = line.strip()
         if not line:
             continue
-        draw_match = re.search(r'\[DRAW_(TRIANGLE|SQUARE|RECTANGLE|CIRCLE|SEMICIRCLE)[:\s]*(.*?)\]', line, re.IGNORECASE)
+        draw_match = re.search(r'\[DRAW_(THALES|BPT|PYTHAGORAS|RIGHT_TRIANGLE|TANGENT|TRIANGLE|SQUARE|RECTANGLE|CIRCLE|SEMICIRCLE)[:\s]*(.*?)\]', line, re.IGNORECASE)
         if draw_match:
             shape_type = draw_match.group(1)
             label_text = draw_match.group(2)
