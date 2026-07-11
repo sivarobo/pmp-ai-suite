@@ -13,6 +13,7 @@ import re
 import time
 import datetime
 import random
+import json
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
@@ -206,6 +207,144 @@ def increment_usage(user_id):
     except:
         return False
 
+# ==========================================
+# QUESTION BANK (புத்தக கேள்வி வங்கி) — DB Functions
+# ==========================================
+def ensure_question_bank_table():
+    try:
+        conn = get_db()
+        if not conn:
+            return
+        cur = conn.cursor()
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS question_bank (
+                id            SERIAL PRIMARY KEY,
+                subject       TEXT,
+                lesson        TEXT,
+                mark_type     TEXT,
+                qtype         TEXT,
+                question_text TEXT,
+                answer_text   TEXT,
+                created_at    TIMESTAMP DEFAULT NOW()
+            )
+        """)
+        conn.commit()
+        conn.close()
+    except Exception as e:
+        st.error(f"Question Bank Table Error: {e}")
+
+def fetch_bank_questions(subject, lesson, mark_type):
+    try:
+        conn = get_db()
+        if not conn:
+            return []
+        cur = conn.cursor()
+        cur.execute(
+            "SELECT id, qtype, question_text, answer_text FROM question_bank "
+            "WHERE subject=%s AND lesson=%s AND mark_type=%s ORDER BY id",
+            (subject, lesson, mark_type)
+        )
+        rows = cur.fetchall()
+        conn.close()
+        return [dict(r) for r in rows]
+    except Exception as e:
+        st.error(f"Bank Fetch Error: {e}")
+        return []
+
+MARK_TYPE_LABELS = {
+    "1M":   "1-மார்க் (MCQ / குறுவினா)",
+    "2M":   "2-மார்க் வினா",
+    "5M":   "5-மார்க் வினா",
+    "LONG": "நெடுவினா (Long Answer)",
+}
+
+def save_bank_questions(subject, lesson, mark_type, items):
+    try:
+        conn = get_db()
+        if not conn:
+            return
+        cur = conn.cursor()
+        for it in items:
+            cur.execute(
+                "INSERT INTO question_bank (subject, lesson, mark_type, qtype, question_text, answer_text) "
+                "VALUES (%s, %s, %s, %s, %s, %s)",
+                (subject, lesson, mark_type, it.get("qtype", "பயிற்சி"), it.get("question", "").strip(), it.get("answer", "").strip())
+            )
+        conn.commit()
+        conn.close()
+    except Exception as e:
+        st.error(f"Bank Save Error: {e}")
+
+def generate_bank_questions_ai(subject, lesson, mark_type, count=8):
+    """Gemini மூலம் புத்தக பாணி (Book Back / Exercise / Example) கேள்விகளை உருவாக்குதல்"""
+    mark_desc = MARK_TYPE_LABELS.get(mark_type, mark_type)
+    prompt = f"""நீங்கள் Tamil Nadu Class 10 பாடநூல் நிபுணர். பாடம்: "{lesson}" | பாடப்பிரிவு: {subject}.
+
+இந்த பாடத்திலிருந்து {count} கேள்விகளை உருவாக்கவும் — மதிப்பெண் வகை: {mark_desc}.
+இவை TN Samacheer Kalvi பாடப்புத்தகத்தின் "பின்புற வினாக்கள்" (Book Back Exercise), "பயிற்சி கணக்குகள்" (Practice Problems),
+மற்றும் "எடுத்துக்காட்டு கணக்குகள்" (Solved Examples) பாணியை நெருக்கமாக ஒத்திருக்க வேண்டும்.
+qtype-ஐ மூன்றிலும் கலந்து (mix) கொடுக்கவும்.
+
+பதில் STRICTLY இந்த JSON அணி (array) வடிவில் மட்டும் இருக்க வேண்டும், வேறு எந்த உரையும் (preamble, code fences) கூடாது:
+[
+  {{"qtype": "பின்புற வினா", "question": "தமிழில் முழு கேள்வி", "answer": "தமிழில் சுருக்கமான விடை/தீர்வு"}},
+  ...
+]
+கணிதம் சின்னங்களுக்கு LaTeX பயன்படுத்தாதீர்கள் — plain Unicode (×, ÷, √, ², π, ∠ போன்றவை) மட்டும் பயன்படுத்தவும்.
+"""
+    try:
+        response = client.models.generate_content(model='gemini-2.5-flash', contents=prompt)
+        raw = response.text.strip()
+        raw = re.sub(r'^```json\s*|\s*```$', '', raw.strip(), flags=re.MULTILINE).strip()
+        raw = re.sub(r'^```|```$', '', raw.strip()).strip()
+        items = json.loads(raw)
+        if isinstance(items, list):
+            return items
+        return []
+    except Exception as e:
+        st.warning(f"⚠️ '{lesson}' ({mark_desc}) கேள்வி வங்கி உருவாக்கத்தில் பிழை: {e}")
+        return []
+
+def get_or_build_bank(subject, lesson, mark_type, min_count=8):
+    """DB-ல் இருந்தால் fetch பண்ணும், இல்லைனா AI மூலம் generate பண்ணி DB-ல் save பண்ணி திருப்பும்"""
+    existing = fetch_bank_questions(subject, lesson, mark_type)
+    if len(existing) >= min_count:
+        return existing
+    needed = max(min_count - len(existing), 6)
+    new_items = generate_bank_questions_ai(subject, lesson, mark_type, count=needed)
+    if new_items:
+        save_bank_questions(subject, lesson, mark_type, new_items)
+        existing = fetch_bank_questions(subject, lesson, mark_type)
+    return existing
+
+def assemble_paper_from_bank(parts_cfg):
+    """
+    parts_cfg: list of dicts —
+      {"label": "பகுதி I", "mark": 1, "given": N, "answer": N, "note": "", "items": [ {question_text, answer_text}, ... ]}
+    தேர்ந்தெடுக்கப்பட்ட கேள்விகளை மட்டும் வைத்து AI-response போன்ற text உருவாக்குகிறது
+    (create_professional_docx() அதே pipeline-ஐ மறுபயன்பாடு செய்ய).
+    """
+    q_lines = []
+    a_lines = []
+    counter = 1
+    for part in parts_cfg:
+        items = part["items"]
+        if not items:
+            continue
+        total_marks = part["given"] * part["mark"]
+        header = f'{part["label"]} ( {part["given"]} x {part["mark"]} = {total_marks} )'
+        if part.get("note"):
+            header += f'  [{part["note"]}]'
+        q_lines.append(header)
+        a_lines.append(part["label"])
+        for it in items:
+            q_lines.append(f'{counter}. {it["question_text"]}')
+            a_lines.append(f'{counter}. {it.get("answer_text", "")}')
+            counter += 1
+        q_lines.append("")
+        a_lines.append("")
+    return "\n".join(q_lines) + "\n=== ANSWER KEY ===\n" + "\n".join(a_lines)
+
 FREE_DAILY_LIMIT = 2
 
 # ==========================================
@@ -313,6 +452,8 @@ def load_data():
         return pd.read_csv('lesson_master_v1_5.csv')
     except:
         return pd.DataFrame()
+
+ensure_question_bank_table()
 
 def get_math_dynamic_weightage(selected_lessons, part1_val, part2_val, part3_val):
     base_matrix = {
@@ -979,8 +1120,106 @@ with tab1:
         else:
             st.warning(f"⚠️ கணக்கீடு: {total_calculated} | மொத்தம்: {marks_val} (சமப்படுத்தவும்)")
 
+        st.markdown("---")
+        gen_mode = st.radio(
+            "வினாத்தாள் உருவாக்கும் முறை",
+            ["🤖 AI Auto-Generate (தற்போதைய முறை)", "📚 கேள்வி வங்கியில் இருந்து தேர்ந்தெடு (Book Back / Exercise / Example)"],
+            horizontal=False,
+        )
+        bank_mode = gen_mode.startswith("📚")
+
+        parts_meta = [
+            {"key": "p1", "label": "பகுதி I",   "mark_type": "1M",   "mark": 1,     "given": int(p1_ask), "answer": int(p1_ask), "show": show_p1, "note": ""},
+            {"key": "p2", "label": "பகுதி II",  "mark_type": "2M",   "mark": 2,     "given": int(p2_get), "answer": int(p2_ask), "show": show_p2, "note": (f"ஏதேனும் {int(p2_ask)} கேள்விகளுக்கு மட்டும் விடையளிக்கவும்" if p2_ask != p2_get else "")},
+            {"key": "p3", "label": "பகுதி III", "mark_type": "5M",   "mark": 5,     "given": int(p3_get), "answer": int(p3_ask), "show": show_p3, "note": (f"ஏதேனும் {int(p3_ask)} கேள்விகளுக்கு மட்டும் விடையளிக்கவும்" if p3_ask != p3_get else "")},
+            {"key": "p4", "label": "பகுதி IV",  "mark_type": "LONG", "mark": int(p4_val), "given": int(p4_get), "answer": int(p4_ask), "show": show_p4, "note": (f"ஏதேனும் {int(p4_ask)} கேள்விகளுக்கு மட்டும் விடையளிக்கவும்" if p4_ask != p4_get else "")},
+        ]
+
+        if bank_mode:
+            st.markdown("### 📚 கேள்வி வங்கி — தேர்ந்தெடுக்கவும்")
+            if not selected_lessons:
+                st.warning("⚠️ முதலில் மேலே பாடங்களைத் தேர்ந்தெடுக்கவும்!")
+            else:
+                if st.button("🔄 கேள்வி வங்கியை ஏற்று / புதுப்பி (Load Question Bank)", use_container_width=True):
+                    with st.spinner("⏳ புத்தக கேள்விகள் தயார் செய்யப்படுகிறது... (முதல் முறை கொஞ்சம் நேரம் ஆகும்)"):
+                        pool = {}
+                        for part in parts_meta:
+                            if not part["show"] or part["given"] <= 0:
+                                continue
+                            merged = []
+                            per_lesson_min = max(4, (part["given"] // max(len(selected_lessons), 1)) + 3)
+                            for lesson in selected_lessons:
+                                merged.extend(get_or_build_bank(subject_val, lesson, part["mark_type"], min_count=per_lesson_min))
+                            pool[part["key"]] = merged
+                        st.session_state["bank_pool"] = pool
+                        st.session_state["bank_pool_subject"] = subject_val
+                        st.success("✅ கேள்வி வங்கி தயார்!")
+
+                if "bank_pool" in st.session_state and st.session_state.get("bank_pool_subject") == subject_val:
+                    for part in parts_meta:
+                        if not part["show"] or part["given"] <= 0:
+                            continue
+                        pool = st.session_state["bank_pool"].get(part["key"], [])
+                        if not pool:
+                            continue
+                        with st.expander(f'{part["label"]} — {MARK_TYPE_LABELS.get(part["mark_type"], part["mark_type"])} (தேவை: {part["given"]})', expanded=False):
+                            col_left, col_right = st.columns([3, 2])
+                            selected_items = []
+                            with col_left:
+                                st.caption("⬅️ கிடைக்கும் கேள்விகள் — tick செய்யவும்")
+                                for it in pool:
+                                    chk_key = f'chk_{part["key"]}_{it["id"]}'
+                                    tag = f'[{it.get("qtype","")}] '
+                                    st.checkbox(f'{tag}{it["question_text"]}', key=chk_key)
+                            with col_right:
+                                st.caption("➡️ தேர்ந்தெடுக்கப்பட்டவை")
+                                for it in pool:
+                                    chk_key = f'chk_{part["key"]}_{it["id"]}'
+                                    if st.session_state.get(chk_key):
+                                        selected_items.append(it)
+                                        st.markdown(f'✅ {it["question_text"][:60]}{"..." if len(it["question_text"])>60 else ""}')
+                                got = len(selected_items)
+                                need = part["given"]
+                                if got == need:
+                                    st.success(f'{got}/{need} தேர்ந்தெடுக்கப்பட்டது ✅')
+                                elif got > need:
+                                    st.error(f'{got}/{need} — {got-need} அதிகமாக உள்ளது, சிலவற்றை நீக்கவும்')
+                                else:
+                                    st.warning(f'{got}/{need} தேர்ந்தெடுக்கப்பட்டது')
+
         if st.button("🚀 Generate PRO Question Paper", use_container_width=True, type="primary"):
-            if can_generate and selected_lessons:
+            if bank_mode:
+                if not selected_lessons:
+                    st.warning("⚠️ பாடங்களைத் தேர்ந்தெடுக்கவும்!")
+                elif "bank_pool" not in st.session_state:
+                    st.warning("⚠️ முதலில் 'கேள்வி வங்கியை ஏற்று' பொத்தானை அழுத்தவும்!")
+                else:
+                    parts_cfg = []
+                    all_ok = True
+                    for part in parts_meta:
+                        if not part["show"] or part["given"] <= 0:
+                            continue
+                        pool = st.session_state["bank_pool"].get(part["key"], [])
+                        chosen = [it for it in pool if st.session_state.get(f'chk_{part["key"]}_{it["id"]}')]
+                        if len(chosen) != part["given"]:
+                            all_ok = False
+                        parts_cfg.append({
+                            "label": part["label"], "mark": part["mark"],
+                            "given": part["given"], "answer": part["answer"],
+                            "note": part["note"], "items": chosen,
+                        })
+                    if not all_ok:
+                        st.error("⚠️ ஒவ்வொரு பகுதியிலும் தேவையான எண்ணிக்கை கேள்விகளை சரியாக தேர்ந்தெடுக்கவும் (மேலே உள்ள எண்களைப் பார்க்கவும்).")
+                    else:
+                        with st.spinner("⏳ தேர்ந்தெடுக்கப்பட்ட கேள்விகளுடன் வினாத்தாள் தயாராகிறது..."):
+                            assembled_text = assemble_paper_from_bank(parts_cfg)
+                            increment_usage(user_id)
+                            doc    = create_professional_docx(assembled_text, school_name, class_val, subject_val, exam_type, time_val, marks_val)
+                            doc_io = io.BytesIO()
+                            doc.save(doc_io)
+                            st.session_state['docx_bytes'] = doc_io.getvalue()
+                            st.success("✅ வினாத்தாள் தயாராகிவிட்டது! (கேள்வி வங்கியில் இருந்து)")
+            elif can_generate and selected_lessons:
                 with st.spinner("⏳ வினாத்தாள் தயாராகிறது..."):
                     blueprint_desc = f"- Part I: {p1_ask} Qs. - Part II: Given {p2_get}, Answer {p2_ask}. - Part III: Given {p3_get}, Answer {p3_ask}. - Part IV: Given {p4_get}, Answer {p4_ask}."
                     prompt = generate_prompt_v18(subject_val, selected_lessons, exam_type, time_val, marks_val, exam_mode, blueprint_desc, p1_ask, p2_ask, p3_ask, diff_level)
