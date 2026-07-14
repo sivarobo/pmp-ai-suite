@@ -345,6 +345,190 @@ def assemble_paper_from_bank(parts_cfg):
         a_lines.append("")
     return "\n".join(q_lines) + "\n=== ANSWER KEY ===\n" + "\n".join(a_lines)
 
+def update_bank_question(qid, question_text, answer_text, qtype):
+    try:
+        conn = get_db()
+        if not conn:
+            return False
+        cur = conn.cursor()
+        cur.execute(
+            "UPDATE question_bank SET question_text=%s, answer_text=%s, qtype=%s WHERE id=%s",
+            (question_text, answer_text, qtype, qid)
+        )
+        conn.commit()
+        conn.close()
+        return True
+    except Exception as e:
+        st.error(f"Update Error: {e}")
+        return False
+
+def delete_bank_question(qid):
+    try:
+        conn = get_db()
+        if not conn:
+            return False
+        cur = conn.cursor()
+        cur.execute("DELETE FROM question_bank WHERE id=%s", (qid,))
+        conn.commit()
+        conn.close()
+        return True
+    except Exception as e:
+        st.error(f"Delete Error: {e}")
+        return False
+
+def list_bank_subjects():
+    try:
+        conn = get_db()
+        if not conn:
+            return []
+        cur = conn.cursor()
+        cur.execute("SELECT DISTINCT subject FROM question_bank ORDER BY subject")
+        rows = cur.fetchall()
+        conn.close()
+        return [r["subject"] for r in rows]
+    except Exception:
+        return []
+
+def list_bank_lessons(subject):
+    try:
+        conn = get_db()
+        if not conn:
+            return []
+        cur = conn.cursor()
+        cur.execute("SELECT DISTINCT lesson FROM question_bank WHERE subject=%s ORDER BY lesson", (subject,))
+        rows = cur.fetchall()
+        conn.close()
+        return [r["lesson"] for r in rows]
+    except Exception:
+        return []
+
+def fetch_bank_filtered(subject=None, lesson=None, mark_type=None):
+    try:
+        conn = get_db()
+        if not conn:
+            return []
+        cur = conn.cursor()
+        query = "SELECT id, subject, lesson, mark_type, qtype, question_text, answer_text FROM question_bank WHERE 1=1"
+        params = []
+        if subject:
+            query += " AND subject=%s"; params.append(subject)
+        if lesson:
+            query += " AND lesson=%s"; params.append(lesson)
+        if mark_type:
+            query += " AND mark_type=%s"; params.append(mark_type)
+        query += " ORDER BY subject, lesson, mark_type, id"
+        cur.execute(query, tuple(params))
+        rows = cur.fetchall()
+        conn.close()
+        return [dict(r) for r in rows]
+    except Exception as e:
+        st.error(f"Fetch Error: {e}")
+        return []
+
+def bulk_import_bank_from_df(df_import):
+    """
+    Excel template columns: Subject, Lesson, Mark_Type, QType, Question, Answer
+    ஏற்கனவே DB-ல் இல்லாத (Subject+Lesson+Mark_Type+Question) rows-ஐ மட்டும் insert பண்ணும்.
+    """
+    required_cols = {"Subject", "Lesson", "Mark_Type", "QType", "Question", "Answer"}
+    if not required_cols.issubset(set(df_import.columns)):
+        return 0, 0, f"தேவையான Columns இல்லை. Template-ல் இருக்கும் columns: {', '.join(sorted(required_cols))}"
+    inserted, skipped = 0, 0
+    try:
+        conn = get_db()
+        if not conn:
+            return 0, 0, "DB Connection தோல்வி"
+        cur = conn.cursor()
+        for _, row in df_import.iterrows():
+            subject = str(row["Subject"]).strip()
+            lesson  = str(row["Lesson"]).strip()
+            mtype   = str(row["Mark_Type"]).strip().upper()
+            qtype   = str(row["QType"]).strip()
+            qtext   = str(row["Question"]).strip()
+            atext   = str(row["Answer"]).strip() if not pd.isna(row["Answer"]) else ""
+            if not subject or not lesson or not qtext or subject == "nan" or qtext == "nan":
+                skipped += 1
+                continue
+            cur.execute(
+                "SELECT id FROM question_bank WHERE subject=%s AND lesson=%s AND mark_type=%s AND question_text=%s",
+                (subject, lesson, mtype, qtext)
+            )
+            if cur.fetchone():
+                skipped += 1
+                continue
+            cur.execute(
+                "INSERT INTO question_bank (subject, lesson, mark_type, qtype, question_text, answer_text) "
+                "VALUES (%s, %s, %s, %s, %s, %s)",
+                (subject, lesson, mtype, qtype, qtext, atext)
+            )
+            inserted += 1
+        conn.commit()
+        conn.close()
+        return inserted, skipped, None
+    except Exception as e:
+        return inserted, skipped, str(e)
+
+def fetch_bank_missing_answers(subject=None, lesson=None, mark_type=None, limit=500):
+    try:
+        conn = get_db()
+        if not conn:
+            return []
+        cur = conn.cursor()
+        query = ("SELECT id, subject, lesson, mark_type, qtype, question_text FROM question_bank "
+                  "WHERE (answer_text IS NULL OR TRIM(answer_text) = '')")
+        params = []
+        if subject:
+            query += " AND subject=%s"; params.append(subject)
+        if lesson:
+            query += " AND lesson=%s"; params.append(lesson)
+        if mark_type:
+            query += " AND mark_type=%s"; params.append(mark_type)
+        query += " ORDER BY id LIMIT %s"
+        params.append(limit)
+        cur.execute(query, tuple(params))
+        rows = cur.fetchall()
+        conn.close()
+        return [dict(r) for r in rows]
+    except Exception as e:
+        st.error(f"Fetch Error: {e}")
+        return []
+
+def generate_answers_batch_ai(items, batch_size=10):
+    """
+    items: list of dicts with id, subject, lesson, question_text
+    Gemini-ஐ batch-ஆ கூப்பிட்டு, ஒவ்வொரு கேள்விக்கும் சுருக்கமான solution வாங்குது.
+    Returns dict[id] = answer_text
+    """
+    results = {}
+    for i in range(0, len(items), batch_size):
+        chunk = items[i:i + batch_size]
+        q_list = "\n".join([f'{idx+1}. [{it["lesson"]}] {it["question_text"]}' for idx, it in enumerate(chunk)])
+        prompt = f"""நீங்கள் TN Samacheer Kalvi Class 10 பாட நிபுணர். கீழே {len(chunk)} கணக்கு/கேள்விகள் கொடுக்கப்பட்டுள்ளன.
+ஒவ்வொன்றுக்கும் சுருக்கமான, தெளிவான Solution/Answer (தமிழ் அல்லது English medium-க்கு ஏற்ப) கொடுக்கவும்.
+
+{q_list}
+
+பதில் STRICTLY இந்த JSON array வடிவில் மட்டும் இருக்க வேண்டும் (வேறு உரை/code fence கூடாது), அதே வரிசையில்:
+[
+  {{"n": 1, "answer": "..."}},
+  {{"n": 2, "answer": "..."}}
+]
+கணிதச் சின்னங்களுக்கு Plain Unicode (×, ÷, √, ², π, ∠, ∈, ∪, ∩, ≤, ≥, ⇒) பயன்படுத்தவும், LaTeX வேண்டாம்.
+"""
+        try:
+            response = client.models.generate_content(model='gemini-2.5-flash', contents=prompt)
+            raw = response.text.strip()
+            raw = re.sub(r'^```json\s*|\s*```$', '', raw, flags=re.MULTILINE).strip()
+            raw = re.sub(r'^```|```$', '', raw.strip()).strip()
+            parsed = json.loads(raw)
+            for item in parsed:
+                n = item.get("n")
+                if n and 1 <= n <= len(chunk):
+                    results[chunk[n - 1]["id"]] = item.get("answer", "").strip()
+        except Exception as e:
+            st.warning(f"⚠️ Batch {i//batch_size + 1} பிழை: {e}")
+    return results
+
 FREE_DAILY_LIMIT = 2
 
 # ==========================================
@@ -1064,7 +1248,11 @@ def create_professional_docx(ai_response, school_name, class_val, subject_val, e
 # ==========================================
 # MAIN APP TABS
 # ==========================================
-tab1, tab2 = st.tabs(["🎓 வினாத்தாள் தயாரிப்பு", "📝 விடைத்தாள் திருத்தம்"])
+tab1, tab2, tab3 = st.tabs([
+    "🎓 வினாத்தாள் தயாரிப்பு",
+    "📝 விடைத்தாள் திருத்தம்",
+    "🛠️ கேள்வி வங்கி மேலாண்மை",
+])
 
 with tab1:
     st.title("🎓 PMP Master AI Engine (V20.0)")
@@ -1302,3 +1490,104 @@ with tab2:
         if st.button("🚪 Logout", use_container_width=True):
             st.session_state.pop("logged_in_user", None)
             st.rerun()
+
+with tab3:
+    st.title("🛠️ கேள்வி வங்கி மேலாண்மை")
+    st.caption("இங்கு அனைத்து பாடங்களின் கேள்வி வங்கியையும் திருத்தலாம், நீக்கலாம், அல்லது Excel-ல் இருந்து bulk import பண்ணலாம்.")
+
+    st.markdown("### 📥 Excel Template Download / Bulk Import")
+    imp_col1, imp_col2 = st.columns(2)
+    with imp_col1:
+        try:
+            with open("question_bank_template.xlsx", "rb") as f:
+                st.download_button(
+                    "📥 Excel Template Download பண்ணு",
+                    data=f.read(),
+                    file_name="question_bank_template.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    use_container_width=True,
+                )
+        except FileNotFoundError:
+            st.info("Template file app folder-ல் இல்லை — Claude கொடுத்த question_bank_template.xlsx-ஐ app repo-வில் சேர்க்கவும்.")
+    with imp_col2:
+        import_file = st.file_uploader("📤 நிரப்பிய Excel-ஐ Upload பண்ணு", type=["xlsx"], key="bank_import_upload")
+        if import_file is not None:
+            if st.button("🚀 DB-ல் Import பண்ணு", use_container_width=True):
+                with st.spinner("⏳ Import ஆகிறது..."):
+                    df_import = pd.read_excel(import_file, sheet_name="Question_Bank")
+                    inserted, skipped, err = bulk_import_bank_from_df(df_import)
+                    if err:
+                        st.error(f"பிழை: {err}")
+                    else:
+                        st.success(f"✅ {inserted} கேள்விகள் புதிதாக சேர்க்கப்பட்டது. {skipped} ஏற்கனவே இருந்ததால் தவிர்க்கப்பட்டது.")
+
+    st.markdown("---")
+    st.markdown("### 🤖 Answer இல்லாத கேள்விகளுக்கு AI Solution நிரப்பு")
+    st.caption("Exercise/Unit Exercise-ல் proof-type கேள்விகளுக்கு பொதுவா Answer காலியா இருக்கும் — இங்கு Gemini வெச்சு batch-ஆ நிரப்பலாம்.")
+    af1, af2, af3 = st.columns(3)
+    with af1:
+        af_subjects = list_bank_subjects()
+        af_subject = st.selectbox("பாடம் (filter)", ["அனைத்தும்"] + af_subjects, key="af_subject") if af_subjects else None
+    with af2:
+        af_lessons = list_bank_lessons(af_subject) if (af_subject and af_subject != "அனைத்தும்") else []
+        af_lesson = st.selectbox("பாடப்பிரிவு (filter)", ["அனைத்தும்"] + af_lessons, key="af_lesson")
+    with af3:
+        af_limit = st.number_input("எத்தனை கேள்விகள் (max)", min_value=10, max_value=500, value=50, step=10, key="af_limit")
+
+    if st.button("🤖 Missing Answers-ஐ AI வெச்சு நிரப்பு", use_container_width=True, type="primary"):
+        subj_param = None if af_subject in (None, "அனைத்தும்") else af_subject
+        lesson_param = None if af_lesson == "அனைத்தும்" else af_lesson
+        missing = fetch_bank_missing_answers(subject=subj_param, lesson=lesson_param, limit=int(af_limit))
+        if not missing:
+            st.info("Answer இல்லாத கேள்விகள் எதுவும் கிடைக்கவில்லை (இந்த filter-ல்).")
+        else:
+            with st.spinner(f"⏳ {len(missing)} கேள்விகளுக்கு AI Solution generate ஆகிறது... (batches-ஆ நடக்கும், நேரம் ஆகலாம்)"):
+                answers = generate_answers_batch_ai(missing, batch_size=10)
+                filled = 0
+                for item in missing:
+                    ans = answers.get(item["id"])
+                    if ans:
+                        update_bank_question(item["id"], item["question_text"], ans, item["qtype"])
+                        filled += 1
+                st.success(f"✅ {filled}/{len(missing)} கேள்விகளுக்கு Answer நிரப்பப்பட்டது! (மேலே 'கேள்விகளை திருத்து' section-ல் refresh செய்து பாருங்க)")
+
+    st.markdown("---")
+    st.markdown("### ✏️ கேள்விகளை திருத்து / நீக்கு")
+    all_subjects = list_bank_subjects()
+    if not all_subjects:
+        st.info("இன்னும் கேள்வி வங்கியில் எதுவும் இல்லை. Tab 1-ல் 'Load Question Bank' பண்ணி உருவாக்கவும், அல்லது மேலே Excel Import பண்ணவும்.")
+    else:
+        f1, f2, f3 = st.columns(3)
+        with f1:
+            filt_subject = st.selectbox("பாடம்", all_subjects, key="mgmt_subject")
+        with f2:
+            lessons_for_subject = list_bank_lessons(filt_subject) if filt_subject else []
+            filt_lesson = st.selectbox("பாடப்பிரிவு", ["அனைத்தும்"] + lessons_for_subject, key="mgmt_lesson")
+        with f3:
+            filt_mark = st.selectbox("மார்க் வகை", ["அனைத்தும்", "1M", "2M", "5M", "LONG"], key="mgmt_mark")
+
+        rows = fetch_bank_filtered(
+            subject=filt_subject,
+            lesson=None if filt_lesson == "அனைத்தும்" else filt_lesson,
+            mark_type=None if filt_mark == "அனைத்தும்" else filt_mark,
+        )
+        st.caption(f"மொத்தம் {len(rows)} கேள்விகள் கிடைத்தது")
+
+        for r in rows:
+            with st.expander(f'[{r["mark_type"]}] {r["lesson"]} — {r["question_text"][:70]}{"..." if len(r["question_text"])>70 else ""}'):
+                new_qtype = st.selectbox("QType", ["பின்புற வினா", "பயிற்சி", "எடுத்துக்காட்டு"],
+                                          index=["பின்புற வினா", "பயிற்சி", "எடுத்துக்காட்டு"].index(r["qtype"]) if r["qtype"] in ["பின்புற வினா", "பயிற்சி", "எடுத்துக்காட்டு"] else 1,
+                                          key=f'qtype_{r["id"]}')
+                new_q = st.text_area("கேள்வி", value=r["question_text"], key=f'q_{r["id"]}', height=90)
+                new_a = st.text_area("விடை", value=r["answer_text"], key=f'a_{r["id"]}', height=90)
+                bc1, bc2 = st.columns(2)
+                with bc1:
+                    if st.button("💾 Save", key=f'save_{r["id"]}', use_container_width=True):
+                        if update_bank_question(r["id"], new_q, new_a, new_qtype):
+                            st.success("✅ Save ஆனது!")
+                with bc2:
+                    if st.button("🗑️ Delete", key=f'del_{r["id"]}', use_container_width=True):
+                        if delete_bank_question(r["id"]):
+                            st.success("🗑️ நீக்கப்பட்டது! Page-ஐ refresh பண்ணவும்.")
+                            st.rerun()
+
