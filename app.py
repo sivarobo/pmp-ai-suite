@@ -143,9 +143,18 @@ def upsert_google_user(google_info):
                 daily_count INTEGER DEFAULT 0,
                 last_used   DATE DEFAULT CURRENT_DATE,
                 created_at  TIMESTAMP DEFAULT NOW(),
-                last_login  TIMESTAMP DEFAULT NOW()
+                last_login  TIMESTAMP DEFAULT NOW(),
+                school_name  TEXT,
+                teacher_name TEXT,
+                mobile       TEXT
             )
         """)
+        # Safe migration for existing DBs (columns added if missing)
+        for col in ["school_name TEXT", "teacher_name TEXT", "mobile TEXT"]:
+            try:
+                cur.execute(f"ALTER TABLE users ADD COLUMN IF NOT EXISTS {col}")
+            except Exception:
+                pass
 
         # Upsert by google_id
         cur.execute("""
@@ -155,7 +164,7 @@ def upsert_google_user(google_info):
               SET name       = EXCLUDED.name,
                   picture    = EXCLUDED.picture,
                   last_login = NOW()
-            RETURNING id, google_id, email, name, picture, plan, created_at
+            RETURNING id, google_id, email, name, picture, plan, created_at, school_name, teacher_name, mobile
         """, (
             google_info.get("sub", google_info.get("id", "")),
             google_info["email"],
@@ -171,6 +180,23 @@ def upsert_google_user(google_info):
     except Exception as e:
         st.error(f"DB Error: {e}")
         return None
+
+def update_user_profile(user_id, school_name, teacher_name, mobile):
+    try:
+        conn = get_db()
+        if not conn:
+            return False
+        cur = conn.cursor()
+        cur.execute(
+            "UPDATE users SET school_name=%s, teacher_name=%s, mobile=%s WHERE id=%s",
+            (school_name.strip(), teacher_name.strip(), mobile.strip(), user_id)
+        )
+        conn.commit()
+        conn.close()
+        return True
+    except Exception as e:
+        st.error(f"Profile Save Error: {e}")
+        return False
 
 def get_today_usage(user_id):
     try:
@@ -540,9 +566,12 @@ FREE_DAILY_LIMIT = 2
 if not st.session_state.get("logged_in_user"):
     st.markdown("""
     <div style='text-align:center; padding:30px 0 10px 0;'>
-        <div style='font-size:56px;'>🎓</div>
-        <h1 style='color:#1E3A8A; margin:8px 0 4px 0;'>PMP Master AI Suite</h1>
-        <p style='color:#64748b; font-size:16px;'>AI-Powered Question Paper Generator</p>
+        <div style='width:64px;height:64px;border-radius:16px;margin:0 auto 12px;
+                    background:linear-gradient(135deg,#c9a227,#e6c866);display:flex;
+                    align-items:center;justify-content:center;font-size:30px;font-weight:800;
+                    color:#0a1f44;box-shadow:0 8px 24px rgba(201,162,39,.35);'>P</div>
+        <h1 style='color:#0a1f44; margin:8px 0 4px 0;'>PMP QP Gen AI</h1>
+        <p style='color:#64748b; font-size:16px;'>AI-Powered Question Paper Generator · TN Board Class 10</p>
     </div>
     """, unsafe_allow_html=True)
 
@@ -600,6 +629,51 @@ user_name = current_user["name"]
 user_email= current_user["email"]
 user_plan = current_user.get("plan", "free")
 user_pic  = current_user.get("picture", "")
+
+# ==========================================
+# PROFILE SETUP GATE — first login only
+# ==========================================
+_needs_profile = not (current_user.get("mobile") and current_user.get("school_name"))
+if _needs_profile:
+    st.markdown("""
+    <div style='text-align:center; padding:30px 0 10px 0;'>
+        <div style='font-size:52px;'>👋</div>
+        <h1 style='color:#0a1f44; margin:8px 0 4px 0;'>வரவேற்கிறோம்!</h1>
+        <p style='color:#64748b; font-size:16px;'>தொடங்கும் முன், உங்கள் விவரங்களை பூர்த்தி செய்யவும்</p>
+    </div>
+    """, unsafe_allow_html=True)
+
+    pcol1, pcol2, pcol3 = st.columns([1, 2, 1])
+    with pcol2:
+        with st.form("profile_setup_form"):
+            st.markdown("#### 🏫 Profile உருவாக்கம்")
+            in_school  = st.text_input("பள்ளியின் பெயர் *", placeholder="உ.தா: அரசு மேல்நிலைப் பள்ளி, சேலம்")
+            in_teacher = st.text_input("ஆசிரியர் பெயர் *", value=user_name, placeholder="உங்கள் முழு பெயர்")
+            in_mobile  = st.text_input("மொபைல் எண் *", placeholder="10 இலக்க எண்", max_chars=10)
+            st.caption("* அனைத்து புலங்களும் அவசியம். இது ஒரு முறை மட்டுமே கேட்கப்படும்.")
+            submitted = st.form_submit_button("✅ சேமித்து தொடங்கு", use_container_width=True, type="primary")
+
+            if submitted:
+                mobile_clean = in_mobile.strip()
+                if not in_school.strip() or not in_teacher.strip() or not mobile_clean:
+                    st.error("⚠️ அனைத்து புலங்களையும் நிரப்பவும்.")
+                elif not (mobile_clean.isdigit() and len(mobile_clean) == 10):
+                    st.error("⚠️ சரியான 10 இலக்க மொபைல் எண்ணை உள்ளிடவும்.")
+                else:
+                    if update_user_profile(user_id, in_school, in_teacher, mobile_clean):
+                        current_user["school_name"]  = in_school.strip()
+                        current_user["teacher_name"] = in_teacher.strip()
+                        current_user["mobile"]       = mobile_clean
+                        st.session_state["logged_in_user"] = current_user
+                        st.success("✅ Profile உருவாக்கப்பட்டது!")
+                        st.rerun()
+    st.stop()
+
+# ==========================================
+# LOGGED IN — check usage
+# ==========================================
+user_school  = current_user.get("school_name", "")
+user_teacher = current_user.get("teacher_name", user_name)
 
 today_usage  = get_today_usage(user_id)
 is_premium   = user_plan in ["premium", "paid"]
@@ -873,13 +947,18 @@ def generate_geometry_image(shape_type, label_text=""):
     plt.close(fig)
     return img_buf
 
-def generate_prompt_v18(subject, lessons_list, exam_type, exam_time, total_marks, exam_mode, blueprint_desc, part1_val, part2_val, part3_val, diff_level):
+def generate_prompt_v18(subject, lessons_list, exam_type, exam_time, total_marks, exam_mode, blueprint_desc, part1_val, part2_val, part3_val, diff_level, paper_lang="தமிழ் (Tamil)"):
     lessons_str = ", ".join(lessons_list)
     sub_lower = subject.lower()
     is_english = "english" in sub_lower or "ஆங்கிலம்" in sub_lower
     is_tamil   = "tamil"   in sub_lower or "தமிழ்"    in sub_lower
     is_social  = "social"  in sub_lower or "சமூக"     in sub_lower
     is_math    = "math"    in sub_lower or "கணிதம்"   in sub_lower
+
+    # User-chosen paper language overrides the auto default (except for language subjects
+    # Tamil/English where the medium is fixed by the subject itself).
+    force_english = paper_lang.startswith("English") and not is_tamil
+    force_tamil   = paper_lang.startswith("தமிழ்") and not is_english
 
     if diff_level == "எளிமை (Easy)":
         difficulty_directive = "DIFFICULTY CRITERIA: Focus 80% on direct textbook back questions and formulas."
@@ -1090,7 +1169,17 @@ def generate_prompt_v18(subject, lessons_list, exam_type, exam_time, total_marks
 - Example CORRECT: "A = {1, 2, 3, 4}, B = {2, 5, 8} மற்றும் f: A → B ஆனது f(x) = 3x - 1"
 - Example WRONG: "A = \\{1, 2, 3, 4\\}, f: A \\rightarrow B"
 """
-    return f"Subject: {subject}\nLessons: {lessons_str}\nExam Type: {exam_type}\nTotal Marks: {total_marks}\nTime: {exam_time}\nMode: {exam_mode}\n{difficulty_directive}\n{blueprint_desc}\n{header_format}\n{option_format}\n{lang_instruction}\n{subject_blueprint_rules}\n{no_latex_rule}\n{quality_rules}\n{theorem_proof_rule}\n{pyq_tagging_rule}\n{no_latex_rule}\n=== ANSWER KEY ==="
+    lang_override = ""
+    if force_english:
+        lang_override = ("\n[TOP PRIORITY LANGUAGE OVERRIDE] The ENTIRE question paper — every question, "
+                         "instruction, part heading and option — MUST be written in PURE ENGLISH only. "
+                         "Do NOT use any Tamil words. Mathematical/technical terms stay in English.")
+    elif force_tamil:
+        lang_override = ("\n[TOP PRIORITY LANGUAGE OVERRIDE] The ENTIRE question paper — every question, "
+                         "instruction, part heading and option — MUST be written in PURE TAMIL only "
+                         "(கணித சின்னங்கள்/எண்கள் தவிர). Do NOT write questions in English.")
+
+    return f"Subject: {subject}\nLessons: {lessons_str}\nExam Type: {exam_type}\nTotal Marks: {total_marks}\nTime: {exam_time}\nMode: {exam_mode}\n{difficulty_directive}\n{blueprint_desc}\n{header_format}\n{option_format}\n{lang_instruction}{lang_override}\n{subject_blueprint_rules}\n{no_latex_rule}\n{quality_rules}\n{theorem_proof_rule}\n{pyq_tagging_rule}\n{no_latex_rule}\n=== ANSWER KEY ==="
 
 
 # ==========================================
@@ -1260,7 +1349,7 @@ with tab1:
     if not df.empty:
         col1, col2 = st.columns(2)
         with col1:
-            school_name    = st.text_input("School Name", value="ABC SCHOOL")
+            school_name    = st.text_input("School Name", value=user_school or "ABC SCHOOL")
             class_val      = st.selectbox("Class", ["10"])
             subject_list   = df['Subject'].unique()
             subject_val    = st.selectbox("Subject", subject_list)
@@ -1269,6 +1358,11 @@ with tab1:
             time_val   = st.selectbox("Time (நேரம்)", ["1.00 Hour", "2.00 Hours", "3.00 Hours"], index=2)
             marks_val  = st.number_input("Total Marks", value=100, step=1)
 
+        paper_lang = st.radio(
+            "வினாத்தாள் மொழி (Paper Language)",
+            ["தமிழ் (Tamil)", "English"],
+            horizontal=True,
+        )
         exam_mode        = st.selectbox("Exam Mode", ["🏛️ Public Exam Mode", "🏫 School Elite Mode"])
         lesson_list      = df[df['Subject'] == subject_val]['Lesson'].unique()
         selected_lessons = st.multiselect("பாடங்களைத் தேர்ந்தெடுக்கவும்", lesson_list)
@@ -1410,7 +1504,7 @@ with tab1:
             elif can_generate and selected_lessons:
                 with st.spinner("⏳ வினாத்தாள் தயாராகிறது..."):
                     blueprint_desc = f"- Part I: {p1_ask} Qs. - Part II: Given {p2_get}, Answer {p2_ask}. - Part III: Given {p3_get}, Answer {p3_ask}. - Part IV: Given {p4_get}, Answer {p4_ask}."
-                    prompt = generate_prompt_v18(subject_val, selected_lessons, exam_type, time_val, marks_val, exam_mode, blueprint_desc, p1_ask, p2_ask, p3_ask, diff_level)
+                    prompt = generate_prompt_v18(subject_val, selected_lessons, exam_type, time_val, marks_val, exam_mode, blueprint_desc, p1_ask, p2_ask, p3_ask, diff_level, paper_lang)
                     response = None
                     for attempt in range(4):
                         try:
@@ -1486,7 +1580,9 @@ with tab2:
                      style='border-radius:50%; border:2px solid #3b82f6;'/>
             </div>
             """, unsafe_allow_html=True)
-        st.markdown(f"**👤 {user_name}** ({user_email})")
+        st.markdown(f"**👤 {user_teacher}**")
+        st.caption(f"🏫 {user_school}")
+        st.caption(f"📞 {current_user.get('mobile','')} · {user_email}")
         if st.button("🚪 Logout", use_container_width=True):
             st.session_state.pop("logged_in_user", None)
             st.rerun()
@@ -1590,4 +1686,3 @@ with tab3:
                         if delete_bank_question(r["id"]):
                             st.success("🗑️ நீக்கப்பட்டது! Page-ஐ refresh பண்ணவும்.")
                             st.rerun()
-
