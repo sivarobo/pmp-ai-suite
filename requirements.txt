@@ -9,3 +9,4 @@ resend
 psycopg2-binary
 streamlit-oauth
 requests
+openpyxl
