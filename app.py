@@ -70,6 +70,20 @@ st.markdown("""
     /* compact number input +/- buttons */
     .stNumberInput button { min-height: 38px !important; height: 38px !important; padding: 0 10px !important; }
 
+    /* stronger visible borders on all inputs */
+    .stTextInput input, .stNumberInput input,
+    .stSelectbox div[data-baseweb="select"] > div,
+    .stMultiSelect div[data-baseweb="select"] > div {
+        border: 1.5px solid #c9cfdd !important; box-shadow: 0 1px 2px rgba(10,31,68,.04) !important;
+    }
+    .stTextInput input:focus, .stNumberInput input:focus { border-color: var(--gold) !important; }
+
+    /* Section card wrapper */
+    .pmp-section {
+        background: #ffffff; border: 1.5px solid #d9dfea; border-radius: 16px;
+        padding: 16px 18px; margin: 10px 0; box-shadow: 0 2px 8px rgba(10,31,68,.05);
+    }
+
     /* Headings */
     h1, h2, h3 { font-family: 'Sora','Noto Sans Tamil',sans-serif !important; color: var(--navy) !important; font-weight: 800 !important; }
 
@@ -424,7 +438,7 @@ qtype-ஐ மூன்றிலும் கலந்து (mix) கொடு�
 கணிதம் சின்னங்களுக்கு LaTeX பயன்படுத்தாதீர்கள் — plain Unicode (×, ÷, √, ², π, ∠ போன்றவை) மட்டும் பயன்படுத்தவும்.
 """
     try:
-        response = client.models.generate_content(model='gemini-2.5-flash', contents=prompt)
+        response = gemini_generate(prompt)
         raw = response.text.strip()
         raw = re.sub(r'^```json\s*|\s*```$', '', raw.strip(), flags=re.MULTILINE).strip()
         raw = re.sub(r'^```|```$', '', raw.strip()).strip()
@@ -433,7 +447,11 @@ qtype-ஐ மூன்றிலும் கலந்து (mix) கொடு�
             return items
         return []
     except Exception as e:
-        st.warning(f"⚠️ '{lesson}' ({mark_desc}) கேள்வி வங்கி உருவாக்கத்தில் பிழை: {e}")
+        emsg = str(e)
+        if "429" in emsg or "RESOURCE_EXHAUSTED" in emsg:
+            st.warning(f"⚠️ '{lesson}' — Gemini free-tier தினசரி வரம்பு (20 requests) முடிந்துவிட்டது. கொஞ்ச நேரம் கழித்து முயற்சிக்கவும், அல்லது ஏற்கனவே Import செய்த கேள்வி வங்கியை பயன்படுத்தவும்.")
+        else:
+            st.warning(f"⚠️ '{lesson}' ({mark_desc}) கேள்வி வங்கி உருவாக்கத்தில் பிழை: {e}")
         return []
 
 def get_or_build_bank(subject, lesson, mark_type, min_count=8):
@@ -647,7 +665,7 @@ def generate_answers_batch_ai(items, batch_size=10):
 கணிதச் சின்னங்களுக்கு Plain Unicode (×, ÷, √, ², π, ∠, ∈, ∪, ∩, ≤, ≥, ⇒) பயன்படுத்தவும், LaTeX வேண்டாம்.
 """
         try:
-            response = client.models.generate_content(model='gemini-2.5-flash', contents=prompt)
+            response = gemini_generate(prompt)
             raw = response.text.strip()
             raw = re.sub(r'^```json\s*|\s*```$', '', raw, flags=re.MULTILINE).strip()
             raw = re.sub(r'^```|```$', '', raw.strip()).strip()
@@ -657,6 +675,10 @@ def generate_answers_batch_ai(items, batch_size=10):
                 if n and 1 <= n <= len(chunk):
                     results[chunk[n - 1]["id"]] = item.get("answer", "").strip()
         except Exception as e:
+            emsg = str(e)
+            if "429" in emsg or "RESOURCE_EXHAUSTED" in emsg:
+                st.warning("⚠️ Gemini free-tier தினசரி வரம்பு முடிந்தது. மீதி batches-ஐ நாளை/கொஞ்ச நேரம் கழித்து முயற்சிக்கவும்.")
+                break
             st.warning(f"⚠️ Batch {i//batch_size + 1} பிழை: {e}")
     return results
 
@@ -732,6 +754,14 @@ if not st.session_state.get("logged_in_user"):
 # LOGGED IN — Get user & check usage
 # ==========================================
 current_user = st.session_state["logged_in_user"]
+
+# Always refresh from DB so profile fields (school/mobile) are accurate and
+# the setup gate never re-triggers for users who already completed it.
+_fresh = fetch_user_by_email(current_user.get("email", "")) if current_user.get("email") else None
+if _fresh:
+    current_user = _fresh
+    st.session_state["logged_in_user"] = current_user
+
 user_id   = current_user["id"]
 user_name = current_user["name"]
 user_email= current_user["email"]
@@ -739,9 +769,9 @@ user_plan = current_user.get("plan", "free")
 user_pic  = current_user.get("picture", "")
 
 # ==========================================
-# PROFILE SETUP GATE — first login only
+# PROFILE SETUP GATE — first login only (skip if DB read failed)
 # ==========================================
-_needs_profile = not (current_user.get("mobile") and current_user.get("school_name"))
+_needs_profile = (_fresh is not None) and not (current_user.get("mobile") and current_user.get("school_name"))
 if _needs_profile:
     st.markdown("""
     <div style='text-align:center; padding:30px 0 10px 0;'>
@@ -808,6 +838,25 @@ else:
 # ==========================================
 YOUR_API_KEY = st.secrets["GEMINI_API_KEY"]
 client = genai.Client(api_key=YOUR_API_KEY)
+
+def gemini_generate(prompt, model='gemini-2.5-flash', max_retries=3):
+    """Gemini call with automatic 429/503 retry + backoff. Returns response or raises."""
+    last_err = None
+    for attempt in range(max_retries):
+        try:
+            return client.models.generate_content(model=model, contents=prompt)
+        except Exception as e:
+            last_err = e
+            msg = str(e)
+            if "429" in msg or "RESOURCE_EXHAUSTED" in msg or "503" in msg:
+                wait = 6 * (attempt + 1)
+                m = re.search(r'retry in (\d+)', msg, re.IGNORECASE) or re.search(r"retryDelay['\":\s]+(\d+)", msg)
+                if m:
+                    wait = min(int(m.group(1)) + 1, 30)
+                time.sleep(wait)
+            else:
+                raise
+    raise last_err
 
 # ==========================================
 # Database Loading
@@ -1464,6 +1513,20 @@ with hdr_r:
     if st.button("🚪 Logout", use_container_width=True):
         st.session_state.pop("logged_in_user", None)
         st.rerun()
+    with st.expander("✏️ Profile திருத்து"):
+        e_school  = st.text_input("பள்ளி", value=user_school or "", key="edit_school")
+        e_teacher = st.text_input("ஆசிரியர்", value=user_teacher or "", key="edit_teacher")
+        e_mobile  = st.text_input("மொபைல்", value=current_user.get("mobile", "") or "", max_chars=10, key="edit_mobile")
+        if st.button("💾 சேமி", key="edit_save", use_container_width=True):
+            if e_mobile.strip() and not (e_mobile.strip().isdigit() and len(e_mobile.strip()) == 10):
+                st.error("சரியான 10 இலக்க மொபைல்")
+            elif update_user_profile(user_id, e_school, e_teacher, e_mobile, email=user_email):
+                current_user["school_name"]  = e_school.strip()
+                current_user["teacher_name"] = e_teacher.strip()
+                current_user["mobile"]       = e_mobile.strip()
+                st.session_state["logged_in_user"] = current_user
+                st.success("✅ சேமிக்கப்பட்டது!")
+                st.rerun()
 
 # ==========================================
 # MAIN APP TABS
@@ -1515,29 +1578,31 @@ with tab1:
         bp     = get_blueprint_defaults(marks_val, is_social=is_soc, is_english=is_eng)
 
         # ===== Part selector cards =====
-        st.markdown("""
-        <div style='display:flex;align-items:center;gap:10px;margin-bottom:4px;'>
-            <div style='width:34px;height:34px;border-radius:9px;background:#eef1fd;display:flex;
-                        align-items:center;justify-content:center;font-size:17px;'>📋</div>
-            <div><h3 style='margin:0;'>வினா வடிவமைப்பு பிரிவு</h3>
-            <span style='color:#5a6782;font-size:12px;'>Paper-ல் சேர்க்க வேண்டிய வினா வகைகளைத் தேர்ந்தெடுக்கவும்</span></div>
-        </div>
-        """, unsafe_allow_html=True)
+        _pcard = st.container(border=True)
+        with _pcard:
+            st.markdown("""
+            <div style='display:flex;align-items:center;gap:10px;margin-bottom:4px;'>
+                <div style='width:34px;height:34px;border-radius:9px;background:#eef1fd;display:flex;
+                            align-items:center;justify-content:center;font-size:17px;'>📋</div>
+                <div><h3 style='margin:0;'>வினா வடிவமைப்பு பிரிவு</h3>
+                <span style='color:#5a6782;font-size:12px;'>Paper-ல் சேர்க்க வேண்டிய வினா வகைகளைத் தேர்ந்தெடுக்கவும்</span></div>
+            </div>
+            """, unsafe_allow_html=True)
 
-        pc1, pc2, pc3, pc4 = st.columns(4)
-        with pc1:
-            show_p1 = st.checkbox("பகுதி I · 1-Mark", value=True)
-        with pc2:
-            show_p2 = st.checkbox("பகுதி II · 2-Mark", value=True)
-        with pc3:
-            show_p3 = st.checkbox("பகுதி III · 5-Mark", value=True)
-        with pc4:
-            show_p4 = st.checkbox("பகுதி IV · நெடுவினா", value=True)
+            pc1, pc2, pc3, pc4 = st.columns(4)
+            with pc1:
+                show_p1 = st.checkbox("பகுதி I · 1-Mark", value=True)
+            with pc2:
+                show_p2 = st.checkbox("பகுதி II · 2-Mark", value=True)
+            with pc3:
+                show_p3 = st.checkbox("பகுதி III · 5-Mark", value=True)
+            with pc4:
+                show_p4 = st.checkbox("பகுதி IV · நெடுவினா", value=True)
 
-        st.markdown("<div style='height:10px;'></div>", unsafe_allow_html=True)
-
-        # ===== Marks details (sliders) + live donut =====
-        marks_col, donut_col = st.columns([2, 1])
+        # ===== Marks details + live donut =====
+        _mcard = st.container(border=True)
+        with _mcard:
+            marks_col, donut_col = st.columns([2, 1])
 
         with marks_col:
             st.markdown("#### ⚙️ மதிப்பெண் விவரங்கள்")
@@ -1628,7 +1693,7 @@ with tab1:
                             f"<b style='color:#9a6b00;'>⚠️ {total_calculated} / {marks_val}</b><br><span style='font-size:12px;color:#9a6b00;'>மதிப்பெண்களை சமப்படுத்தவும்</span></div>",
                             unsafe_allow_html=True)
 
-        st.markdown("---")
+        st.markdown("<hr style='margin:6px 0;'>", unsafe_allow_html=True)
         gen_mode = st.radio(
             "வினாத்தாள் உருவாக்கும் முறை",
             ["🤖 AI Auto-Generate (தற்போதைய முறை)", "📚 கேள்வி வங்கியில் இருந்து தேர்ந்தெடு (Book Back / Exercise / Example)"],
@@ -1695,7 +1760,10 @@ with tab1:
                                 else:
                                     st.warning(f'{got}/{need} தேர்ந்தெடுக்கப்பட்டது')
 
-        if st.button("🚀 Generate PRO Question Paper", use_container_width=True, type="primary"):
+        _gb1, _gb2, _gb3 = st.columns([1, 2, 1])
+        with _gb2:
+            gen_clicked = st.button("🚀 Generate PRO Question Paper", use_container_width=True, type="primary")
+        if gen_clicked:
             if bank_mode:
                 if not selected_lessons:
                     st.warning("⚠️ பாடங்களைத் தேர்ந்தெடுக்கவும்!")
