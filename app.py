@@ -1644,54 +1644,42 @@ with tab1:
         total_calculated = (p1_ask * 1) + (p2_ask * 2) + (p3_ask * 5) + (p4_ask * p4_val)
         can_generate     = total_calculated == marks_val
 
-        # ===== Donut chart summary =====
+        # ===== Compact summary (no donut, saves space) =====
         with donut_col:
-            st.markdown("#### 📊 Blueprint Summary")
-            seg = [
-                ("1-Mark",        p1_ask * 1,      "#22c55e"),
-                ("2-Mark Given",  p2_get * 2,      "#3b82f6"),
-                ("2-Mark Ans",    p2_ask * 2,      "#a855f7"),
-                ("5-Mark Given",  p3_get * 5,      "#f59e0b"),
-                ("5-Mark Ans",    p3_ask * 5,      "#ec4899"),
-                ("நெடுவினா Given", p4_get * p4_val, "#14b8a6"),
-                ("நெடுவினா Ans",   p4_ask * p4_val, "#f43f5e"),
-            ]
-            seg = [(lbl, val, col) for (lbl, val, col) in seg if val > 0]
-            try:
-                import matplotlib.pyplot as _plt
-                fig, ax = _plt.subplots(figsize=(2.4, 2.4), subplot_kw=dict(aspect="equal"))
-                if seg:
-                    vals = [v for _, v, _ in seg]
-                    cols = [c for _, _, c in seg]
-                    ax.pie(vals, colors=cols, startangle=90,
-                           wedgeprops=dict(width=0.38, edgecolor="white", linewidth=2))
-                ax.text(0, 0.12, str(total_calculated), ha="center", va="center",
-                        fontsize=26, fontweight="bold", color="#0a1f44")
-                ax.text(0, -0.22, f"/ {marks_val}", ha="center", va="center",
-                        fontsize=12, color="#5a6782")
-                fig.patch.set_alpha(0)
-                st.pyplot(fig, use_container_width=True)
-                _plt.close(fig)
-            except Exception:
-                st.metric("மொத்தம்", f"{total_calculated} / {marks_val}")
+            st.markdown("##### 📊 Blueprint Summary")
+            _bal_color = "#1b9e5a" if can_generate else "#9a6b00"
+            _bal_bg    = "#e8f5ec" if can_generate else "#fff6df"
+            st.markdown(
+                f"<div style='background:{_bal_bg};border-radius:12px;padding:10px 14px;text-align:center;margin-bottom:8px;'>"
+                f"<span style='font-family:Sora,sans-serif;font-size:30px;font-weight:800;color:#0a1f44;'>{total_calculated}</span>"
+                f"<span style='font-size:15px;color:#5a6782;'> / {marks_val}</span></div>",
+                unsafe_allow_html=True)
 
-            for lbl, val, col in seg:
-                pct = round(val / marks_val * 100) if marks_val else 0
-                st.markdown(
-                    f"<div style='display:flex;align-items:center;gap:8px;font-size:12.5px;margin:3px 0;'>"
-                    f"<span style='width:10px;height:10px;border-radius:50%;background:{col};display:inline-block;'></span>"
-                    f"<span style='color:#5a6782;'>{lbl}</span>"
-                    f"<b style='margin-left:auto;color:#0f1a30;'>{val} ({pct}%)</b></div>",
-                    unsafe_allow_html=True)
+            rows = [
+                ("🟢", "1-மார்க்",        p1_ask,  "" ),
+                ("🔵", "2-மார்க் Given",  p2_get,  "" ),
+                ("🟣", "2-மார்க் Ans",    p2_ask,  "" ),
+                ("🟠", "5-மார்க் Given",  p3_get,  "" ),
+                ("🩷", "5-மார்க் Ans",    p3_ask,  "" ),
+                ("🟦", "நெடுவினா Given",  p4_get,  "" ),
+                ("🔴", "நெடுவினா Ans",    p4_ask,  "" ),
+            ]
+            html = "<div style='font-size:13px;line-height:1.5;'>"
+            for dot, lbl, cnt, _ in rows:
+                if cnt <= 0:
+                    continue
+                html += (f"<div style='display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid #f0f2f8;'>"
+                         f"<span style='color:#5a6782;'>{dot} {lbl}</span>"
+                         f"<b style='color:#0f1a30;'>{cnt}</b></div>")
+            html += "</div>"
+            st.markdown(html, unsafe_allow_html=True)
 
             if can_generate:
-                st.markdown("<div style='background:#e8f5ec;border:1px solid #22c55e;border-radius:12px;padding:12px;margin-top:10px;text-align:center;'>"
-                            "<b style='color:#1b9e5a;'>✅ Balanced</b><br><span style='font-size:12px;color:#1b9e5a;'>Blueprint சரியாக உள்ளது!</span></div>",
-                            unsafe_allow_html=True)
+                st.markdown("<div style='background:#e8f5ec;border:1px solid #22c55e;border-radius:10px;padding:8px;margin-top:8px;text-align:center;'>"
+                            "<b style='color:#1b9e5a;'>✅ Balanced</b></div>", unsafe_allow_html=True)
             else:
-                st.markdown(f"<div style='background:#fff6df;border:1px solid #c9a227;border-radius:12px;padding:12px;margin-top:10px;text-align:center;'>"
-                            f"<b style='color:#9a6b00;'>⚠️ {total_calculated} / {marks_val}</b><br><span style='font-size:12px;color:#9a6b00;'>மதிப்பெண்களை சமப்படுத்தவும்</span></div>",
-                            unsafe_allow_html=True)
+                st.markdown(f"<div style='background:#fff6df;border:1px solid #c9a227;border-radius:10px;padding:8px;margin-top:8px;text-align:center;'>"
+                            f"<b style='color:#9a6b00;'>⚠️ சமப்படுத்தவும்</b></div>", unsafe_allow_html=True)
 
         st.markdown("<hr style='margin:6px 0;'>", unsafe_allow_html=True)
         gen_mode = st.radio(
