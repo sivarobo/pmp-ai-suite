@@ -43,7 +43,7 @@ st.markdown("""
 
     /* ===== Global ===== */
     .stApp { background: var(--bg); }
-    .block-container { padding-top: 0.8rem !important; padding-bottom: 1rem !important; max-width: 1150px !important; }
+    .block-container { padding-top: 2rem !important; padding-bottom: 1rem !important; max-width: 1150px !important; }
     /* tighten vertical gaps between widgets */
     [data-testid="stVerticalBlock"] { gap: 0.35rem !important; }
     div[data-testid="stHorizontalBlock"] { gap: 0.6rem !important; }
