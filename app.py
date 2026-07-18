@@ -290,7 +290,8 @@ def fetch_user_by_email(email):
         row = cur.fetchone()
         conn.close()
         return dict(row) if row else None
-    except Exception:
+    except Exception as e:
+        st.warning(f"⚠️ User fetch பிழை: {e}")
         return None
 
 def update_user_profile(user_id, school_name, teacher_name, mobile, email=None):
@@ -1622,20 +1623,28 @@ with hdr_r:
     if st.button("🚪 Logout", use_container_width=True):
         st.session_state.pop("logged_in_user", None)
         st.rerun()
-    with st.expander("✏️ Profile திருத்து"):
+    with st.expander("✏️ Profile திருத்து", expanded=not (user_school and current_user.get("mobile"))):
         e_school  = st.text_input("பள்ளி", value=user_school or "", key="edit_school")
         e_teacher = st.text_input("ஆசிரியர்", value=user_teacher or "", key="edit_teacher")
         e_mobile  = st.text_input("மொபைல்", value=current_user.get("mobile", "") or "", max_chars=10, key="edit_mobile")
         if st.button("💾 சேமி", key="edit_save", use_container_width=True):
-            if e_mobile.strip() and not (e_mobile.strip().isdigit() and len(e_mobile.strip()) == 10):
+            if not e_school.strip():
+                st.error("பள்ளி பெயரை நிரப்பவும்")
+            elif e_mobile.strip() and not (e_mobile.strip().isdigit() and len(e_mobile.strip()) == 10):
                 st.error("சரியான 10 இலக்க மொபைல்")
-            elif update_user_profile(user_id, e_school, e_teacher, e_mobile, email=user_email):
-                current_user["school_name"]  = e_school.strip()
-                current_user["teacher_name"] = e_teacher.strip()
-                current_user["mobile"]       = e_mobile.strip()
-                st.session_state["logged_in_user"] = current_user
-                st.success("✅ சேமிக்கப்பட்டது!")
-                st.rerun()
+            else:
+                ok = update_user_profile(user_id, e_school, e_teacher, e_mobile, email=user_email)
+                if ok:
+                    # Re-fetch from DB to confirm it actually persisted
+                    _chk = fetch_user_by_email(user_email)
+                    if _chk and (_chk.get("school_name") or "").strip() == e_school.strip():
+                        st.session_state["logged_in_user"] = _chk
+                        st.success("✅ சேமிக்கப்பட்டது!")
+                        st.rerun()
+                    else:
+                        st.error("⚠️ DB-ல் சேமிக்க முடியலை. Neon-ல் school_name/teacher_name/mobile columns இருக்கா என்று சரிபார்க்கவும்.")
+                else:
+                    st.error("⚠️ சேமிப்பில் பிழை. DB connection சரிபார்க்கவும்.")
 
 # ==========================================
 # MAIN APP TABS
@@ -1652,7 +1661,7 @@ with tab1:
         # Row 1: School, Class, Subject, Exam Type (4 columns)
         r1c1, r1c2, r1c3, r1c4 = st.columns(4)
         with r1c1:
-            school_name = st.text_input("School Name", value=user_school or "ABC SCHOOL")
+            school_name = st.text_input("School Name", value=st.session_state["logged_in_user"].get("school_name") or user_school or "ABC SCHOOL")
         with r1c2:
             class_val = st.selectbox("Class", ["10"])
         with r1c3:
