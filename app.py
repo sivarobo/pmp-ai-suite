@@ -1528,32 +1528,100 @@ with tab1:
         is_soc = "social"  in subject_val.lower() or "சமூக"     in subject_val.lower()
         bp     = get_blueprint_defaults(marks_val, is_social=is_soc, is_english=is_eng)
 
-        st.markdown("### 📋 வினா வடிவமைப்பு பிரிவு")
-        show_p1 = st.checkbox("பகுதி I (1-Mark Questions)",   value=True)
-        show_p2 = st.checkbox("பகுதி II (2-Mark Questions)",  value=True)
-        show_p3 = st.checkbox("பகுதி III (5-Mark Questions)", value=True)
-        show_p4 = st.checkbox("பகுதி IV (Long Questions)",    value=True)
+        # ===== Part selector cards =====
+        st.markdown("""
+        <div style='display:flex;align-items:center;gap:12px;margin-bottom:6px;'>
+            <div style='width:44px;height:44px;border-radius:12px;background:#eef1fd;display:flex;
+                        align-items:center;justify-content:center;font-size:22px;'>📋</div>
+            <div><h3 style='margin:0;'>வினா வடிவமைப்பு பிரிவு</h3>
+            <span style='color:#5a6782;font-size:13px;'>Paper-ல் சேர்க்க வேண்டிய வினா வகைகளைத் தேர்ந்தெடுக்கவும்</span></div>
+        </div>
+        """, unsafe_allow_html=True)
 
-        st.markdown("#### ⚙️ மதிப்பெண் விவரங்கள்")
-        b1, b2 = st.columns(2)
-        with b1:
-            p1_ask  = st.number_input("1-மார்க் வினாக்கள்",       value=int(bp["p1"])  if show_p1 else 0, step=1, disabled=not show_p1)
-            p2_get  = st.number_input("2-மார்க் கொடுக்க (Given)", value=int(bp["p2g"]) if show_p2 else 0, step=1, disabled=not show_p2)
-            p2_ask  = st.number_input("2-மார்க் எழுத (Answer)",   value=int(bp["p2a"]) if show_p2 else 0, step=1, disabled=not show_p2)
-        with b2:
-            p3_get  = st.number_input("5-மார்க் கொடுக்க (Given)", value=int(bp["p3g"]) if show_p3 else 0, step=1, disabled=not show_p3)
-            p3_ask  = st.number_input("5-மார்க் எழுத (Answer)",   value=int(bp["p3a"]) if show_p3 else 0, step=1, disabled=not show_p3)
-            p4_val  = st.selectbox("நெடுவினா மதிப்பெண்", [5, 8, 10], index=1 if is_eng or is_soc or marks_val==100 else 0, disabled=not show_p4)
-            p4_get  = st.number_input("நெடுவினா கொடுக்க (Given)", value=int(bp["p4g"]) if show_p4 else 0, step=1, disabled=not show_p4)
-            p4_ask  = st.number_input("நெடுவினா எழுத (Answer)",   value=int(bp["p4a"]) if show_p4 else 0, step=1, disabled=not show_p4)
+        pc1, pc2, pc3, pc4 = st.columns(4)
+        with pc1:
+            show_p1 = st.checkbox("பகுதி I · 1-Mark", value=True)
+        with pc2:
+            show_p2 = st.checkbox("பகுதி II · 2-Mark", value=True)
+        with pc3:
+            show_p3 = st.checkbox("பகுதி III · 5-Mark", value=True)
+        with pc4:
+            show_p4 = st.checkbox("பகுதி IV · நெடுவினா", value=True)
+
+        st.markdown("<div style='height:10px;'></div>", unsafe_allow_html=True)
+
+        # ===== Marks details (sliders) + live donut =====
+        marks_col, donut_col = st.columns([2, 1])
+
+        with marks_col:
+            st.markdown("#### ⚙️ மதிப்பெண் விவரங்கள்")
+            s1, s2 = st.columns(2)
+            with s1:
+                p1_ask = st.slider("1-மார்க் வினாக்கள்", 0, 30, int(bp["p1"]) if show_p1 else 0, disabled=not show_p1)
+                p2_get = st.slider("2-மார்க் கொடுக்க (Given)", 0, 30, int(bp["p2g"]) if show_p2 else 0, disabled=not show_p2)
+                p2_ask = st.slider("2-மார்க் எழுத (Answer)", 0, 30, int(bp["p2a"]) if show_p2 else 0, disabled=not show_p2)
+            with s2:
+                p3_get = st.slider("5-மார்க் கொடுக்க (Given)", 0, 30, int(bp["p3g"]) if show_p3 else 0, disabled=not show_p3)
+                p3_ask = st.slider("5-மார்க் எழுத (Answer)", 0, 30, int(bp["p3a"]) if show_p3 else 0, disabled=not show_p3)
+                p4_val = st.selectbox("நெடுவினா மதிப்பெண்", [5, 8, 10], index=1 if is_eng or is_soc or marks_val == 100 else 0, disabled=not show_p4)
+
+            g1, g2 = st.columns(2)
+            with g1:
+                p4_get = st.number_input("நெடுவினா கொடுக்க (Given)", value=int(bp["p4g"]) if show_p4 else 0, step=1, disabled=not show_p4)
+            with g2:
+                p4_ask = st.number_input("நெடுவினா எழுத (Answer)", value=int(bp["p4a"]) if show_p4 else 0, step=1, disabled=not show_p4)
 
         total_calculated = (p1_ask * 1) + (p2_ask * 2) + (p3_ask * 5) + (p4_ask * p4_val)
         can_generate     = total_calculated == marks_val
 
-        if can_generate:
-            st.success(f"✅ மதிப்பெண்கள் சரியாகப் பொருந்தியது: {total_calculated} மார்க்.")
-        else:
-            st.warning(f"⚠️ கணக்கீடு: {total_calculated} | மொத்தம்: {marks_val} (சமப்படுத்தவும்)")
+        # ===== Donut chart summary =====
+        with donut_col:
+            st.markdown("#### 📊 Blueprint Summary")
+            seg = [
+                ("1-Mark",        p1_ask * 1,      "#22c55e"),
+                ("2-Mark Given",  p2_get * 2,      "#3b82f6"),
+                ("2-Mark Ans",    p2_ask * 2,      "#a855f7"),
+                ("5-Mark Given",  p3_get * 5,      "#f59e0b"),
+                ("5-Mark Ans",    p3_ask * 5,      "#ec4899"),
+                ("நெடுவினா Given", p4_get * p4_val, "#14b8a6"),
+                ("நெடுவினா Ans",   p4_ask * p4_val, "#f43f5e"),
+            ]
+            seg = [(lbl, val, col) for (lbl, val, col) in seg if val > 0]
+            try:
+                import matplotlib.pyplot as _plt
+                fig, ax = _plt.subplots(figsize=(3, 3), subplot_kw=dict(aspect="equal"))
+                if seg:
+                    vals = [v for _, v, _ in seg]
+                    cols = [c for _, _, c in seg]
+                    ax.pie(vals, colors=cols, startangle=90,
+                           wedgeprops=dict(width=0.38, edgecolor="white", linewidth=2))
+                ax.text(0, 0.12, str(total_calculated), ha="center", va="center",
+                        fontsize=26, fontweight="bold", color="#0a1f44")
+                ax.text(0, -0.22, f"/ {marks_val}", ha="center", va="center",
+                        fontsize=12, color="#5a6782")
+                fig.patch.set_alpha(0)
+                st.pyplot(fig, use_container_width=True)
+                _plt.close(fig)
+            except Exception:
+                st.metric("மொத்தம்", f"{total_calculated} / {marks_val}")
+
+            for lbl, val, col in seg:
+                pct = round(val / marks_val * 100) if marks_val else 0
+                st.markdown(
+                    f"<div style='display:flex;align-items:center;gap:8px;font-size:12.5px;margin:3px 0;'>"
+                    f"<span style='width:10px;height:10px;border-radius:50%;background:{col};display:inline-block;'></span>"
+                    f"<span style='color:#5a6782;'>{lbl}</span>"
+                    f"<b style='margin-left:auto;color:#0f1a30;'>{val} ({pct}%)</b></div>",
+                    unsafe_allow_html=True)
+
+            if can_generate:
+                st.markdown("<div style='background:#e8f5ec;border:1px solid #22c55e;border-radius:12px;padding:12px;margin-top:10px;text-align:center;'>"
+                            "<b style='color:#1b9e5a;'>✅ Balanced</b><br><span style='font-size:12px;color:#1b9e5a;'>Blueprint சரியாக உள்ளது!</span></div>",
+                            unsafe_allow_html=True)
+            else:
+                st.markdown(f"<div style='background:#fff6df;border:1px solid #c9a227;border-radius:12px;padding:12px;margin-top:10px;text-align:center;'>"
+                            f"<b style='color:#9a6b00;'>⚠️ {total_calculated} / {marks_val}</b><br><span style='font-size:12px;color:#9a6b00;'>மதிப்பெண்களை சமப்படுத்தவும்</span></div>",
+                            unsafe_allow_html=True)
 
         st.markdown("---")
         gen_mode = st.radio(
