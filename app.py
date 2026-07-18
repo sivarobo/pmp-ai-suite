@@ -1477,29 +1477,38 @@ tab1, tab2, tab3 = st.tabs([
 with tab1:
     df = load_data()
     if not df.empty:
-        col1, col2 = st.columns(2)
-        with col1:
-            school_name    = st.text_input("School Name", value=user_school or "ABC SCHOOL")
-            class_val      = st.selectbox("Class", ["10"])
-            subject_list   = df['Subject'].unique()
-            subject_val    = st.selectbox("Subject", subject_list)
-        with col2:
-            exam_type  = st.selectbox("Exam Type", ["Unit Test", "Quarterly Exam", "Half-Yearly Exam", "Annual Exam"])
-            time_val   = st.selectbox("Time (நேரம்)", ["1.00 Hour", "2.00 Hours", "3.00 Hours"], index=2)
-            marks_val  = st.number_input("Total Marks", value=100, step=1)
+        # Row 1: School, Class, Subject, Exam Type (4 columns)
+        r1c1, r1c2, r1c3, r1c4 = st.columns(4)
+        with r1c1:
+            school_name = st.text_input("School Name", value=user_school or "ABC SCHOOL")
+        with r1c2:
+            class_val = st.selectbox("Class", ["10"])
+        with r1c3:
+            subject_list = df['Subject'].unique()
+            subject_val  = st.selectbox("Subject", subject_list)
+        with r1c4:
+            exam_type = st.selectbox("Exam Type", ["Unit Test", "Quarterly Exam", "Half-Yearly Exam", "Annual Exam"])
 
-        paper_lang = st.radio(
-            "வினாத்தாள் மொழி (Paper Language)",
-            ["தமிழ் (Tamil)", "English"],
-            horizontal=True,
-        )
-        exam_mode        = st.selectbox("Exam Mode", ["🏛️ Public Exam Mode", "🏫 School Elite Mode"])
-        lesson_list      = df[df['Subject'] == subject_val]['Lesson'].unique()
-        selected_lessons = st.multiselect("பாடங்களைத் தேர்ந்தெடுக்கவும்", lesson_list)
+        # Row 2: Time, Marks, Difficulty, Mode (4 columns)
+        r2c1, r2c2, r2c3, r2c4 = st.columns(4)
+        with r2c1:
+            time_val = st.selectbox("Time (நேரம்)", ["1.00 Hour", "2.00 Hours", "3.00 Hours"], index=2)
+        with r2c2:
+            marks_val = st.number_input("Total Marks", value=100, step=1)
+        with r2c3:
+            diff_level = st.selectbox("கடினத்தன்மை", ["எளிமை (Easy)", "நடுத்தரம் (Medium)", "கடினம் (Hard)"], index=1)
+        with r2c4:
+            exam_mode = st.selectbox("Exam Mode", ["🏛️ Public", "🏫 School Elite"])
 
-        st.markdown("---")
-        diff_level = st.selectbox("வினாத்தாள் கடினத்தன்மை", ["எளிமை (Easy)", "நடுத்தரம் (Medium)", "கடினம் (Hard)"], index=1)
-        st.markdown("---")
+        # Row 3: Language toggle (left) + Lessons multiselect (right)
+        r3c1, r3c2 = st.columns([1, 2])
+        with r3c1:
+            paper_lang = st.radio("மொழி (Language)", ["தமிழ் (Tamil)", "English"], horizontal=True)
+        with r3c2:
+            lesson_list      = df[df['Subject'] == subject_val]['Lesson'].unique()
+            selected_lessons = st.multiselect("பாடங்களைத் தேர்ந்தெடுக்கவும்", lesson_list)
+
+        st.markdown("<hr style='margin:8px 0;'>", unsafe_allow_html=True)
 
         is_eng = "english" in subject_val.lower() or "ஆங்கிலம்" in subject_val.lower()
         is_soc = "social"  in subject_val.lower() or "சமூக"     in subject_val.lower()
@@ -1507,11 +1516,11 @@ with tab1:
 
         # ===== Part selector cards =====
         st.markdown("""
-        <div style='display:flex;align-items:center;gap:12px;margin-bottom:6px;'>
-            <div style='width:44px;height:44px;border-radius:12px;background:#eef1fd;display:flex;
-                        align-items:center;justify-content:center;font-size:22px;'>📋</div>
+        <div style='display:flex;align-items:center;gap:10px;margin-bottom:4px;'>
+            <div style='width:34px;height:34px;border-radius:9px;background:#eef1fd;display:flex;
+                        align-items:center;justify-content:center;font-size:17px;'>📋</div>
             <div><h3 style='margin:0;'>வினா வடிவமைப்பு பிரிவு</h3>
-            <span style='color:#5a6782;font-size:13px;'>Paper-ல் சேர்க்க வேண்டிய வினா வகைகளைத் தேர்ந்தெடுக்கவும்</span></div>
+            <span style='color:#5a6782;font-size:12px;'>Paper-ல் சேர்க்க வேண்டிய வினா வகைகளைத் தேர்ந்தெடுக்கவும்</span></div>
         </div>
         """, unsafe_allow_html=True)
 
