@@ -43,12 +43,32 @@ st.markdown("""
 
     /* ===== Global ===== */
     .stApp { background: var(--bg); }
-    .block-container { padding-top: 1.2rem !important; padding-bottom: 1.5rem !important; }
+    .block-container { padding-top: 0.8rem !important; padding-bottom: 1rem !important; max-width: 1150px !important; }
     /* tighten vertical gaps between widgets */
-    [data-testid="stVerticalBlock"] { gap: 0.5rem !important; }
-    div[data-testid="stHorizontalBlock"] { gap: 0.7rem !important; }
+    [data-testid="stVerticalBlock"] { gap: 0.35rem !important; }
+    div[data-testid="stHorizontalBlock"] { gap: 0.6rem !important; }
     html, body, [class*="css"] { font-family: 'Inter','Noto Sans Tamil',sans-serif; }
-    [data-testid="stMarkdownContainer"] p { font-size: 16px; font-weight: 500; color: var(--ink); }
+    [data-testid="stMarkdownContainer"] p { font-size: 14.5px; font-weight: 500; color: var(--ink); }
+
+    /* compact headings */
+    h1 { font-size: 22px !important; }
+    h2 { font-size: 18px !important; }
+    h3 { font-size: 15px !important; }
+    h4 { font-size: 14px !important; }
+
+    /* compact inputs */
+    .stSelectbox div[data-baseweb="select"] > div,
+    .stTextInput input, .stNumberInput input {
+        border-radius: 9px !important; border: 1.5px solid var(--line) !important;
+        background: #fbfcfe !important; font-size: 14px !important;
+        padding-top: 6px !important; padding-bottom: 6px !important; min-height: 38px !important;
+    }
+    .stSelectbox label, .stTextInput label, .stNumberInput label, .stRadio label, .stMultiSelect label, .stSlider label {
+        font-size: 12.5px !important; font-weight: 600 !important; color: var(--slate) !important;
+        margin-bottom: 2px !important; padding-bottom: 0 !important;
+    }
+    /* compact number input +/- buttons */
+    .stNumberInput button { min-height: 38px !important; height: 38px !important; padding: 0 10px !important; }
 
     /* Headings */
     h1, h2, h3 { font-family: 'Sora','Noto Sans Tamil',sans-serif !important; color: var(--navy) !important; font-weight: 800 !important; }
@@ -70,26 +90,10 @@ st.markdown("""
         border-color: var(--gold) !important;
     }
 
-    /* ===== Input labels ===== */
-    .stSelectbox label, .stTextInput label, .stNumberInput label, .stRadio label, .stMultiSelect label {
-        font-size: 14px !important; font-weight: 600 !important; color: var(--slate) !important;
-    }
-
-    /* ===== Inputs ===== */
-    .stSelectbox div[data-baseweb="select"] > div,
-    .stTextInput input, .stNumberInput input {
-        border-radius: 11px !important; border: 1.5px solid var(--line) !important;
-        background: #fbfcfe !important;
-    }
-    .stSelectbox div[data-baseweb="select"] > div:hover,
-    .stTextInput input:focus, .stNumberInput input:focus {
-        border-color: var(--gold) !important;
-    }
-
     /* ===== Buttons (Gold primary) ===== */
     .stButton>button, .stDownloadButton>button, .stFormSubmitButton>button {
-        border-radius: 12px !important; font-weight: 700 !important; font-size: 15px !important;
-        height: auto !important; padding: 12px 22px !important; transition: .2s !important;
+        border-radius: 10px !important; font-weight: 700 !important; font-size: 14px !important;
+        height: auto !important; padding: 9px 18px !important; transition: .2s !important;
         border: 1.5px solid var(--line) !important; background: #ffffff !important; color: var(--navy) !important;
     }
     .stButton>button[kind="primary"], .stDownloadButton>button, .stFormSubmitButton>button {
@@ -105,11 +109,14 @@ st.markdown("""
     .stTabs [data-baseweb="tab-list"] { gap: 8px; border-bottom: none; }
     .stTabs [data-baseweb="tab"] {
         background: #ffffff; border: 1px solid var(--line); border-radius: 11px;
-        padding: 10px 20px; font-weight: 600; color: var(--slate);
+        padding: 9px 18px; font-weight: 600; color: var(--slate);
     }
     .stTabs [aria-selected="true"] {
         background: linear-gradient(135deg, var(--navy), var(--navy3)) !important;
-        color: #ffffff !important; border-color: var(--navy) !important;
+        border-color: var(--navy) !important;
+    }
+    .stTabs [aria-selected="true"] * {
+        color: #ffffff !important;
     }
 
     /* ===== Expander as card ===== */
