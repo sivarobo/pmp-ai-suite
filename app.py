@@ -695,7 +695,8 @@ if not st.session_state.get("logged_in_user"):
     st.markdown("""
     <style>
         .stApp { background: #f8fafc; }
-        #login-hero { text-align:center; padding: 30px 0 10px; max-width: 760px; margin: 0 auto; }
+        .block-container { padding-top: 2.5rem !important; }
+        #login-hero { text-align:center; padding: 55px 0 10px; max-width: 760px; margin: 0 auto; }
         #login-hero .logo-row { display:flex; align-items:center; justify-content:center; gap:12px; margin-bottom:22px; }
         #login-hero .logo-mark { width:46px; height:46px; border-radius:12px;
             background:linear-gradient(135deg,#2563eb,#3b82f6); color:#fff; display:flex;
