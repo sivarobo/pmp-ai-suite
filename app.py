@@ -758,8 +758,8 @@ if not st.session_state.get("logged_in_user"):
         st.markdown("""
         <div style='background:#f0f9ff; border:1px solid #bae6fd; border-radius:12px;
                     padding:12px 16px; margin:6px 0 12px; text-align:center;'>
-            <b style='color:#0369a1;'>🎁 இலவச தொடக்கம்</b>
-            <span style='color:#0369a1; font-size:13px;'> · தினமும் 2 Papers Free · No Expiry</span>
+            <b style='color:#0369a1;'>🎁 1 மாத இலவச சோதனை</b>
+            <span style='color:#0369a1; font-size:13px;'> · வரம்பற்ற வினாத்தாள்கள் 🚀</span>
         </div>
         """, unsafe_allow_html=True)
 
@@ -776,7 +776,7 @@ if not st.session_state.get("logged_in_user"):
         st.markdown("""
         <div style='display:flex; justify-content:center; gap:8px; margin-top:12px; flex-wrap:wrap;'>
             <span style='font-size:12px; color:#475569; background:#f8fafc; padding:5px 12px; border-radius:8px; border:1px solid #e2e8f0;'>🔒 பாதுகாப்பான</span>
-            <span style='font-size:12px; color:#475569; background:#f8fafc; padding:5px 12px; border-radius:8px; border:1px solid #e2e8f0;'>⚡ இலவசம்</span>
+            <span style='font-size:12px; color:#475569; background:#f8fafc; padding:5px 12px; border-radius:8px; border:1px solid #e2e8f0;'>🎁 30 நாள் இலவசம்</span>
             <span style='font-size:12px; color:#475569; background:#f8fafc; padding:5px 12px; border-radius:8px; border:1px solid #e2e8f0;'>📄 Word Output</span>
         </div>
         """, unsafe_allow_html=True)
@@ -882,30 +882,65 @@ if _needs_profile:
     st.stop()
 
 # ==========================================
-# LOGGED IN — check usage
+# LOGGED IN — check trial period
 # ==========================================
 user_school  = current_user.get("school_name", "")
 user_teacher = current_user.get("teacher_name", user_name)
 
-today_usage  = get_today_usage(user_id)
-is_premium   = user_plan in ["premium", "paid"]
-limit_reached= (not is_premium) and (today_usage >= FREE_DAILY_LIMIT)
+TRIAL_DAYS = 30
+is_premium = user_plan in ["premium", "paid"]
 
-if limit_reached:
-    show_limit_reached_page(current_user, today_usage)
+# Compute trial status from created_at (first login date)
+import datetime as _dt
+_created = current_user.get("created_at")
+trial_days_left = None
+trial_expired = False
+if not is_premium and _created:
+    try:
+        if isinstance(_created, str):
+            _created_dt = _dt.datetime.fromisoformat(_created.replace("Z", "").split(".")[0])
+        else:
+            _created_dt = _created
+        _elapsed = (_dt.datetime.now() - _created_dt.replace(tzinfo=None)).days
+        trial_days_left = max(TRIAL_DAYS - _elapsed, 0)
+        trial_expired = _elapsed >= TRIAL_DAYS
+    except Exception:
+        trial_days_left = TRIAL_DAYS
+        trial_expired = False
+
+# Block completely when trial expired (and not premium)
+if trial_expired and not is_premium:
+    st.markdown("""
+    <div style='text-align:center; padding:50px 20px;'>
+        <div style='font-size:56px;'>⏳</div>
+        <h1 style='color:#0a1f44;'>உங்கள் 30-நாள் இலவச சோதனை முடிந்தது</h1>
+        <p style='color:#64748b; font-size:16px; margin-top:8px;'>
+            தொடர்ந்து வினாத்தாள்கள் உருவாக்க, Premium plan-க்கு மேம்படுத்தவும்.
+        </p>
+        <div style='margin-top:20px; padding:16px 22px; background:#fff6df; border:1px solid #c9a227;
+                    border-radius:12px; display:inline-block;'>
+            <b style='color:#9a6b00;'>📞 தொடர்பு:</b> +91 90430 00733<br>
+            <span style='color:#9a6b00; font-size:14px;'>PMP Enterprises · Premium plan விவரங்களுக்கு அழைக்கவும்</span>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+    _lo1, _lo2, _lo3 = st.columns([2, 1, 2])
+    with _lo2:
+        if st.button("🚪 Logout", use_container_width=True):
+            st.session_state.pop("logged_in_user", None)
+            st.rerun()
     st.stop()
 
 # ==========================================
-# USAGE BANNER
+# TRIAL BANNER
 # ==========================================
-remaining = FREE_DAILY_LIMIT - today_usage
-if not is_premium:
-    if remaining <= 1:
-        st.warning(f"⚠️ இன்று {remaining} question paper மட்டுமே மிச்சம் | 👤 {user_name}")
-    else:
-        st.info(f"🎁 இன்று {remaining}/{FREE_DAILY_LIMIT} free papers மிச்சம் | 👤 {user_name}")
-else:
+if is_premium:
     st.success(f"⭐ Premium Plan | 👤 {user_name} | Unlimited Access")
+elif trial_days_left is not None:
+    if trial_days_left <= 5:
+        st.warning(f"⏳ இலவச சோதனை: இன்னும் {trial_days_left} நாட்கள் மட்டுமே மிச்சம் | வரம்பற்ற வினாத்தாள்கள் | 👤 {user_name}")
+    else:
+        st.info(f"🎁 இலவச சோதனை காலம்: இன்னும் {trial_days_left} நாட்கள் · வரம்பற்ற வினாத்தாள்கள் 🚀 | 👤 {user_name}")
 
 # ==========================================
 # API Configuration
@@ -1579,7 +1614,7 @@ with hdr_l:
             <h1 style="font-size:20px !important;">வரவேற்கிறோம், <span class="accent">{_first_name}</span>! 👋</h1>
             <p style="font-size:12.5px;">🏫 {user_school or ''} · 📞 {current_user.get('mobile','')}</p>
         </div>
-        <div class="pmp-badge">{_plan_label} · {today_usage}/{FREE_DAILY_LIMIT if user_plan=='free' else '∞'}</div>
+        <div class="pmp-badge">{('⭐ Premium' if is_premium else (f'🎁 Trial · {trial_days_left} நாள்' if trial_days_left is not None else '🎁 Trial'))}</div>
     </div>
     """, unsafe_allow_html=True)
 with hdr_r:
