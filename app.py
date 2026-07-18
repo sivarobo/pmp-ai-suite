@@ -26,7 +26,7 @@ import requests
 # ==========================================
 # st.set_page_config - MUST BE FIRST
 # ==========================================
-st.set_page_config(page_title="PMP QP Gen AI", page_icon="🎓", layout="wide")
+st.set_page_config(page_title="PMP QP Gen AI", page_icon="🎓", layout="wide", initial_sidebar_state="collapsed")
 
 # ==========================================
 # CSS Styling
@@ -43,6 +43,10 @@ st.markdown("""
 
     /* ===== Global ===== */
     .stApp { background: var(--bg); }
+    .block-container { padding-top: 1.2rem !important; padding-bottom: 1.5rem !important; }
+    /* tighten vertical gaps between widgets */
+    [data-testid="stVerticalBlock"] { gap: 0.5rem !important; }
+    div[data-testid="stHorizontalBlock"] { gap: 0.7rem !important; }
     html, body, [class*="css"] { font-family: 'Inter','Noto Sans Tamil',sans-serif; }
     [data-testid="stMarkdownContainer"] p { font-size: 16px; font-weight: 500; color: var(--ink); }
 
@@ -1432,61 +1436,27 @@ def create_professional_docx(ai_response, school_name, class_val, subject_val, e
     return doc
 
 # ==========================================
-# SIDEBAR — branding + profile + usage
+# COMPACT HEADER (profile + logout inline, no left sidebar)
 # ==========================================
-with st.sidebar:
-    st.markdown("""
-    <div style='display:flex;align-items:center;gap:12px;padding:6px 0 18px;'>
-        <div style='width:44px;height:44px;border-radius:12px;background:linear-gradient(135deg,#c9a227,#e6c866);
-                    display:flex;align-items:center;justify-content:center;font-weight:800;color:#0a1f44;font-size:20px;'>P</div>
-        <div><b style='color:#fff;font-size:17px;font-family:Sora,sans-serif;'>PMP QP Gen AI</b>
-        <div style='color:#e6c866;font-size:10.5px;letter-spacing:.5px;'>QP GENERATOR</div></div>
+_plan_label = "👑 Premium" if user_plan != "free" else "👑 Free"
+_first_name = (user_teacher or user_name or "Teacher").split()[0]
+
+hdr_l, hdr_r = st.columns([3, 1])
+with hdr_l:
+    st.markdown(f"""
+    <div class="pmp-header" style="padding:16px 22px;margin-bottom:14px;">
+        <div>
+            <h1 style="font-size:20px !important;">வரவேற்கிறோம், <span class="accent">{_first_name}</span>! 👋</h1>
+            <p style="font-size:12.5px;">🏫 {user_school or ''} · 📞 {current_user.get('mobile','')}</p>
+        </div>
+        <div class="pmp-badge">{_plan_label} · {today_usage}/{FREE_DAILY_LIMIT if user_plan=='free' else '∞'}</div>
     </div>
     """, unsafe_allow_html=True)
-
-    if user_pic:
-        st.markdown(f"""
-        <div style='display:flex;align-items:center;gap:12px;padding:12px;background:rgba(255,255,255,.06);
-                    border-radius:12px;border:1px solid rgba(201,162,39,.2);margin-bottom:14px;'>
-            <img src="{user_pic}" width="42" height="42" style='border-radius:11px;border:2px solid #e6c866;'/>
-            <div><b style='color:#fff;font-size:14px;'>{user_teacher}</b>
-            <div style='color:#9fb0d0;font-size:11px;'>🏫 {(user_school or '')[:22]}</div></div>
-        </div>
-        """, unsafe_allow_html=True)
-    else:
-        st.markdown(f"**👤 {user_teacher}**")
-        st.caption(f"🏫 {user_school}")
-
-    st.markdown(f"<div style='color:#9fb0d0;font-size:12px;padding:2px 0 10px;'>📞 {current_user.get('mobile','')}</div>", unsafe_allow_html=True)
-
-    # Daily usage
-    _limit = FREE_DAILY_LIMIT if user_plan == "free" else "∞"
-    st.markdown(f"<div style='color:#e6c866;font-size:12px;font-weight:700;margin-top:6px;'>தினசரி பயன்பாடு</div>", unsafe_allow_html=True)
-    if user_plan == "free":
-        st.progress(min(today_usage / FREE_DAILY_LIMIT, 1.0))
-        st.markdown(f"<div style='color:#c7d1e6;font-size:12px;'>{today_usage} / {FREE_DAILY_LIMIT} தாள்கள்</div>", unsafe_allow_html=True)
-    else:
-        st.markdown("<div style='color:#c7d1e6;font-size:12px;'>வரம்பற்றது (Premium)</div>", unsafe_allow_html=True)
-
+with hdr_r:
     st.markdown("<div style='height:14px;'></div>", unsafe_allow_html=True)
     if st.button("🚪 Logout", use_container_width=True):
         st.session_state.pop("logged_in_user", None)
         st.rerun()
-
-# ==========================================
-# DASHBOARD HEADER
-# ==========================================
-_plan_label = "👑 Premium" if user_plan != "free" else "👑 Free Plan"
-_first_name = (user_teacher or user_name or "Teacher").split()[0]
-st.markdown(f"""
-<div class="pmp-header">
-    <div>
-        <h1>மீண்டும் வரவேற்கிறோம், <span class="accent">{_first_name}</span>! 👋</h1>
-        <p>AI உதவியுடன் நொடிகளில் தரமான வினாத்தாள்களை உருவாக்குங்கள் · 🏫 {user_school or ''}</p>
-    </div>
-    <div class="pmp-badge">{_plan_label}</div>
-</div>
-""", unsafe_allow_html=True)
 
 # ==========================================
 # MAIN APP TABS
@@ -1555,21 +1525,40 @@ with tab1:
 
         with marks_col:
             st.markdown("#### ⚙️ மதிப்பெண் விவரங்கள்")
-            s1, s2 = st.columns(2)
-            with s1:
-                p1_ask = st.slider("1-மார்க் வினாக்கள்", 0, 30, int(bp["p1"]) if show_p1 else 0, disabled=not show_p1)
-                p2_get = st.slider("2-மார்க் கொடுக்க (Given)", 0, 30, int(bp["p2g"]) if show_p2 else 0, disabled=not show_p2)
-                p2_ask = st.slider("2-மார்க் எழுத (Answer)", 0, 30, int(bp["p2a"]) if show_p2 else 0, disabled=not show_p2)
-            with s2:
-                p3_get = st.slider("5-மார்க் கொடுக்க (Given)", 0, 30, int(bp["p3g"]) if show_p3 else 0, disabled=not show_p3)
-                p3_ask = st.slider("5-மார்க் எழுத (Answer)", 0, 30, int(bp["p3a"]) if show_p3 else 0, disabled=not show_p3)
-                p4_val = st.selectbox("நெடுவினா மதிப்பெண்", [5, 8, 10], index=1 if is_eng or is_soc or marks_val == 100 else 0, disabled=not show_p4)
 
-            g1, g2 = st.columns(2)
-            with g1:
-                p4_get = st.number_input("நெடுவினா கொடுக்க (Given)", value=int(bp["p4g"]) if show_p4 else 0, step=1, disabled=not show_p4)
-            with g2:
-                p4_ask = st.number_input("நெடுவினா எழுத (Answer)", value=int(bp["p4a"]) if show_p4 else 0, step=1, disabled=not show_p4)
+            # Row 1: 1-mark (full width)
+            p1_ask = st.number_input("1-மார்க் வினாக்கள்", min_value=0, max_value=30,
+                                     value=int(bp["p1"]) if show_p1 else 0, step=1, disabled=not show_p1)
+
+            # Row 2: 2-mark Given (left) + Answer (right)
+            r2l, r2r = st.columns(2)
+            with r2l:
+                p2_get = st.number_input("2-மார்க் கொடுக்க (Given)", min_value=0, max_value=30,
+                                         value=int(bp["p2g"]) if show_p2 else 0, step=1, disabled=not show_p2)
+            with r2r:
+                p2_ask = st.number_input("2-மார்க் எழுத (Answer)", min_value=0, max_value=30,
+                                         value=int(bp["p2a"]) if show_p2 else 0, step=1, disabled=not show_p2)
+
+            # Row 3: 5-mark Given (left) + Answer (right)
+            r3l, r3r = st.columns(2)
+            with r3l:
+                p3_get = st.number_input("5-மார்க் கொடுக்க (Given)", min_value=0, max_value=30,
+                                         value=int(bp["p3g"]) if show_p3 else 0, step=1, disabled=not show_p3)
+            with r3r:
+                p3_ask = st.number_input("5-மார்க் எழுத (Answer)", min_value=0, max_value=30,
+                                         value=int(bp["p3a"]) if show_p3 else 0, step=1, disabled=not show_p3)
+
+            # Row 4: நெடுவினா mark value + Given + Answer
+            r4a, r4b, r4c = st.columns(3)
+            with r4a:
+                p4_val = st.selectbox("நெடுவினா மதிப்பெண்", [5, 8, 10],
+                                      index=1 if is_eng or is_soc or marks_val == 100 else 0, disabled=not show_p4)
+            with r4b:
+                p4_get = st.number_input("நெடுவினா கொடுக்க", min_value=0, max_value=20,
+                                         value=int(bp["p4g"]) if show_p4 else 0, step=1, disabled=not show_p4)
+            with r4c:
+                p4_ask = st.number_input("நெடுவினா எழுத", min_value=0, max_value=20,
+                                         value=int(bp["p4a"]) if show_p4 else 0, step=1, disabled=not show_p4)
 
         total_calculated = (p1_ask * 1) + (p2_ask * 2) + (p3_ask * 5) + (p4_ask * p4_val)
         can_generate     = total_calculated == marks_val
@@ -1589,7 +1578,7 @@ with tab1:
             seg = [(lbl, val, col) for (lbl, val, col) in seg if val > 0]
             try:
                 import matplotlib.pyplot as _plt
-                fig, ax = _plt.subplots(figsize=(3, 3), subplot_kw=dict(aspect="equal"))
+                fig, ax = _plt.subplots(figsize=(2.4, 2.4), subplot_kw=dict(aspect="equal"))
                 if seg:
                     vals = [v for _, v, _ in seg]
                     cols = [c for _, _, c in seg]
