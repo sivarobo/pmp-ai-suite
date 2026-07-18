@@ -726,9 +726,27 @@ if not st.session_state.get("logged_in_user"):
     </style>
     <div id="login-hero">
         <div class="logo-row">
-            <div class="logo-mark">P</div>
-            <div class="logo-txt"><b>PMP QP Gen AI</b><span>QUESTION PAPERS</span></div>
+            <div class="logo-txt" style="text-align:center;"><span style="font-size:13px;">QUESTION PAPER GENERATOR</span></div>
         </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # Logo image — place logo.png or logo.jpg in your GitHub repo root. Falls back gracefully if missing.
+    _lc1, _lc2, _lc3 = st.columns([1, 1, 1])
+    with _lc2:
+        import os as _os
+        _logo_file = None
+        for _f in ("logo.png", "logo.jpg", "logo.jpeg", "logo.webp"):
+            if _os.path.exists(_f):
+                _logo_file = _f
+                break
+        if _logo_file:
+            st.image(_logo_file, use_container_width=True)
+        else:
+            st.markdown("<div style='text-align:center;font-family:Sora,sans-serif;font-size:32px;font-weight:800;color:#2563eb;'>PMP <span style='color:#7c3aed;'>QP Gen</span> AI</div>", unsafe_allow_html=True)
+
+    st.markdown("""
+    <div id="login-hero" style="padding-top:8px;">
         <div class="pill"><span class="dot"></span> TN Board · Class 10 · Samacheer Kalvi</div>
         <h1>சிறந்த வினாத்தாள்கள்<br><span class="grad">நிமிடங்களில் தயார்</span></h1>
         <p class="sub">உண்மையான பாடநூல் கேள்வி வங்கியில் இருந்து தேர்ந்தெடுங்கள்.<br>AI உதவியுடன், நேர்த்தியான Word வினாத்தாள்களை உடனடியாக உருவாக்குங்கள்.</p>
@@ -777,6 +795,10 @@ if not st.session_state.get("logged_in_user"):
     </div>
     <div class="login-foot">
         <span class="gst">GSTIN: 33ABJFP1752G1ZC</span><br><br>
+        <a href="https://www.facebook.com/profile.php?id=61590340754238" target="_blank"
+           style="display:inline-flex;align-items:center;gap:6px;color:#2563eb;text-decoration:none;font-weight:600;margin-bottom:10px;">
+           📘 Facebook-ல் எங்களைப் பின்தொடருங்கள்
+        </a><br>
         © 2026 PMP Enterprises · PMP QP Gen AI · 📞 +91 90430 00733<br>
         39 to 41, Gayathri Complex, Kumarasamypatty Cherry Road, Hasthampatty, Salem – 636007
     </div>
