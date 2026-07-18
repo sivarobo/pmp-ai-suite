@@ -463,19 +463,28 @@ qtype-ஐ மூன்றிலும் கலந்து (mix) கொடு�
         return []
 
 def get_or_build_bank(subject, lesson, mark_type, min_count=8):
-    """DB-ல் கேள்விகள் இருந்தால் அதை மட்டும் திருப்பும் (AI கூப்பிடாது).
-       DB முற்றிலும் காலியா இருந்தால் மட்டும் AI generate பண்ணும்."""
+    """கேள்வி வங்கியில் இருந்து மட்டும் fetch பண்ணும். AI-ஐ ஒருபோதும் கூப்பிடாது.
+       (Imported புத்தக கேள்விகளை மட்டும் பயன்படுத்துகிறோம் — quota பிரச்சனை வராது.)"""
     existing = fetch_bank_questions(subject, lesson, mark_type)
-    # Bank-ல் ஏதாவது ஒரு கேள்வி இருந்தாலும், அதை மட்டும் use பண்ணு — AI கூப்பிடாதே.
-    # (Imported book questions-ஐ AI-generated கேள்விகளால் நிரப்ப வேண்டாம்.)
     if existing:
         return existing
-    # முற்றிலும் காலி எனில் மட்டும் AI fallback
-    new_items = generate_bank_questions_ai(subject, lesson, mark_type, count=max(min_count, 6))
-    if new_items:
-        save_bank_questions(subject, lesson, mark_type, new_items)
-        existing = fetch_bank_questions(subject, lesson, mark_type)
-    return existing
+    # Subject/lesson பெயர் exact match ஆகவில்லை எனில், case-insensitive-ஆ மீண்டும் முயற்சி
+    try:
+        conn = get_db()
+        if conn:
+            cur = conn.cursor()
+            cur.execute(
+                "SELECT id, qtype, question_text, answer_text, reference FROM question_bank "
+                "WHERE LOWER(TRIM(lesson))=LOWER(TRIM(%s)) AND mark_type=%s ORDER BY id",
+                (lesson, mark_type)
+            )
+            rows = cur.fetchall()
+            conn.close()
+            if rows:
+                return [dict(r) for r in rows]
+    except Exception:
+        pass
+    return []
 
 def assemble_paper_from_bank(parts_cfg):
     """
@@ -1898,7 +1907,12 @@ with tab1:
                             pool[part["key"]] = merged
                         st.session_state["bank_pool"] = pool
                         st.session_state["bank_pool_subject"] = subject_val
-                        st.success("✅ கேள்வி வங்கி தயார்!")
+                        _total_loaded = sum(len(v) for v in pool.values())
+                        if _total_loaded > 0:
+                            st.success(f"✅ கேள்வி வங்கி தயார்! ({_total_loaded} கேள்விகள் கிடைத்தன)")
+                        else:
+                            st.warning("⚠️ தேர்ந்தெடுத்த பாடங்களுக்கு கேள்வி வங்கியில் கேள்விகள் இல்லை. "
+                                       "'🛠️ கேள்வி வங்கி மேலாண்மை' Tab-ல் Excel Import செய்யப்பட்டதா என்று பாருங்க.")
 
                 if "bank_pool" in st.session_state and st.session_state.get("bank_pool_subject") == subject_val:
                     for part in parts_meta:
