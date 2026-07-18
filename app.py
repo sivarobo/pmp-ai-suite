@@ -43,7 +43,7 @@ st.markdown("""
 
     /* ===== Global ===== */
     .stApp { background: var(--bg); }
-    .block-container { padding-top: 2rem !important; padding-bottom: 1rem !important; max-width: 1150px !important; }
+    .block-container { padding-top: 3rem !important; padding-bottom: 1rem !important; max-width: 1150px !important; }
     /* tighten vertical gaps between widgets */
     [data-testid="stVerticalBlock"] { gap: 0.35rem !important; }
     div[data-testid="stHorizontalBlock"] { gap: 0.6rem !important; }
@@ -828,6 +828,62 @@ if not st.session_state.get("logged_in_user"):
     st.stop()
 
 # ==========================================
+# WELCOME SPLASH — banner shown once for 5s after login, then fades
+# ==========================================
+if not st.session_state.get("splash_shown"):
+    import os as _os_s, base64 as _b64_s
+    _banner_file = None
+    for _bf in ("banner.jpg", "banner.png", "banner.jpeg", "banner.webp"):
+        if _os_s.path.exists(_bf):
+            _banner_file = _bf
+            break
+
+    _banner_html = ""
+    if _banner_file:
+        try:
+            with open(_banner_file, "rb") as _bfh:
+                _b64 = _b64_s.b64encode(_bfh.read()).decode()
+            _ext = _banner_file.rsplit(".", 1)[-1]
+            _banner_html = f"<img src='data:image/{_ext};base64,{_b64}' style='max-width:92%;max-height:70vh;border-radius:18px;box-shadow:0 20px 60px rgba(0,0,0,.35);'/>"
+        except Exception:
+            _banner_html = ""
+    if not _banner_html:
+        _banner_html = ("<div style='font-family:Sora,sans-serif;font-size:46px;font-weight:800;color:#fff;'>"
+                        "PMP <span style='color:#e6c866;'>QP Gen</span> AI</div>"
+                        "<div style='color:#c7d1e6;font-size:16px;margin-top:10px;'>கல்விக்கான சிறந்த ஆன்லைன் தளம்</div>")
+
+    st.markdown(f"""
+    <style>
+        [data-testid="stHeader"] {{ display:none; }}
+        .block-container {{ padding:0 !important; }}
+        #splash {{
+            position:fixed; inset:0; z-index:99999;
+            background:linear-gradient(135deg,#0a1f44,#12305f);
+            display:flex; flex-direction:column; align-items:center; justify-content:center;
+            animation: splashFade 5s ease-in-out forwards;
+        }}
+        #splash .inner {{ text-align:center; animation: zoomIn 1s ease-out; }}
+        #splash .welcome {{ color:#e6c866; font-family:Sora,sans-serif; font-size:22px; font-weight:700; margin-top:22px; }}
+        #splash .loader {{ margin-top:20px; width:180px; height:5px; background:rgba(255,255,255,.15); border-radius:5px; overflow:hidden; }}
+        #splash .loader::after {{ content:""; display:block; height:100%; width:0; background:linear-gradient(90deg,#c9a227,#e6c866); border-radius:5px; animation: loadBar 5s linear forwards; }}
+        @keyframes splashFade {{ 0%{{opacity:1;}} 80%{{opacity:1;}} 100%{{opacity:0; visibility:hidden;}} }}
+        @keyframes zoomIn {{ 0%{{transform:scale(.85); opacity:0;}} 100%{{transform:scale(1); opacity:1;}} }}
+        @keyframes loadBar {{ 0%{{width:0;}} 100%{{width:100%;}} }}
+    </style>
+    <div id="splash">
+        <div class="inner">
+            {_banner_html}
+            <div class="welcome">வரவேற்கிறோம்! 👋 தயாராகிறது...</div>
+            <div class="loader"></div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    st.session_state["splash_shown"] = True
+    time.sleep(5)
+    st.rerun()
+
+# ==========================================
 # LOGGED IN — Get user & check usage
 # ==========================================
 current_user = st.session_state["logged_in_user"]
@@ -930,7 +986,7 @@ if trial_expired and not is_premium:
     _lo1, _lo2, _lo3 = st.columns([2, 1, 2])
     with _lo2:
         if st.button("🚪 Logout", use_container_width=True):
-            st.session_state.pop("logged_in_user", None)
+            st.session_state.pop("logged_in_user", None); st.session_state.pop("splash_shown", None)
             st.rerun()
     st.stop()
 
@@ -1623,7 +1679,7 @@ with hdr_l:
 with hdr_r:
     st.markdown("<div style='height:14px;'></div>", unsafe_allow_html=True)
     if st.button("🚪 Logout", use_container_width=True):
-        st.session_state.pop("logged_in_user", None)
+        st.session_state.pop("logged_in_user", None); st.session_state.pop("splash_shown", None)
         st.rerun()
     with st.expander("✏️ Profile திருத்து", expanded=not (user_school and current_user.get("mobile"))):
         e_school  = st.text_input("பள்ளி", value=user_school or "", key="edit_school")
