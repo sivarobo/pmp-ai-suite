@@ -246,23 +246,25 @@ def upsert_google_user(google_info):
             )
         """)
         # Safe migration for existing DBs (columns added if missing)
-        for col in ["school_name TEXT", "teacher_name TEXT", "mobile TEXT"]:
+        for col in ["google_id TEXT", "picture TEXT", "plan TEXT DEFAULT 'free'",
+                    "created_at TIMESTAMP DEFAULT NOW()", "last_login TIMESTAMP DEFAULT NOW()",
+                    "school_name TEXT", "teacher_name TEXT", "mobile TEXT"]:
             try:
                 cur.execute(f"ALTER TABLE users ADD COLUMN IF NOT EXISTS {col}")
             except Exception:
                 pass
+        conn.commit()
 
-        # Upsert by google_id
+        # Upsert by email (google_id optional)
         cur.execute("""
-            INSERT INTO users (google_id, email, name, picture, last_login)
-            VALUES (%s, %s, %s, %s, NOW())
+            INSERT INTO users (email, name, picture, last_login)
+            VALUES (%s, %s, %s, NOW())
             ON CONFLICT (email) DO UPDATE
               SET name       = EXCLUDED.name,
                   picture    = EXCLUDED.picture,
                   last_login = NOW()
-            RETURNING id, google_id, email, name, picture, plan, created_at, school_name, teacher_name, mobile
+            RETURNING id, email, name, picture, plan, created_at, school_name, teacher_name, mobile
         """, (
-            google_info.get("sub", google_info.get("id", "")),
             google_info["email"],
             google_info["name"],
             google_info.get("picture", ""),
@@ -284,7 +286,7 @@ def fetch_user_by_email(email):
             return None
         cur = conn.cursor()
         cur.execute(
-            "SELECT id, google_id, email, name, picture, plan, created_at, school_name, teacher_name, mobile "
+            "SELECT id, email, name, picture, plan, created_at, school_name, teacher_name, mobile "
             "FROM users WHERE email=%s", (email,)
         )
         row = cur.fetchone()
