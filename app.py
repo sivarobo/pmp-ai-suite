@@ -26,56 +26,127 @@ import requests
 # ==========================================
 # st.set_page_config - MUST BE FIRST
 # ==========================================
-st.set_page_config(page_title="PMP AI Suite PRO", page_icon="🎓", layout="centered")
+st.set_page_config(page_title="PMP QP Gen AI", page_icon="🎓", layout="wide")
 
 # ==========================================
 # CSS Styling
 # ==========================================
 st.markdown("""
 <style>
-    html, body, [data-testid="stMarkdownContainer"] p {
-        font-size: 18px !important;
-        font-weight: 500 !important;
-    }
-    .stSelectbox label, .stTextInput label, .stNumberInput label {
-        font-size: 19px !important;
-        font-weight: bold !important;
-        color: #1E3A8A !important;
-    }
-    button { font-size: 18px !important; height: 50px !important; }
+    @import url('https://fonts.googleapis.com/css2?family=Sora:wght@600;700;800&family=Inter:wght@400;500;600;700&family=Noto+Sans+Tamil:wght@400;500;600;700&display=swap');
 
-    /* Google Login Card */
-    .google-login-wrapper {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        padding: 20px 0;
+    :root{
+        --navy:#0a1f44; --navy2:#12305f; --navy3:#1a3a6b;
+        --gold:#c9a227; --gold-lt:#e6c866; --gold-soft:#f3e7bd;
+        --bg:#f4f6fb; --card:#ffffff; --ink:#0f1a30; --slate:#5a6782; --line:#e6e9f2;
     }
+
+    /* ===== Global ===== */
+    .stApp { background: var(--bg); }
+    html, body, [class*="css"] { font-family: 'Inter','Noto Sans Tamil',sans-serif; }
+    [data-testid="stMarkdownContainer"] p { font-size: 16px; font-weight: 500; color: var(--ink); }
+
+    /* Headings */
+    h1, h2, h3 { font-family: 'Sora','Noto Sans Tamil',sans-serif !important; color: var(--navy) !important; font-weight: 800 !important; }
+
+    /* ===== Sidebar ===== */
+    [data-testid="stSidebar"] {
+        background: linear-gradient(180deg, var(--navy), #081934) !important;
+    }
+    [data-testid="stSidebar"] * { color: #c7d1e6 !important; }
+    [data-testid="stSidebar"] h1, [data-testid="stSidebar"] h2, [data-testid="stSidebar"] h3 { color: #ffffff !important; }
+    [data-testid="stSidebar"] .stButton>button {
+        background: rgba(255,255,255,.07) !important;
+        color: #e8ecf4 !important;
+        border: 1px solid rgba(201,162,39,.25) !important;
+    }
+    [data-testid="stSidebar"] .stButton>button:hover {
+        background: linear-gradient(135deg, var(--gold), var(--gold-lt)) !important;
+        color: var(--navy) !important;
+        border-color: var(--gold) !important;
+    }
+
+    /* ===== Input labels ===== */
+    .stSelectbox label, .stTextInput label, .stNumberInput label, .stRadio label, .stMultiSelect label {
+        font-size: 14px !important; font-weight: 600 !important; color: var(--slate) !important;
+    }
+
+    /* ===== Inputs ===== */
+    .stSelectbox div[data-baseweb="select"] > div,
+    .stTextInput input, .stNumberInput input {
+        border-radius: 11px !important; border: 1.5px solid var(--line) !important;
+        background: #fbfcfe !important;
+    }
+    .stSelectbox div[data-baseweb="select"] > div:hover,
+    .stTextInput input:focus, .stNumberInput input:focus {
+        border-color: var(--gold) !important;
+    }
+
+    /* ===== Buttons (Gold primary) ===== */
+    .stButton>button, .stDownloadButton>button, .stFormSubmitButton>button {
+        border-radius: 12px !important; font-weight: 700 !important; font-size: 15px !important;
+        height: auto !important; padding: 12px 22px !important; transition: .2s !important;
+        border: 1.5px solid var(--line) !important; background: #ffffff !important; color: var(--navy) !important;
+    }
+    .stButton>button[kind="primary"], .stDownloadButton>button, .stFormSubmitButton>button {
+        background: linear-gradient(135deg, var(--gold), var(--gold-lt)) !important;
+        color: var(--navy) !important; border: none !important;
+        box-shadow: 0 8px 22px rgba(201,162,39,.35) !important;
+    }
+    .stButton>button:hover, .stDownloadButton>button:hover, .stFormSubmitButton>button:hover {
+        transform: translateY(-2px) !important;
+    }
+
+    /* ===== Tabs ===== */
+    .stTabs [data-baseweb="tab-list"] { gap: 8px; border-bottom: none; }
+    .stTabs [data-baseweb="tab"] {
+        background: #ffffff; border: 1px solid var(--line); border-radius: 11px;
+        padding: 10px 20px; font-weight: 600; color: var(--slate);
+    }
+    .stTabs [aria-selected="true"] {
+        background: linear-gradient(135deg, var(--navy), var(--navy3)) !important;
+        color: #ffffff !important; border-color: var(--navy) !important;
+    }
+
+    /* ===== Expander as card ===== */
+    .streamlit-expanderHeader, [data-testid="stExpander"] {
+        background: var(--card) !important; border-radius: 14px !important; border: 1px solid var(--line) !important;
+    }
+
+    /* ===== Metrics / cards ===== */
+    [data-testid="stMetric"] {
+        background: var(--card); border: 1px solid var(--line); border-radius: 16px;
+        padding: 18px 20px; box-shadow: 0 2px 6px rgba(10,31,68,.05);
+    }
+    [data-testid="stMetricValue"] { font-family:'Sora',sans-serif; color: var(--navy); font-weight: 800; }
+
+    /* Radio horizontal pills */
+    .stRadio [role="radiogroup"] { gap: 10px; }
+
+    /* Alerts softer */
+    .stAlert { border-radius: 12px; }
+
+    /* ===== Custom dashboard header ===== */
+    .pmp-header {
+        background: linear-gradient(135deg, var(--navy), var(--navy3));
+        border-radius: 18px; padding: 26px 30px; margin-bottom: 22px;
+        display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 14px;
+        border-bottom: 3px solid var(--gold);
+    }
+    .pmp-header h1 { color: #fff !important; font-size: 24px !important; margin: 0 !important; }
+    .pmp-header h1 .accent { color: var(--gold-lt) !important; }
+    .pmp-header p { color: #b9c4dd !important; font-size: 14px; margin: 4px 0 0 0; }
+    .pmp-badge { background: var(--gold-soft); border: 1.5px solid var(--gold); color: var(--navy);
+                 padding: 8px 16px; border-radius: 10px; font-weight: 700; font-size: 13px; }
+
+    /* Google Login button (kept) */
     .google-btn-link {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        gap: 12px;
-        background: #ffffff;
-        color: #3c4043;
-        border: 1.5px solid #dadce0;
-        border-radius: 8px;
-        padding: 14px 32px;
-        font-size: 16px;
-        font-weight: 600;
-        text-decoration: none !important;
-        width: 100%;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.10);
-        transition: box-shadow 0.2s, background 0.2s;
-        font-family: 'Segoe UI', sans-serif;
-        cursor: pointer;
+        display:inline-flex; align-items:center; justify-content:center; gap:12px;
+        background:#fff; color:#3c4043; border:1.5px solid #dadce0; border-radius:12px;
+        padding:14px 32px; font-size:16px; font-weight:600; text-decoration:none !important;
+        width:100%; box-shadow:0 2px 8px rgba(0,0,0,0.10); transition:.2s;
     }
-    .google-btn-link:hover {
-        box-shadow: 0 4px 16px rgba(0,0,0,0.16);
-        background: #f8faff;
-        text-decoration: none !important;
-    }
+    .google-btn-link:hover { box-shadow:0 6px 18px rgba(201,162,39,0.25); background:#fffdf5; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -181,16 +252,39 @@ def upsert_google_user(google_info):
         st.error(f"DB Error: {e}")
         return None
 
-def update_user_profile(user_id, school_name, teacher_name, mobile):
+def fetch_user_by_email(email):
+    try:
+        conn = get_db()
+        if not conn:
+            return None
+        cur = conn.cursor()
+        cur.execute(
+            "SELECT id, google_id, email, name, picture, plan, created_at, school_name, teacher_name, mobile "
+            "FROM users WHERE email=%s", (email,)
+        )
+        row = cur.fetchone()
+        conn.close()
+        return dict(row) if row else None
+    except Exception:
+        return None
+
+def update_user_profile(user_id, school_name, teacher_name, mobile, email=None):
     try:
         conn = get_db()
         if not conn:
             return False
         cur = conn.cursor()
-        cur.execute(
-            "UPDATE users SET school_name=%s, teacher_name=%s, mobile=%s WHERE id=%s",
-            (school_name.strip(), teacher_name.strip(), mobile.strip(), user_id)
-        )
+        # Prefer email as the key — robust whether id is serial/uuid or missing.
+        if email:
+            cur.execute(
+                "UPDATE users SET school_name=%s, teacher_name=%s, mobile=%s WHERE email=%s",
+                (school_name.strip(), teacher_name.strip(), mobile.strip(), email)
+            )
+        else:
+            cur.execute(
+                "UPDATE users SET school_name=%s, teacher_name=%s, mobile=%s WHERE id=%s",
+                (school_name.strip(), teacher_name.strip(), mobile.strip(), user_id)
+            )
         conn.commit()
         conn.close()
         return True
@@ -604,8 +698,11 @@ if not st.session_state.get("logged_in_user"):
             guser = _google_userinfo(access_token)
             if guser and "email" in guser:
                 db_user = upsert_google_user(guser)
+                if not db_user:
+                    # Fallback: fetch existing row by email so we still get real id + profile
+                    db_user = fetch_user_by_email(guser["email"])
                 st.session_state["logged_in_user"] = db_user or {
-                    "id":      0,
+                    "id":      None,
                     "email":   guser.get("email", ""),
                     "name":    guser.get("name", "User"),
                     "picture": guser.get("picture", ""),
@@ -660,7 +757,7 @@ if _needs_profile:
                 elif not (mobile_clean.isdigit() and len(mobile_clean) == 10):
                     st.error("⚠️ சரியான 10 இலக்க மொபைல் எண்ணை உள்ளிடவும்.")
                 else:
-                    if update_user_profile(user_id, in_school, in_teacher, mobile_clean):
+                    if update_user_profile(user_id, in_school, in_teacher, mobile_clean, email=user_email):
                         current_user["school_name"]  = in_school.strip()
                         current_user["teacher_name"] = in_teacher.strip()
                         current_user["mobile"]       = mobile_clean
@@ -1335,6 +1432,63 @@ def create_professional_docx(ai_response, school_name, class_val, subject_val, e
     return doc
 
 # ==========================================
+# SIDEBAR — branding + profile + usage
+# ==========================================
+with st.sidebar:
+    st.markdown("""
+    <div style='display:flex;align-items:center;gap:12px;padding:6px 0 18px;'>
+        <div style='width:44px;height:44px;border-radius:12px;background:linear-gradient(135deg,#c9a227,#e6c866);
+                    display:flex;align-items:center;justify-content:center;font-weight:800;color:#0a1f44;font-size:20px;'>P</div>
+        <div><b style='color:#fff;font-size:17px;font-family:Sora,sans-serif;'>PMP QP Gen AI</b>
+        <div style='color:#e6c866;font-size:10.5px;letter-spacing:.5px;'>QP GENERATOR</div></div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    if user_pic:
+        st.markdown(f"""
+        <div style='display:flex;align-items:center;gap:12px;padding:12px;background:rgba(255,255,255,.06);
+                    border-radius:12px;border:1px solid rgba(201,162,39,.2);margin-bottom:14px;'>
+            <img src="{user_pic}" width="42" height="42" style='border-radius:11px;border:2px solid #e6c866;'/>
+            <div><b style='color:#fff;font-size:14px;'>{user_teacher}</b>
+            <div style='color:#9fb0d0;font-size:11px;'>🏫 {(user_school or '')[:22]}</div></div>
+        </div>
+        """, unsafe_allow_html=True)
+    else:
+        st.markdown(f"**👤 {user_teacher}**")
+        st.caption(f"🏫 {user_school}")
+
+    st.markdown(f"<div style='color:#9fb0d0;font-size:12px;padding:2px 0 10px;'>📞 {current_user.get('mobile','')}</div>", unsafe_allow_html=True)
+
+    # Daily usage
+    _limit = FREE_DAILY_LIMIT if user_plan == "free" else "∞"
+    st.markdown(f"<div style='color:#e6c866;font-size:12px;font-weight:700;margin-top:6px;'>தினசரி பயன்பாடு</div>", unsafe_allow_html=True)
+    if user_plan == "free":
+        st.progress(min(today_usage / FREE_DAILY_LIMIT, 1.0))
+        st.markdown(f"<div style='color:#c7d1e6;font-size:12px;'>{today_usage} / {FREE_DAILY_LIMIT} தாள்கள்</div>", unsafe_allow_html=True)
+    else:
+        st.markdown("<div style='color:#c7d1e6;font-size:12px;'>வரம்பற்றது (Premium)</div>", unsafe_allow_html=True)
+
+    st.markdown("<div style='height:14px;'></div>", unsafe_allow_html=True)
+    if st.button("🚪 Logout", use_container_width=True):
+        st.session_state.pop("logged_in_user", None)
+        st.rerun()
+
+# ==========================================
+# DASHBOARD HEADER
+# ==========================================
+_plan_label = "👑 Premium" if user_plan != "free" else "👑 Free Plan"
+_first_name = (user_teacher or user_name or "Teacher").split()[0]
+st.markdown(f"""
+<div class="pmp-header">
+    <div>
+        <h1>மீண்டும் வரவேற்கிறோம், <span class="accent">{_first_name}</span>! 👋</h1>
+        <p>AI உதவியுடன் நொடிகளில் தரமான வினாத்தாள்களை உருவாக்குங்கள் · 🏫 {user_school or ''}</p>
+    </div>
+    <div class="pmp-badge">{_plan_label}</div>
+</div>
+""", unsafe_allow_html=True)
+
+# ==========================================
 # MAIN APP TABS
 # ==========================================
 tab1, tab2, tab3 = st.tabs([
@@ -1344,7 +1498,6 @@ tab1, tab2, tab3 = st.tabs([
 ])
 
 with tab1:
-    st.title("🎓 PMP Master AI Engine (V20.0)")
     df = load_data()
     if not df.empty:
         col1, col2 = st.columns(2)
@@ -1568,24 +1721,6 @@ with tab2:
                             st.error(f"மதிப்பீட்டு சர்வர் பிழை: {eval_err}")
                 if response:
                     st.markdown(response.text)
-
-    st.markdown("---")
-    col_l, col_m, col_r = st.columns([1, 2, 1])
-    with col_m:
-        # User info with profile picture
-        if user_pic:
-            st.markdown(f"""
-            <div style='text-align:center; margin-bottom:8px;'>
-                <img src="{user_pic}" width="48" height="48"
-                     style='border-radius:50%; border:2px solid #3b82f6;'/>
-            </div>
-            """, unsafe_allow_html=True)
-        st.markdown(f"**👤 {user_teacher}**")
-        st.caption(f"🏫 {user_school}")
-        st.caption(f"📞 {current_user.get('mobile','')} · {user_email}")
-        if st.button("🚪 Logout", use_container_width=True):
-            st.session_state.pop("logged_in_user", None)
-            st.rerun()
 
 with tab3:
     st.title("🛠️ கேள்வி வங்கி மேலாண்மை")
