@@ -691,32 +691,61 @@ FREE_DAILY_LIMIT = 2
 # ACCESS GATE — streamlit-oauth
 # ==========================================
 if not st.session_state.get("logged_in_user"):
+    # ===== Template2 Blue — Hero section =====
     st.markdown("""
-    <div style='text-align:center; padding:30px 0 10px 0;'>
-        <div style='width:64px;height:64px;border-radius:16px;margin:0 auto 12px;
-                    background:linear-gradient(135deg,#c9a227,#e6c866);display:flex;
-                    align-items:center;justify-content:center;font-size:30px;font-weight:800;
-                    color:#0a1f44;box-shadow:0 8px 24px rgba(201,162,39,.35);'>P</div>
-        <h1 style='color:#0a1f44; margin:8px 0 4px 0;'>PMP QP Gen AI</h1>
-        <p style='color:#64748b; font-size:16px;'>AI-Powered Question Paper Generator · TN Board Class 10</p>
+    <style>
+        .stApp { background: #f8fafc; }
+        #login-hero { text-align:center; padding: 30px 0 10px; max-width: 760px; margin: 0 auto; }
+        #login-hero .logo-row { display:flex; align-items:center; justify-content:center; gap:12px; margin-bottom:22px; }
+        #login-hero .logo-mark { width:46px; height:46px; border-radius:12px;
+            background:linear-gradient(135deg,#2563eb,#3b82f6); color:#fff; display:flex;
+            align-items:center; justify-content:center; font-weight:800; font-size:21px;
+            box-shadow:0 6px 16px rgba(37,99,235,.3); font-family:'Sora',sans-serif; }
+        #login-hero .logo-txt { text-align:left; }
+        #login-hero .logo-txt b { font-family:'Sora',sans-serif; font-size:19px; color:#0f172a; display:block; line-height:1; }
+        #login-hero .logo-txt span { font-size:11px; color:#2563eb; font-weight:700; letter-spacing:1px; }
+        #login-hero .pill { display:inline-flex; align-items:center; gap:8px; background:#dbeafe;
+            color:#1e40af; padding:7px 16px; border-radius:30px; font-size:13px; font-weight:600; margin-bottom:20px; }
+        #login-hero .pill .dot { width:7px; height:7px; border-radius:50%; background:#2563eb; display:inline-block; }
+        #login-hero h1 { font-family:'Sora',sans-serif; font-size:42px; line-height:1.15; font-weight:800;
+            letter-spacing:-1px; margin-bottom:16px; color:#0f172a; }
+        #login-hero h1 .grad { background:linear-gradient(120deg,#2563eb,#06b6d4);
+            -webkit-background-clip:text; background-clip:text; color:transparent; }
+        #login-hero p.sub { font-size:16px; color:#475569; line-height:1.6; margin-bottom:10px; }
+        .feat-row { display:flex; justify-content:center; gap:16px; flex-wrap:wrap; margin:34px auto 10px; max-width:900px; }
+        .feat-card { flex:1; min-width:210px; background:#fff; border:1px solid #e2e8f0; border-radius:16px;
+            padding:22px; text-align:left; }
+        .feat-card .ic { width:46px; height:46px; border-radius:12px; background:#dbeafe; display:flex;
+            align-items:center; justify-content:center; font-size:22px; margin-bottom:12px; }
+        .feat-card h4 { font-family:'Sora',sans-serif; font-size:15px; margin-bottom:6px; color:#0f172a; }
+        .feat-card p { font-size:13px; color:#475569; line-height:1.5; }
+        .login-foot { text-align:center; color:#94a3b8; font-size:13px; margin-top:36px; padding-top:20px; border-top:1px solid #e2e8f0; }
+        .login-foot .gst { display:inline-block; background:rgba(37,99,235,.1); border:1px solid rgba(37,99,235,.3);
+            color:#2563eb; padding:3px 10px; border-radius:6px; font-family:monospace; font-size:12px; }
+    </style>
+    <div id="login-hero">
+        <div class="logo-row">
+            <div class="logo-mark">P</div>
+            <div class="logo-txt"><b>PMP QP Gen AI</b><span>QUESTION PAPERS</span></div>
+        </div>
+        <div class="pill"><span class="dot"></span> TN Board · Class 10 · Samacheer Kalvi</div>
+        <h1>சிறந்த வினாத்தாள்கள்<br><span class="grad">நிமிடங்களில் தயார்</span></h1>
+        <p class="sub">உண்மையான பாடநூல் கேள்வி வங்கியில் இருந்து தேர்ந்தெடுங்கள்.<br>AI உதவியுடன், நேர்த்தியான Word வினாத்தாள்களை உடனடியாக உருவாக்குங்கள்.</p>
     </div>
     """, unsafe_allow_html=True)
 
-    col1, col2, col3 = st.columns([1, 2, 1])
+    col1, col2, col3 = st.columns([1, 1.4, 1])
     with col2:
         st.markdown("""
-        <div style='background:#f0fdf4; border:1px solid #86efac; border-radius:10px;
-                    padding:14px 18px; margin:16px 0;'>
-            <b style='color:#166534;'>🎁 Free Plan:</b>
-            <ul style='color:#166534; margin:6px 0 0 0; padding-left:20px;'>
-                <li>தினமும் 2 Question Papers Free</li>
-                <li>Always Free — No Expiry</li>
-            </ul>
+        <div style='background:#f0f9ff; border:1px solid #bae6fd; border-radius:12px;
+                    padding:12px 16px; margin:6px 0 12px; text-align:center;'>
+            <b style='color:#0369a1;'>🎁 இலவச தொடக்கம்</b>
+            <span style='color:#0369a1; font-size:13px;'> · தினமும் 2 Papers Free · No Expiry</span>
         </div>
         """, unsafe_allow_html=True)
 
         result = oauth2.authorize_button(
-            name="Google-ல் உள்நுழைக",
+            name="Google கணக்கில் உள்நுழை",
             icon="https://www.google.com/favicon.ico",
             redirect_uri=GOOGLE_REDIRECT_URI,
             scope="openid email profile",
@@ -725,29 +754,51 @@ if not st.session_state.get("logged_in_user"):
             use_container_width=True,
         )
 
-        if result and "token" in result:
-            token = result["token"]
-            access_token = token.get("access_token", "")
-            guser = _google_userinfo(access_token)
-            if guser and "email" in guser:
-                db_user = upsert_google_user(guser)
-                if not db_user:
-                    # Fallback: fetch existing row by email so we still get real id + profile
-                    db_user = fetch_user_by_email(guser["email"])
-                st.session_state["logged_in_user"] = db_user or {
-                    "id":      None,
-                    "email":   guser.get("email", ""),
-                    "name":    guser.get("name", "User"),
-                    "picture": guser.get("picture", ""),
-                    "plan":    "free",
-                }
-                st.rerun()
-
         st.markdown("""
-        <p style='text-align:center;color:#94a3b8;font-size:13px;margin-top:8px;'>
-            OTP தேவையில்லை · Gmail account தேர்ந்தெடுக்கவும்
-        </p>
+        <div style='display:flex; justify-content:center; gap:8px; margin-top:12px; flex-wrap:wrap;'>
+            <span style='font-size:12px; color:#475569; background:#f8fafc; padding:5px 12px; border-radius:8px; border:1px solid #e2e8f0;'>🔒 பாதுகாப்பான</span>
+            <span style='font-size:12px; color:#475569; background:#f8fafc; padding:5px 12px; border-radius:8px; border:1px solid #e2e8f0;'>⚡ இலவசம்</span>
+            <span style='font-size:12px; color:#475569; background:#f8fafc; padding:5px 12px; border-radius:8px; border:1px solid #e2e8f0;'>📄 Word Output</span>
+        </div>
         """, unsafe_allow_html=True)
+
+    # ===== Features =====
+    st.markdown("""
+    <div class="feat-row">
+        <div class="feat-card"><div class="ic">📖</div><h4>உண்மையான கேள்வி வங்கி</h4><p>994+ கணித கேள்விகள் — எடுத்துக்காட்டு, பயிற்சி, பின்புற வினாக்கள்.</p></div>
+        <div class="feat-card"><div class="ic">🤖</div><h4>AI தீர்வுகள்</h4><p>Answer இல்லாத கேள்விகளுக்கு Gemini AI உடனடி தீர்வு.</p></div>
+        <div class="feat-card"><div class="ic">📝</div><h4>Word Download</h4><p>பள்ளி பெயர், மார்க், நேரம் — professional format-ல்.</p></div>
+    </div>
+    <div class="feat-row">
+        <div class="feat-card"><div class="ic">🎯</div><h4>Blueprint கட்டுப்பாடு</h4><p>பகுதி I-IV, மார்க் பிரிவு, choice — முழு கட்டுப்பாடு.</p></div>
+        <div class="feat-card"><div class="ic">✏️</div><h4>திருத்தும் வசதி</h4><p>கேள்விகளை நேரடியாக edit/delete. ஒருமுறை சரி செய்தால் நிரந்தரம்.</p></div>
+        <div class="feat-card"><div class="ic">🔒</div><h4>Google Login</h4><p>பாதுகாப்பான, விரைவான உள்நுழைவு. தரவு தனிப்பட்டது.</p></div>
+    </div>
+    <div class="login-foot">
+        <span class="gst">GSTIN: 33ABJFP1752G1ZC</span><br><br>
+        © 2026 PMP Enterprises · PMP QP Gen AI · 📞 +91 90430 00733<br>
+        39 to 41, Gayathri Complex, Kumarasamypatty Cherry Road, Hasthampatty, Salem – 636007
+    </div>
+    """, unsafe_allow_html=True)
+
+    if result and "token" in result:
+        token = result["token"]
+        access_token = token.get("access_token", "")
+        guser = _google_userinfo(access_token)
+        if guser and "email" in guser:
+            db_user = upsert_google_user(guser)
+            if not db_user:
+                # Fallback: fetch existing row by email so we still get real id + profile
+                db_user = fetch_user_by_email(guser["email"])
+            st.session_state["logged_in_user"] = db_user or {
+                "id":      None,
+                "email":   guser.get("email", ""),
+                "name":    guser.get("name", "User"),
+                "picture": guser.get("picture", ""),
+                "plan":    "free",
+            }
+            st.rerun()
+
     st.stop()
 
 # ==========================================
