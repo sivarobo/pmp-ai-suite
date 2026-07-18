@@ -373,9 +373,14 @@ def ensure_question_bank_table():
                 qtype         TEXT,
                 question_text TEXT,
                 answer_text   TEXT,
+                reference     TEXT,
                 created_at    TIMESTAMP DEFAULT NOW()
             )
         """)
+        try:
+            cur.execute("ALTER TABLE question_bank ADD COLUMN IF NOT EXISTS reference TEXT")
+        except Exception:
+            pass
         conn.commit()
         conn.close()
     except Exception as e:
@@ -388,7 +393,7 @@ def fetch_bank_questions(subject, lesson, mark_type):
             return []
         cur = conn.cursor()
         cur.execute(
-            "SELECT id, qtype, question_text, answer_text FROM question_bank "
+            "SELECT id, qtype, question_text, answer_text, reference FROM question_bank "
             "WHERE subject=%s AND lesson=%s AND mark_type=%s ORDER BY id",
             (subject, lesson, mark_type)
         )
@@ -458,12 +463,15 @@ qtype-ஐ மூன்றிலும் கலந்து (mix) கொடு�
         return []
 
 def get_or_build_bank(subject, lesson, mark_type, min_count=8):
-    """DB-ல் இருந்தால் fetch பண்ணும், இல்லைனா AI மூலம் generate பண்ணி DB-ல் save பண்ணி திருப்பும்"""
+    """DB-ல் கேள்விகள் இருந்தால் அதை மட்டும் திருப்பும் (AI கூப்பிடாது).
+       DB முற்றிலும் காலியா இருந்தால் மட்டும் AI generate பண்ணும்."""
     existing = fetch_bank_questions(subject, lesson, mark_type)
-    if len(existing) >= min_count:
+    # Bank-ல் ஏதாவது ஒரு கேள்வி இருந்தாலும், அதை மட்டும் use பண்ணு — AI கூப்பிடாதே.
+    # (Imported book questions-ஐ AI-generated கேள்விகளால் நிரப்ப வேண்டாம்.)
+    if existing:
         return existing
-    needed = max(min_count - len(existing), 6)
-    new_items = generate_bank_questions_ai(subject, lesson, mark_type, count=needed)
+    # முற்றிலும் காலி எனில் மட்டும் AI fallback
+    new_items = generate_bank_questions_ai(subject, lesson, mark_type, count=max(min_count, 6))
     if new_items:
         save_bank_questions(subject, lesson, mark_type, new_items)
         existing = fetch_bank_questions(subject, lesson, mark_type)
@@ -598,6 +606,7 @@ def bulk_import_bank_from_df(df_import):
             qtype   = str(row["QType"]).strip()
             qtext   = str(row["Question"]).strip()
             atext   = str(row["Answer"]).strip() if not pd.isna(row["Answer"]) else ""
+            ref     = str(row["Reference"]).strip() if ("Reference" in df_import.columns and not pd.isna(row.get("Reference"))) else ""
             if not subject or not lesson or not qtext or subject == "nan" or qtext == "nan":
                 skipped += 1
                 continue
@@ -609,9 +618,9 @@ def bulk_import_bank_from_df(df_import):
                 skipped += 1
                 continue
             cur.execute(
-                "INSERT INTO question_bank (subject, lesson, mark_type, qtype, question_text, answer_text) "
-                "VALUES (%s, %s, %s, %s, %s, %s)",
-                (subject, lesson, mtype, qtype, qtext, atext)
+                "INSERT INTO question_bank (subject, lesson, mark_type, qtype, question_text, answer_text, reference) "
+                "VALUES (%s, %s, %s, %s, %s, %s, %s)",
+                (subject, lesson, mtype, qtype, qtext, atext, ref)
             )
             inserted += 1
         conn.commit()
@@ -1877,16 +1886,15 @@ with tab1:
             if not selected_lessons:
                 st.warning("⚠️ முதலில் மேலே பாடங்களைத் தேர்ந்தெடுக்கவும்!")
             else:
-                if st.button("🔄 கேள்வி வங்கியை ஏற்று / புதுப்பி (Load Question Bank)", use_container_width=True):
-                    with st.spinner("⏳ புத்தக கேள்விகள் தயார் செய்யப்படுகிறது... (முதல் முறை கொஞ்சம் நேரம் ஆகும்)"):
+                if st.button("🔄 கேள்வி வங்கியை ஏற்று (Load Question Bank)", use_container_width=True):
+                    with st.spinner("⏳ கேள்வி வங்கியில் இருந்து ஏற்றப்படுகிறது..."):
                         pool = {}
                         for part in parts_meta:
                             if not part["show"] or part["given"] <= 0:
                                 continue
                             merged = []
-                            per_lesson_min = max(4, (part["given"] // max(len(selected_lessons), 1)) + 3)
                             for lesson in selected_lessons:
-                                merged.extend(get_or_build_bank(subject_val, lesson, part["mark_type"], min_count=per_lesson_min))
+                                merged.extend(get_or_build_bank(subject_val, lesson, part["mark_type"], min_count=part["given"]))
                             pool[part["key"]] = merged
                         st.session_state["bank_pool"] = pool
                         st.session_state["bank_pool_subject"] = subject_val
@@ -1906,8 +1914,11 @@ with tab1:
                                 st.caption("⬅️ கிடைக்கும் கேள்விகள் — tick செய்யவும்")
                                 for it in pool:
                                     chk_key = f'chk_{part["key"]}_{it["id"]}'
+                                    ref = it.get("reference", "") or ""
                                     tag = f'[{it.get("qtype","")}] '
                                     st.checkbox(f'{tag}{it["question_text"]}', key=chk_key)
+                                    if ref:
+                                        st.caption(f'📌 {ref}')
                             with col_right:
                                 st.caption("➡️ தேர்ந்தெடுக்கப்பட்டவை")
                                 for it in pool:
