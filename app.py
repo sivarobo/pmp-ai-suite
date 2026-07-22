@@ -942,6 +942,49 @@ if not st.session_state.get("logged_in_user"):
         """, unsafe_allow_html=True)
 
     with right_col:
+        # Banner on top of the right column
+        import os as _os_b
+        _bn = None
+        for _bf in ("banner.png", "banner.jpg", "banner.jpeg", "banner.webp"):
+            if _os_b.path.exists(_bf):
+                _bn = _bf
+                break
+        if _bn:
+            try:
+                with open(_bn, "rb") as _bfh:
+                    _bb64 = _b64_l.b64encode(_bfh.read()).decode()
+                _bext = _bn.rsplit(".", 1)[-1]
+                st.markdown(
+                    f"<div style='text-align:center;margin-bottom:14px;'>"
+                    f"<img src='data:image/{_bext};base64,{_bb64}' "
+                    f"style='max-width:100%;max-height:560px;width:auto;border-radius:18px;"
+                    f"border:1px solid rgba(255,255,255,.14);"
+                    f"box-shadow:0 18px 46px rgba(0,0,0,.42);'/></div>",
+                    unsafe_allow_html=True)
+            except Exception:
+                pass
+
+        # "Invented by" credibility strip, just above the login card
+        _inv = None
+        for _if_ in ("inventor.png", "inventor.jpg", "inventor.jpeg", "inventor.webp"):
+            if _os_b.path.exists(_if_):
+                _inv = _if_
+                break
+        if _inv:
+            try:
+                with open(_inv, "rb") as _ivh:
+                    _iv64 = _b64_l.b64encode(_ivh.read()).decode()
+                _ivext = _inv.rsplit(".", 1)[-1]
+                st.markdown(
+                    f"<div style='text-align:center;margin-bottom:12px;'>"
+                    f"<img src='data:image/{_ivext};base64,{_iv64}' "
+                    f"style='width:100%;border-radius:14px;"
+                    f"border:1px solid rgba(255,255,255,.14);"
+                    f"box-shadow:0 12px 32px rgba(0,0,0,.38);'/></div>",
+                    unsafe_allow_html=True)
+            except Exception:
+                pass
+
         _card = st.container(border=True)
         with _card:
             st.markdown("""
