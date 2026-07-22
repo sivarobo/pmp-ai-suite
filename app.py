@@ -809,7 +809,7 @@ if not st.session_state.get("logged_in_user"):
 
         /* ===== Left brand panel ===== */
         .glow-logo {{
-            width: 96px; height: 96px; border-radius: 20px; display: block;
+            width: 120px; height: 120px; border-radius: 24px; display: block;
             box-shadow: 0 0 46px rgba(124,58,237,.55), 0 0 90px rgba(37,99,235,.30);
             animation: logoPulse 4s ease-in-out infinite;
         }}
@@ -920,7 +920,7 @@ if not st.session_state.get("logged_in_user"):
     </div>
     """, unsafe_allow_html=True)
 
-    left_col, right_col = st.columns([1.18, 1], gap="large")
+    left_col, right_col = st.columns([1, 1.1], gap="large")
 
     # Shared image loader
     def _img_b64(paths):
@@ -938,14 +938,14 @@ if not st.session_state.get("logged_in_user"):
         _inv_html = ""
         if _iv64:
             _inv_html = (f"<img src='data:image/{_ivext};base64,{_iv64}' "
-                         f"style='max-width:330px;width:100%;border-radius:12px;margin-bottom:14px;"
+                         f"style='max-width:430px;width:100%;border-radius:14px;margin:16px 0 4px;"
                          f"border:1px solid rgba(255,255,255,.14);"
-                         f"box-shadow:0 10px 26px rgba(0,0,0,.36);'/>")
+                         f"box-shadow:0 12px 30px rgba(0,0,0,.38);'/>")
 
         st.markdown(f"""
         <div style="position:relative; z-index:2;">
-            {_inv_html}
             {_logo_img}
+            {_inv_html}
             <div class="hero-title">AI Powered<br><span class="g">Question Paper Generator</span></div>
             <div class="hero-sub">Generate professional question papers within <b>3 minutes</b> — built on the TN State Board pattern.</div>
             <div class="rot-wrap">
@@ -962,22 +962,21 @@ if not st.session_state.get("logged_in_user"):
         """, unsafe_allow_html=True)
 
     with right_col:
-        # 1) Login card first
         _card = st.container(border=True)
         with _card:
-            st.markdown("""
-            <div style="padding:10px 6px 2px;">
-                <div class="glass-title">Welcome 👋</div>
-                <div class="glass-sub">Sign in to start creating question papers</div>
-                <div class="trial-chip">
-                    <b>🎁 1 Month Free Trial</b><br>
-                    <span>Unlimited question papers · No card needed</span>
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
+            # Banner as large as possible
+            _bb64, _bext = _img_b64(["banner.png", "banner.jpg", "banner.jpeg", "banner.webp"])
+            if _bb64:
+                st.markdown(
+                    f"<div style='text-align:center;padding:2px 0 10px;'>"
+                    f"<img src='data:image/{_bext};base64,{_bb64}' "
+                    f"style='width:100%;border-radius:14px;"
+                    f"border:1px solid rgba(255,255,255,.14);"
+                    f"box-shadow:0 14px 36px rgba(0,0,0,.40);'/></div>",
+                    unsafe_allow_html=True)
 
             result = oauth2.authorize_button(
-                name="Continue with Google",
+                name="Login with Google",
                 icon="https://www.google.com/favicon.ico",
                 redirect_uri=GOOGLE_REDIRECT_URI,
                 scope="openid email profile",
@@ -985,27 +984,6 @@ if not st.session_state.get("logged_in_user"):
                 extras_params={"prompt": "select_account"},
                 use_container_width=True,
             )
-
-            st.markdown("""
-            <div class="trust-row">
-                <span>✅ AI Powered</span>
-                <span>🔒 Secure Login</span>
-                <span>☁️ Cloud Based</span>
-                <span>🔄 Always Updated</span>
-            </div>
-            <div style="height:6px;"></div>
-            """, unsafe_allow_html=True)
-
-        # 2) Banner below the login card (compact)
-        _bb64, _bext = _img_b64(["banner.png", "banner.jpg", "banner.jpeg", "banner.webp"])
-        if _bb64:
-            st.markdown(
-                f"<div style='text-align:center;margin-top:14px;'>"
-                f"<img src='data:image/{_bext};base64,{_bb64}' "
-                f"style='max-width:100%;max-height:300px;width:auto;border-radius:14px;"
-                f"border:1px solid rgba(255,255,255,.14);"
-                f"box-shadow:0 14px 36px rgba(0,0,0,.40);'/></div>",
-                unsafe_allow_html=True)
 
     st.markdown("""
     <div class="prem-foot">
