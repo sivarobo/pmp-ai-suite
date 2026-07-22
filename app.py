@@ -26,7 +26,7 @@ import requests
 # ==========================================
 # st.set_page_config - MUST BE FIRST
 # ==========================================
-st.set_page_config(page_title="PMP QP Gen AI", page_icon="🎓", layout="wide", initial_sidebar_state="collapsed")
+st.set_page_config(page_title="PMP Edu AI", page_icon="🎓", layout="wide", initial_sidebar_state="collapsed")
 
 # ==========================================
 # CSS Styling
@@ -747,7 +747,7 @@ if not st.session_state.get("logged_in_user"):
     </style>
     <div id="login-hero">
         <div class="logo-row">
-            <div class="logo-txt" style="text-align:center;"><span style="font-size:13px;">QUESTION PAPER GENERATOR</span></div>
+            <div class="logo-txt" style="text-align:center;"><span style="font-size:13px;">AI POWERED QUESTION PAPER GENERATOR</span></div>
         </div>
     </div>
     """, unsafe_allow_html=True)
@@ -764,13 +764,13 @@ if not st.session_state.get("logged_in_user"):
         if _logo_file:
             st.image(_logo_file, use_container_width=True)
         else:
-            st.markdown("<div style='text-align:center;font-family:Sora,sans-serif;font-size:32px;font-weight:800;color:#2563eb;'>PMP <span style='color:#7c3aed;'>QP Gen</span> AI</div>", unsafe_allow_html=True)
+            st.markdown("<div style='text-align:center;font-family:Sora,sans-serif;font-size:32px;font-weight:800;color:#2563eb;'>PMP <span style='color:#7c3aed;'>Edu</span> AI</div>", unsafe_allow_html=True)
 
     st.markdown("""
     <div id="login-hero" style="padding-top:8px;">
         <div class="pill"><span class="dot"></span> TN Board · Class 10 · Samacheer Kalvi</div>
-        <h1>சிறந்த வினாத்தாள்கள்<br><span class="grad">நிமிடங்களில் தயார்</span></h1>
-        <p class="sub">உண்மையான பாடநூல் கேள்வி வங்கியில் இருந்து தேர்ந்தெடுங்கள்.<br>AI உதவியுடன், நேர்த்தியான Word வினாத்தாள்களை உடனடியாக உருவாக்குங்கள்.</p>
+        <h1>Smart Question Papers<br><span class="grad">Ready in Minutes</span></h1>
+        <p class="sub">Pick from a real textbook question bank — exercises, examples and book-back questions.<br>Generate professional Word question papers instantly, with AI assistance.</p>
     </div>
     """, unsafe_allow_html=True)
 
@@ -779,13 +779,13 @@ if not st.session_state.get("logged_in_user"):
         st.markdown("""
         <div style='background:#f0f9ff; border:1px solid #bae6fd; border-radius:12px;
                     padding:12px 16px; margin:6px 0 12px; text-align:center;'>
-            <b style='color:#0369a1;'>🎁 1 மாத இலவச சோதனை</b>
-            <span style='color:#0369a1; font-size:13px;'> · வரம்பற்ற வினாத்தாள்கள் 🚀</span>
+            <b style='color:#0369a1;'>🎁 1 Month Free Trial</b>
+            <span style='color:#0369a1; font-size:13px;'> · Unlimited question papers 🚀</span>
         </div>
         """, unsafe_allow_html=True)
 
         result = oauth2.authorize_button(
-            name="Google கணக்கில் உள்நுழை",
+            name="Sign in with Google",
             icon="https://www.google.com/favicon.ico",
             redirect_uri=GOOGLE_REDIRECT_URI,
             scope="openid email profile",
@@ -796,31 +796,44 @@ if not st.session_state.get("logged_in_user"):
 
         st.markdown("""
         <div style='display:flex; justify-content:center; gap:8px; margin-top:12px; flex-wrap:wrap;'>
-            <span style='font-size:12px; color:#475569; background:#f8fafc; padding:5px 12px; border-radius:8px; border:1px solid #e2e8f0;'>🔒 பாதுகாப்பான</span>
-            <span style='font-size:12px; color:#475569; background:#f8fafc; padding:5px 12px; border-radius:8px; border:1px solid #e2e8f0;'>🎁 30 நாள் இலவசம்</span>
+            <span style='font-size:12px; color:#475569; background:#f8fafc; padding:5px 12px; border-radius:8px; border:1px solid #e2e8f0;'>🔒 Secure</span>
+            <span style='font-size:12px; color:#475569; background:#f8fafc; padding:5px 12px; border-radius:8px; border:1px solid #e2e8f0;'>🎁 30 Days Free</span>
             <span style='font-size:12px; color:#475569; background:#f8fafc; padding:5px 12px; border-radius:8px; border:1px solid #e2e8f0;'>📄 Word Output</span>
         </div>
         """, unsafe_allow_html=True)
 
+    # ===== Promotional banner (banner.png in repo root) =====
+    import os as _os_b
+    _bn = None
+    for _bf in ("banner.png", "banner.jpg", "banner.jpeg", "banner.webp"):
+        if _os_b.path.exists(_bf):
+            _bn = _bf
+            break
+    if _bn:
+        _b1, _b2, _b3 = st.columns([1, 3, 1])
+        with _b2:
+            st.markdown("<div style='height:26px;'></div>", unsafe_allow_html=True)
+            st.image(_bn, use_container_width=True)
+
     # ===== Features =====
     st.markdown("""
     <div class="feat-row">
-        <div class="feat-card"><div class="ic">📖</div><h4>உண்மையான கேள்வி வங்கி</h4><p>994+ கணித கேள்விகள் — எடுத்துக்காட்டு, பயிற்சி, பின்புற வினாக்கள்.</p></div>
-        <div class="feat-card"><div class="ic">🤖</div><h4>AI தீர்வுகள்</h4><p>Answer இல்லாத கேள்விகளுக்கு Gemini AI உடனடி தீர்வு.</p></div>
-        <div class="feat-card"><div class="ic">📝</div><h4>Word Download</h4><p>பள்ளி பெயர், மார்க், நேரம் — professional format-ல்.</p></div>
+        <div class="feat-card"><div class="ic">📖</div><h4>Real Question Bank</h4><p>271+ textbook questions — examples, exercises and book-back questions.</p></div>
+        <div class="feat-card"><div class="ic">🤖</div><h4>AI Solutions</h4><p>Gemini AI generates step-by-step solutions for questions without answers.</p></div>
+        <div class="feat-card"><div class="ic">📝</div><h4>Word Download</h4><p>School name, marks, time — professional format in one click.</p></div>
     </div>
     <div class="feat-row">
-        <div class="feat-card"><div class="ic">🎯</div><h4>Blueprint கட்டுப்பாடு</h4><p>பகுதி I-IV, மார்க் பிரிவு, choice — முழு கட்டுப்பாடு.</p></div>
-        <div class="feat-card"><div class="ic">✏️</div><h4>திருத்தும் வசதி</h4><p>கேள்விகளை நேரடியாக edit/delete. ஒருமுறை சரி செய்தால் நிரந்தரம்.</p></div>
-        <div class="feat-card"><div class="ic">🔒</div><h4>Google Login</h4><p>பாதுகாப்பான, விரைவான உள்நுழைவு. தரவு தனிப்பட்டது.</p></div>
+        <div class="feat-card"><div class="ic">🎯</div><h4>Blueprint Control</h4><p>Parts I–IV, mark split, choice settings — full control in your hands.</p></div>
+        <div class="feat-card"><div class="ic">✏️</div><h4>Edit Anytime</h4><p>Edit or delete questions directly. Fix once, saved permanently.</p></div>
+        <div class="feat-card"><div class="ic">🔒</div><h4>Google Login</h4><p>Secure, fast sign-in. Your data stays private.</p></div>
     </div>
     <div class="login-foot">
         <span class="gst">GSTIN: 33ABJFP1752G1ZC</span><br><br>
         <a href="https://www.facebook.com/profile.php?id=61590340754238" target="_blank"
            style="display:inline-flex;align-items:center;gap:6px;color:#2563eb;text-decoration:none;font-weight:600;margin-bottom:10px;">
-           📘 Facebook-ல் எங்களைப் பின்தொடருங்கள்
+           📘 Follow us on Facebook
         </a><br>
-        © 2026 PMP Enterprises · PMP QP Gen AI · 📞 +91 90430 00733<br>
+        © 2026 PMP Enterprises · PMP Edu AI · 📞 +91 90430 00733<br>
         39 to 41, Gayathri Complex, Kumarasamypatty Cherry Road, Hasthampatty, Salem – 636007
     </div>
     """, unsafe_allow_html=True)
@@ -867,8 +880,8 @@ if not st.session_state.get("splash_shown"):
             _banner_html = ""
     if not _banner_html:
         _banner_html = ("<div style='font-family:Sora,sans-serif;font-size:46px;font-weight:800;color:#fff;'>"
-                        "PMP <span style='color:#e6c866;'>QP Gen</span> AI</div>"
-                        "<div style='color:#c7d1e6;font-size:16px;margin-top:10px;'>கல்விக்கான சிறந்த ஆன்லைன் தளம்</div>")
+                        "PMP <span style='color:#e6c866;'>Edu</span> AI</div>"
+                        "<div style='color:#c7d1e6;font-size:16px;margin-top:10px;'>Smart Questions · Better Learning</div>")
 
     st.markdown(f"""
     <style>
@@ -891,7 +904,7 @@ if not st.session_state.get("splash_shown"):
     <div id="splash">
         <div class="inner">
             {_banner_html}
-            <div class="welcome">வரவேற்கிறோம்! 👋 தயாராகிறது...</div>
+            <div class="welcome">Welcome! 👋 Loading your dashboard...</div>
             <div class="loader"></div>
         </div>
     </div>
@@ -2075,12 +2088,28 @@ with tab3:
         if import_file is not None:
             if st.button("🚀 DB-ல் Import பண்ணு", use_container_width=True):
                 with st.spinner("⏳ Import ஆகிறது..."):
-                    df_import = pd.read_excel(import_file, sheet_name="Question_Bank")
-                    inserted, skipped, err = bulk_import_bank_from_df(df_import)
-                    if err:
-                        st.error(f"பிழை: {err}")
-                    else:
-                        st.success(f"✅ {inserted} கேள்விகள் புதிதாக சேர்க்கப்பட்டது. {skipped} ஏற்கனவே இருந்ததால் தவிர்க்கப்பட்டது.")
+                    try:
+                        xls = pd.ExcelFile(import_file)
+                        # Prefer "Question_Bank" sheet; else use the first sheet
+                        sheet = "Question_Bank" if "Question_Bank" in xls.sheet_names else xls.sheet_names[0]
+                        df_import = pd.read_excel(xls, sheet_name=sheet)
+                        # Validate expected columns
+                        need = {"Subject", "Lesson", "Mark_Type", "QType", "Question", "Answer"}
+                        if not need.issubset(set(df_import.columns)):
+                            st.error(
+                                f"⚠️ இந்த Excel-ல் தேவையான columns இல்லை. "
+                                f"Claude கொடுத்த converted file (chapterXX_TNpattern.xlsx) upload செய்யவும் — "
+                                f"original PMP EduAI file (Questions/Answers/Metadata sheets) அல்ல.\n\n"
+                                f"கிடைத்த columns: {list(df_import.columns)[:8]}"
+                            )
+                        else:
+                            inserted, skipped, err = bulk_import_bank_from_df(df_import)
+                            if err:
+                                st.error(f"பிழை: {err}")
+                            else:
+                                st.success(f"✅ {inserted} கேள்விகள் புதிதாக சேர்க்கப்பட்டது. {skipped} ஏற்கனவே இருந்ததால் தவிர்க்கப்பட்டது.")
+                    except Exception as e:
+                        st.error(f"⚠️ Import பிழை: {e}")
 
     st.markdown("---")
     st.markdown("### 🤖 Answer இல்லாத கேள்விகளுக்கு AI Solution நிரப்பு")
