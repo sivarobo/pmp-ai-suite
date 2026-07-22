@@ -712,28 +712,62 @@ FREE_DAILY_LIMIT = 2
 # ACCESS GATE — streamlit-oauth
 # ==========================================
 if not st.session_state.get("logged_in_user"):
-    # ===== Template2 Blue — Hero section =====
+    # ===== INTRO BANNER SPLASH (before login, once per session) =====
+    if not st.session_state.get("intro_shown"):
+        import os as _os_i, base64 as _b64_i
+        _bn_i = None
+        for _bf in ("banner.png", "banner.jpg", "banner.jpeg", "banner.webp"):
+            if _os_i.path.exists(_bf):
+                _bn_i = _bf
+                break
+        _bhtml = ""
+        if _bn_i:
+            try:
+                with open(_bn_i, "rb") as _f:
+                    _b64 = _b64_i.b64encode(_f.read()).decode()
+                _ext = _bn_i.rsplit(".", 1)[-1]
+                _bhtml = (f"<img src='data:image/{_ext};base64,{_b64}' "
+                          f"style='max-width:88%;max-height:76vh;border-radius:20px;"
+                          f"box-shadow:0 26px 70px rgba(0,0,0,.45);'/>")
+            except Exception:
+                _bhtml = ""
+        if not _bhtml:
+            _bhtml = ("<div style='font-family:Sora,sans-serif;font-size:46px;font-weight:800;color:#fff;'>"
+                      "PMP <span style='color:#e6c866;'>Edu</span> AI</div>"
+                      "<div style='color:#c7d1e6;font-size:16px;margin-top:10px;'>Smart Questions · Better Learning</div>")
+
+        st.markdown(f"""
+        <style>
+            [data-testid="stHeader"] {{ display:none; }}
+            .block-container {{ padding:0 !important; }}
+            #intro {{
+                position:fixed; inset:0; z-index:99999;
+                background:linear-gradient(135deg,#0a1f44,#12305f);
+                display:flex; flex-direction:column; align-items:center; justify-content:center;
+                animation: introFade 4s ease-in-out forwards;
+            }}
+            #intro .inner {{ text-align:center; animation: introZoom 1.1s cubic-bezier(.2,.8,.2,1); }}
+            #intro .bar {{ margin-top:22px; width:200px; height:5px; background:rgba(255,255,255,.15);
+                           border-radius:5px; overflow:hidden; }}
+            #intro .bar::after {{ content:""; display:block; height:100%; width:0;
+                           background:linear-gradient(90deg,#3b82f6,#a855f7,#f97316);
+                           border-radius:5px; animation: introBar 4s linear forwards; }}
+            @keyframes introFade {{ 0%{{opacity:0;}} 8%{{opacity:1;}} 82%{{opacity:1;}} 100%{{opacity:0; visibility:hidden;}} }}
+            @keyframes introZoom {{ 0%{{transform:scale(.88); opacity:0;}} 100%{{transform:scale(1); opacity:1;}} }}
+            @keyframes introBar {{ 0%{{width:0;}} 100%{{width:100%;}} }}
+        </style>
+        <div id="intro"><div class="inner">{_bhtml}<div class="bar"></div></div></div>
+        """, unsafe_allow_html=True)
+
+        st.session_state["intro_shown"] = True
+        time.sleep(4)
+        st.rerun()
+
+    # ===== LOGIN SCREEN =====
     st.markdown("""
     <style>
         .stApp { background: #f8fafc; }
-        .block-container { padding-top: 2.5rem !important; }
-        #login-hero { text-align:center; padding: 55px 0 10px; max-width: 760px; margin: 0 auto; }
-        #login-hero .logo-row { display:flex; align-items:center; justify-content:center; gap:12px; margin-bottom:22px; }
-        #login-hero .logo-mark { width:46px; height:46px; border-radius:12px;
-            background:linear-gradient(135deg,#2563eb,#3b82f6); color:#fff; display:flex;
-            align-items:center; justify-content:center; font-weight:800; font-size:21px;
-            box-shadow:0 6px 16px rgba(37,99,235,.3); font-family:'Sora',sans-serif; }
-        #login-hero .logo-txt { text-align:left; }
-        #login-hero .logo-txt b { font-family:'Sora',sans-serif; font-size:19px; color:#0f172a; display:block; line-height:1; }
-        #login-hero .logo-txt span { font-size:11px; color:#2563eb; font-weight:700; letter-spacing:1px; }
-        #login-hero .pill { display:inline-flex; align-items:center; gap:8px; background:#dbeafe;
-            color:#1e40af; padding:7px 16px; border-radius:30px; font-size:13px; font-weight:600; margin-bottom:20px; }
-        #login-hero .pill .dot { width:7px; height:7px; border-radius:50%; background:#2563eb; display:inline-block; }
-        #login-hero h1 { font-family:'Sora',sans-serif; font-size:42px; line-height:1.15; font-weight:800;
-            letter-spacing:-1px; margin-bottom:16px; color:#0f172a; }
-        #login-hero h1 .grad { background:linear-gradient(120deg,#2563eb,#06b6d4);
-            -webkit-background-clip:text; background-clip:text; color:transparent; }
-        #login-hero p.sub { font-size:16px; color:#475569; line-height:1.6; margin-bottom:10px; }
+        .block-container { padding-top: 1.6rem !important; }
         .feat-row { display:flex; justify-content:center; gap:16px; flex-wrap:wrap; margin:34px auto 10px; max-width:900px; }
         .feat-card { flex:1; min-width:210px; background:#fff; border:1px solid #e2e8f0; border-radius:16px;
             padding:22px; text-align:left; }
@@ -744,41 +778,36 @@ if not st.session_state.get("logged_in_user"):
         .login-foot { text-align:center; color:#94a3b8; font-size:13px; margin-top:36px; padding-top:20px; border-top:1px solid #e2e8f0; }
         .login-foot .gst { display:inline-block; background:rgba(37,99,235,.1); border:1px solid rgba(37,99,235,.3);
             color:#2563eb; padding:3px 10px; border-radius:6px; font-family:monospace; font-size:12px; }
+        .brand-line { font-family:'Sora',sans-serif; font-size:20px; font-weight:800; color:#0f172a; line-height:1.15; }
+        .brand-sub { font-size:11px; color:#2563eb; font-weight:700; letter-spacing:1px; }
     </style>
-    <div id="login-hero">
-        <div class="logo-row">
-            <div class="logo-txt" style="text-align:center;"><span style="font-size:13px;">AI POWERED QUESTION PAPER GENERATOR</span></div>
-        </div>
-    </div>
     """, unsafe_allow_html=True)
 
-    # Logo image — place logo.png or logo.jpg in your GitHub repo root. Falls back gracefully if missing.
-    _lc1, _lc2, _lc3 = st.columns([1, 1, 1])
-    with _lc2:
-        import os as _os
-        _logo_file = None
-        for _f in ("logo.png", "logo.jpg", "logo.jpeg", "logo.webp"):
-            if _os.path.exists(_f):
-                _logo_file = _f
-                break
+    # Logo top-left (1:1 square) + brand text beside it
+    import os as _os
+    _logo_file = None
+    for _f in ("logo.png", "logo.jpg", "logo.jpeg", "logo.webp"):
+        if _os.path.exists(_f):
+            _logo_file = _f
+            break
+
+    _hl, _hr = st.columns([1, 6])
+    with _hl:
         if _logo_file:
-            st.image(_logo_file, use_container_width=True)
-        else:
-            st.markdown("<div style='text-align:center;font-family:Sora,sans-serif;font-size:32px;font-weight:800;color:#2563eb;'>PMP <span style='color:#7c3aed;'>Edu</span> AI</div>", unsafe_allow_html=True)
-
-    st.markdown("""
-    <div id="login-hero" style="padding-top:8px;">
-        <div class="pill"><span class="dot"></span> TN Board · Class 10 · Samacheer Kalvi</div>
-        <h1>Smart Question Papers<br><span class="grad">Ready in Minutes</span></h1>
-        <p class="sub">Pick from a real textbook question bank — exercises, examples and book-back questions.<br>Generate professional Word question papers instantly, with AI assistance.</p>
-    </div>
-    """, unsafe_allow_html=True)
+            st.image(_logo_file, width=92)
+    with _hr:
+        st.markdown("""
+        <div style='padding-top:14px;'>
+            <div class="brand-line">PMP Edu AI</div>
+            <div class="brand-sub">AI POWERED QUESTION PAPER GENERATOR</div>
+        </div>
+        """, unsafe_allow_html=True)
 
     col1, col2, col3 = st.columns([1, 1.4, 1])
     with col2:
         st.markdown("""
         <div style='background:#f0f9ff; border:1px solid #bae6fd; border-radius:12px;
-                    padding:12px 16px; margin:6px 0 12px; text-align:center;'>
+                    padding:12px 16px; margin:18px 0 12px; text-align:center;'>
             <b style='color:#0369a1;'>🎁 1 Month Free Trial</b>
             <span style='color:#0369a1; font-size:13px;'> · Unlimited question papers 🚀</span>
         </div>
@@ -858,61 +887,6 @@ if not st.session_state.get("logged_in_user"):
 
     st.stop()
 
-# ==========================================
-# WELCOME SPLASH — banner shown once for 5s after login, then fades
-# ==========================================
-if not st.session_state.get("splash_shown"):
-    import os as _os_s, base64 as _b64_s
-    _banner_file = None
-    for _bf in ("banner.jpg", "banner.png", "banner.jpeg", "banner.webp"):
-        if _os_s.path.exists(_bf):
-            _banner_file = _bf
-            break
-
-    _banner_html = ""
-    if _banner_file:
-        try:
-            with open(_banner_file, "rb") as _bfh:
-                _b64 = _b64_s.b64encode(_bfh.read()).decode()
-            _ext = _banner_file.rsplit(".", 1)[-1]
-            _banner_html = f"<img src='data:image/{_ext};base64,{_b64}' style='max-width:92%;max-height:70vh;border-radius:18px;box-shadow:0 20px 60px rgba(0,0,0,.35);'/>"
-        except Exception:
-            _banner_html = ""
-    if not _banner_html:
-        _banner_html = ("<div style='font-family:Sora,sans-serif;font-size:46px;font-weight:800;color:#fff;'>"
-                        "PMP <span style='color:#e6c866;'>Edu</span> AI</div>"
-                        "<div style='color:#c7d1e6;font-size:16px;margin-top:10px;'>Smart Questions · Better Learning</div>")
-
-    st.markdown(f"""
-    <style>
-        [data-testid="stHeader"] {{ display:none; }}
-        .block-container {{ padding:0 !important; }}
-        #splash {{
-            position:fixed; inset:0; z-index:99999;
-            background:linear-gradient(135deg,#0a1f44,#12305f);
-            display:flex; flex-direction:column; align-items:center; justify-content:center;
-            animation: splashFade 5s ease-in-out forwards;
-        }}
-        #splash .inner {{ text-align:center; animation: zoomIn 1s ease-out; }}
-        #splash .welcome {{ color:#e6c866; font-family:Sora,sans-serif; font-size:22px; font-weight:700; margin-top:22px; }}
-        #splash .loader {{ margin-top:20px; width:180px; height:5px; background:rgba(255,255,255,.15); border-radius:5px; overflow:hidden; }}
-        #splash .loader::after {{ content:""; display:block; height:100%; width:0; background:linear-gradient(90deg,#c9a227,#e6c866); border-radius:5px; animation: loadBar 5s linear forwards; }}
-        @keyframes splashFade {{ 0%{{opacity:1;}} 80%{{opacity:1;}} 100%{{opacity:0; visibility:hidden;}} }}
-        @keyframes zoomIn {{ 0%{{transform:scale(.85); opacity:0;}} 100%{{transform:scale(1); opacity:1;}} }}
-        @keyframes loadBar {{ 0%{{width:0;}} 100%{{width:100%;}} }}
-    </style>
-    <div id="splash">
-        <div class="inner">
-            {_banner_html}
-            <div class="welcome">Welcome! 👋 Loading your dashboard...</div>
-            <div class="loader"></div>
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
-
-    st.session_state["splash_shown"] = True
-    time.sleep(5)
-    st.rerun()
 
 # ==========================================
 # LOGGED IN — Get user & check usage
@@ -1017,7 +991,7 @@ if trial_expired and not is_premium:
     _lo1, _lo2, _lo3 = st.columns([2, 1, 2])
     with _lo2:
         if st.button("🚪 Logout", use_container_width=True):
-            st.session_state.pop("logged_in_user", None); st.session_state.pop("splash_shown", None)
+            st.session_state.pop("logged_in_user", None); st.session_state.pop("intro_shown", None)
             st.rerun()
     st.stop()
 
@@ -1710,7 +1684,7 @@ with hdr_l:
 with hdr_r:
     st.markdown("<div style='height:14px;'></div>", unsafe_allow_html=True)
     if st.button("🚪 Logout", use_container_width=True):
-        st.session_state.pop("logged_in_user", None); st.session_state.pop("splash_shown", None)
+        st.session_state.pop("logged_in_user", None); st.session_state.pop("intro_shown", None)
         st.rerun()
     with st.expander("✏️ Profile திருத்து", expanded=not (user_school and current_user.get("mobile"))):
         e_school  = st.text_input("பள்ளி", value=user_school or "", key="edit_school")
