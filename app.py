@@ -763,107 +763,224 @@ if not st.session_state.get("logged_in_user"):
         time.sleep(4)
         st.rerun()
 
-    # ===== LOGIN SCREEN =====
-    st.markdown("""
-    <style>
-        .stApp { background: #f8fafc; }
-        .block-container { padding-top: 1.6rem !important; }
-        .feat-row { display:flex; justify-content:center; gap:16px; flex-wrap:wrap; margin:34px auto 10px; max-width:900px; }
-        .feat-card { flex:1; min-width:210px; background:#fff; border:1px solid #e2e8f0; border-radius:16px;
-            padding:22px; text-align:left; }
-        .feat-card .ic { width:46px; height:46px; border-radius:12px; background:#dbeafe; display:flex;
-            align-items:center; justify-content:center; font-size:22px; margin-bottom:12px; }
-        .feat-card h4 { font-family:'Sora',sans-serif; font-size:15px; margin-bottom:6px; color:#0f172a; }
-        .feat-card p { font-size:13px; color:#475569; line-height:1.5; }
-        .login-foot { text-align:center; color:#94a3b8; font-size:13px; margin-top:36px; padding-top:20px; border-top:1px solid #e2e8f0; }
-        .login-foot .gst { display:inline-block; background:rgba(37,99,235,.1); border:1px solid rgba(37,99,235,.3);
-            color:#2563eb; padding:3px 10px; border-radius:6px; font-family:monospace; font-size:12px; }
-        .brand-line { font-family:'Sora',sans-serif; font-size:20px; font-weight:800; color:#0f172a; line-height:1.15; }
-        .brand-sub { font-size:11px; color:#2563eb; font-weight:700; letter-spacing:1px; }
-    </style>
-    """, unsafe_allow_html=True)
-
-    # Logo top-left (1:1 square) + brand text beside it
-    import os as _os
+    # ===== PREMIUM SPLIT-SCREEN LOGIN =====
+    import os as _os, base64 as _b64_l
     _logo_file = None
     for _f in ("logo.png", "logo.jpg", "logo.jpeg", "logo.webp"):
         if _os.path.exists(_f):
             _logo_file = _f
             break
+    _logo_img = ""
+    if _logo_file:
+        try:
+            with open(_logo_file, "rb") as _lf:
+                _lb64 = _b64_l.b64encode(_lf.read()).decode()
+            _lext = _logo_file.rsplit(".", 1)[-1]
+            _logo_img = f"<img src='data:image/{_lext};base64,{_lb64}' class='glow-logo'/>"
+        except Exception:
+            _logo_img = ""
 
-    _hl, _hr = st.columns([1, 6])
-    with _hl:
-        if _logo_file:
-            st.image(_logo_file, width=92)
-    with _hr:
-        st.markdown("""
-        <div style='padding-top:14px;'>
-            <div class="brand-line">PMP Edu AI</div>
-            <div class="brand-sub">AI POWERED QUESTION PAPER GENERATOR</div>
+    st.markdown(f"""
+    <style>
+        /* ===== Dark premium canvas ===== */
+        .stApp {{
+            background: linear-gradient(-45deg, #060d1c, #0a1f44, #131a3d, #1a1140);
+            background-size: 400% 400%;
+            animation: bgShift 18s ease infinite;
+        }}
+        @keyframes bgShift {{
+            0%   {{ background-position: 0% 50%; }}
+            50%  {{ background-position: 100% 50%; }}
+            100% {{ background-position: 0% 50%; }}
+        }}
+        [data-testid="stHeader"] {{ background: transparent; }}
+        .block-container {{ padding-top: 2rem !important; max-width: 1240px !important; }}
+
+        /* ===== Floating background icons ===== */
+        .float-layer {{ position: fixed; inset: 0; pointer-events: none; z-index: 0; overflow: hidden; }}
+        .float-layer span {{
+            position: absolute; font-size: 30px; opacity: .10;
+            animation: drift linear infinite;
+        }}
+        @keyframes drift {{
+            0%   {{ transform: translateY(105vh) rotate(0deg); }}
+            100% {{ transform: translateY(-15vh) rotate(360deg); }}
+        }}
+
+        /* ===== Left brand panel ===== */
+        .glow-logo {{
+            width: 132px; height: 132px; border-radius: 26px; display: block;
+            box-shadow: 0 0 46px rgba(124,58,237,.55), 0 0 90px rgba(37,99,235,.30);
+            animation: logoPulse 4s ease-in-out infinite;
+        }}
+        @keyframes logoPulse {{
+            0%,100% {{ transform: translateY(0); box-shadow: 0 0 46px rgba(124,58,237,.55), 0 0 90px rgba(37,99,235,.30); }}
+            50%     {{ transform: translateY(-7px); box-shadow: 0 0 62px rgba(249,115,22,.45), 0 0 110px rgba(124,58,237,.40); }}
+        }}
+        .hero-title {{
+            font-family:'Sora',sans-serif; font-size: 40px; line-height: 1.12; font-weight: 800;
+            letter-spacing: -1px; color: #fff; margin: 26px 0 12px;
+        }}
+        .hero-title .g {{
+            background: linear-gradient(110deg,#3b82f6,#a855f7,#f97316);
+            -webkit-background-clip: text; background-clip: text; color: transparent;
+        }}
+        .hero-sub {{ color:#a9b5d1; font-size: 16.5px; line-height:1.6; margin-bottom: 6px; }}
+        .hero-sub b {{ color:#e6c866; }}
+
+        /* ===== Rotating feature cards ===== */
+        .rot-wrap {{ position: relative; height: 92px; margin-top: 26px; }}
+        .rot-card {{
+            position: absolute; inset: 0; opacity: 0;
+            background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.13);
+            backdrop-filter: blur(14px); border-radius: 16px;
+            padding: 16px 20px; display: flex; align-items: center; gap: 15px;
+            animation: rotate8 32s infinite;
+        }}
+        .rot-card .ric {{
+            width: 46px; height: 46px; border-radius: 13px; flex-shrink: 0;
+            background: linear-gradient(135deg, rgba(59,130,246,.30), rgba(168,85,247,.20));
+            display: flex; align-items: center; justify-content: center; font-size: 22px;
+        }}
+        .rot-card b {{ color:#fff; font-family:'Sora',sans-serif; font-size:15.5px; display:block; }}
+        .rot-card span {{ color:#a9b5d1; font-size:13px; }}
+        .rot-card:nth-child(1) {{ animation-delay: 0s; }}
+        .rot-card:nth-child(2) {{ animation-delay: 4s; }}
+        .rot-card:nth-child(3) {{ animation-delay: 8s; }}
+        .rot-card:nth-child(4) {{ animation-delay: 12s; }}
+        .rot-card:nth-child(5) {{ animation-delay: 16s; }}
+        .rot-card:nth-child(6) {{ animation-delay: 20s; }}
+        .rot-card:nth-child(7) {{ animation-delay: 24s; }}
+        .rot-card:nth-child(8) {{ animation-delay: 28s; }}
+        @keyframes rotate8 {{
+            0%    {{ opacity: 0; transform: translateY(12px); }}
+            2%    {{ opacity: 1; transform: translateY(0); }}
+            11%   {{ opacity: 1; transform: translateY(0); }}
+            13%   {{ opacity: 0; transform: translateY(-12px); }}
+            100%  {{ opacity: 0; transform: translateY(-12px); }}
+        }}
+
+        /* ===== Glass login card (styles Streamlit's bordered container) ===== */
+        [data-testid="stVerticalBlockBorderWrapper"] {{
+            background: rgba(255,255,255,.055) !important;
+            border: 1px solid rgba(255,255,255,.15) !important;
+            border-radius: 24px !important;
+            backdrop-filter: blur(22px);
+            box-shadow: 0 26px 70px rgba(0,0,0,.42);
+            padding: 10px 8px !important;
+        }}
+        .glass-title {{ font-family:'Sora',sans-serif; font-size:24px; font-weight:800; color:#fff; text-align:center; }}
+        .glass-sub {{ color:#a9b5d1; font-size:13.5px; text-align:center; margin-bottom:4px; }}
+        .trial-chip {{
+            background: linear-gradient(135deg, rgba(249,115,22,.20), rgba(168,85,247,.18));
+            border: 1px solid rgba(249,115,22,.45); border-radius: 12px;
+            padding: 11px 14px; text-align: center; margin: 6px 0 4px;
+        }}
+        .trial-chip b {{ color:#fbbf24; font-size:14.5px; }}
+        .trial-chip span {{ color:#d8b4fe; font-size:12.5px; }}
+
+        /* Google button premium styling */
+        div[data-testid="stVerticalBlockBorderWrapper"] a,
+        div[data-testid="stVerticalBlockBorderWrapper"] button {{
+            border-radius: 13px !important; font-weight: 700 !important;
+        }}
+
+        .trust-row {{ display:flex; justify-content:center; gap:7px; flex-wrap:wrap; margin-top:12px; }}
+        .trust-row span {{
+            font-size:11.5px; color:#c7d1e6; background:rgba(255,255,255,.07);
+            border:1px solid rgba(255,255,255,.13); padding:5px 11px; border-radius:20px;
+        }}
+
+        /* ===== Footer ===== */
+        .prem-foot {{
+            position: relative; z-index: 2; text-align:center; color:#8a97b5; font-size:12.5px;
+            margin-top:44px; padding-top:22px; border-top:1px solid rgba(255,255,255,.10); line-height:1.8;
+        }}
+        .prem-foot .gst {{
+            display:inline-block; background:rgba(168,85,247,.14); border:1px solid rgba(168,85,247,.35);
+            color:#d8b4fe; padding:3px 11px; border-radius:6px; font-family:monospace; font-size:12px;
+        }}
+        .prem-foot a {{ color:#60a5fa; text-decoration:none; font-weight:600; }}
+
+        @media (max-width: 900px) {{
+            .hero-title {{ font-size: 30px; }}
+            .glow-logo {{ width: 100px; height: 100px; }}
+        }}
+    </style>
+
+    <div class="float-layer">
+        <span style="left:6%;  animation-duration:26s; animation-delay:0s;">📘</span>
+        <span style="left:19%; animation-duration:34s; animation-delay:4s;">🧠</span>
+        <span style="left:33%; animation-duration:29s; animation-delay:9s;">✏️</span>
+        <span style="left:47%; animation-duration:38s; animation-delay:2s;">📄</span>
+        <span style="left:61%; animation-duration:31s; animation-delay:12s;">🎓</span>
+        <span style="left:74%; animation-duration:27s; animation-delay:6s;">⭐</span>
+        <span style="left:88%; animation-duration:36s; animation-delay:15s;">📊</span>
+        <span style="left:95%; animation-duration:30s; animation-delay:10s;">🤖</span>
+    </div>
+    """, unsafe_allow_html=True)
+
+    left_col, right_col = st.columns([1.18, 1], gap="large")
+
+    with left_col:
+        st.markdown(f"""
+        <div style="position:relative; z-index:2; padding-top:6px;">
+            {_logo_img}
+            <div class="hero-title">AI Powered<br><span class="g">Question Paper Generator</span></div>
+            <div class="hero-sub">Generate professional question papers within <b>3 minutes</b> — built on the TN State Board pattern.</div>
+            <div class="rot-wrap">
+                <div class="rot-card"><div class="ric">⚡</div><div><b>Ready in 3 Minutes</b><span>From blueprint to Word file</span></div></div>
+                <div class="rot-card"><div class="ric">📚</div><div><b>Classes 6 – 12</b><span>All subjects</span></div></div>
+                <div class="rot-card"><div class="ric">🎯</div><div><b>TN State Board Pattern</b><span>Blueprint based</span></div></div>
+                <div class="rot-card"><div class="ric">📄</div><div><b>Export to Word</b><span>One click download</span></div></div>
+                <div class="rot-card"><div class="ric">🤖</div><div><b>AI Difficulty Levels</b><span>Easy · Medium · Hard</span></div></div>
+                <div class="rot-card"><div class="ric">📝</div><div><b>25 / 50 / 75 / 100 Marks</b><span>Any exam size</span></div></div>
+                <div class="rot-card"><div class="ric">📖</div><div><b>Book Back · Exercise · Example</b><span>Real textbook question bank</span></div></div>
+                <div class="rot-card"><div class="ric">📊</div><div><b>Auto Blueprint & Choice</b><span>Sections handled for you</span></div></div>
+            </div>
         </div>
         """, unsafe_allow_html=True)
 
-    col1, col2, col3 = st.columns([1, 1.4, 1])
-    with col2:
-        st.markdown("""
-        <div style='background:#f0f9ff; border:1px solid #bae6fd; border-radius:12px;
-                    padding:12px 16px; margin:18px 0 12px; text-align:center;'>
-            <b style='color:#0369a1;'>🎁 1 Month Free Trial</b>
-            <span style='color:#0369a1; font-size:13px;'> · Unlimited question papers 🚀</span>
-        </div>
-        """, unsafe_allow_html=True)
+    with right_col:
+        _card = st.container(border=True)
+        with _card:
+            st.markdown("""
+            <div style="padding:14px 6px 2px;">
+                <div class="glass-title">Welcome 👋</div>
+                <div class="glass-sub">Sign in to start creating question papers</div>
+                <div class="trial-chip">
+                    <b>🎁 1 Month Free Trial</b><br>
+                    <span>Unlimited question papers · No card needed</span>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
 
-        result = oauth2.authorize_button(
-            name="Sign in with Google",
-            icon="https://www.google.com/favicon.ico",
-            redirect_uri=GOOGLE_REDIRECT_URI,
-            scope="openid email profile",
-            key="google_login",
-            extras_params={"prompt": "select_account"},
-            use_container_width=True,
-        )
+            result = oauth2.authorize_button(
+                name="Continue with Google",
+                icon="https://www.google.com/favicon.ico",
+                redirect_uri=GOOGLE_REDIRECT_URI,
+                scope="openid email profile",
+                key="google_login",
+                extras_params={"prompt": "select_account"},
+                use_container_width=True,
+            )
 
-        st.markdown("""
-        <div style='display:flex; justify-content:center; gap:8px; margin-top:12px; flex-wrap:wrap;'>
-            <span style='font-size:12px; color:#475569; background:#f8fafc; padding:5px 12px; border-radius:8px; border:1px solid #e2e8f0;'>🔒 Secure</span>
-            <span style='font-size:12px; color:#475569; background:#f8fafc; padding:5px 12px; border-radius:8px; border:1px solid #e2e8f0;'>🎁 30 Days Free</span>
-            <span style='font-size:12px; color:#475569; background:#f8fafc; padding:5px 12px; border-radius:8px; border:1px solid #e2e8f0;'>📄 Word Output</span>
-        </div>
-        """, unsafe_allow_html=True)
+            st.markdown("""
+            <div class="trust-row">
+                <span>✅ AI Powered</span>
+                <span>🔒 Secure Login</span>
+                <span>☁️ Cloud Based</span>
+                <span>🔄 Always Updated</span>
+            </div>
+            <div style="height:8px;"></div>
+            """, unsafe_allow_html=True)
 
-    # ===== Promotional banner (banner.png in repo root) =====
-    import os as _os_b
-    _bn = None
-    for _bf in ("banner.png", "banner.jpg", "banner.jpeg", "banner.webp"):
-        if _os_b.path.exists(_bf):
-            _bn = _bf
-            break
-    if _bn:
-        _b1, _b2, _b3 = st.columns([1, 3, 1])
-        with _b2:
-            st.markdown("<div style='height:26px;'></div>", unsafe_allow_html=True)
-            st.image(_bn, use_container_width=True)
-
-    # ===== Features =====
     st.markdown("""
-    <div class="feat-row">
-        <div class="feat-card"><div class="ic">📖</div><h4>Real Question Bank</h4><p>271+ textbook questions — examples, exercises and book-back questions.</p></div>
-        <div class="feat-card"><div class="ic">🤖</div><h4>AI Solutions</h4><p>Gemini AI generates step-by-step solutions for questions without answers.</p></div>
-        <div class="feat-card"><div class="ic">📝</div><h4>Word Download</h4><p>School name, marks, time — professional format in one click.</p></div>
-    </div>
-    <div class="feat-row">
-        <div class="feat-card"><div class="ic">🎯</div><h4>Blueprint Control</h4><p>Parts I–IV, mark split, choice settings — full control in your hands.</p></div>
-        <div class="feat-card"><div class="ic">✏️</div><h4>Edit Anytime</h4><p>Edit or delete questions directly. Fix once, saved permanently.</p></div>
-        <div class="feat-card"><div class="ic">🔒</div><h4>Google Login</h4><p>Secure, fast sign-in. Your data stays private.</p></div>
-    </div>
-    <div class="login-foot">
+    <div class="prem-foot">
         <span class="gst">GSTIN: 33ABJFP1752G1ZC</span><br><br>
-        <a href="https://www.facebook.com/profile.php?id=61590340754238" target="_blank"
-           style="display:inline-flex;align-items:center;gap:6px;color:#2563eb;text-decoration:none;font-weight:600;margin-bottom:10px;">
-           📘 Follow us on Facebook
-        </a><br>
-        © 2026 PMP Enterprises · PMP Edu AI · 📞 +91 90430 00733<br>
-        39 to 41, Gayathri Complex, Kumarasamypatty Cherry Road, Hasthampatty, Salem – 636007
+        <a href="https://www.facebook.com/profile.php?id=61590340754238" target="_blank">📘 Follow us on Facebook</a><br>
+        📍 39 to 41, Gayathri Complex, Kumarasamypatty Cherry Road, Hasthampatty, Salem – 636007<br>
+        📞 +91 90430 00733 &nbsp;·&nbsp; © 2026 PMP Enterprises · PMP Edu AI
     </div>
     """, unsafe_allow_html=True)
 
