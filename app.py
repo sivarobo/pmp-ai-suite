@@ -794,7 +794,7 @@ if not st.session_state.get("logged_in_user"):
             100% {{ background-position: 0% 50%; }}
         }}
         [data-testid="stHeader"] {{ background: transparent; }}
-        .block-container {{ padding-top: 2rem !important; max-width: 1240px !important; }}
+        .block-container {{ padding-top: 1rem !important; padding-bottom: 0.5rem !important; max-width: 1240px !important; }}
 
         /* ===== Floating background icons ===== */
         .float-layer {{ position: fixed; inset: 0; pointer-events: none; z-index: 0; overflow: hidden; }}
@@ -809,7 +809,7 @@ if not st.session_state.get("logged_in_user"):
 
         /* ===== Left brand panel ===== */
         .glow-logo {{
-            width: 132px; height: 132px; border-radius: 26px; display: block;
+            width: 96px; height: 96px; border-radius: 20px; display: block;
             box-shadow: 0 0 46px rgba(124,58,237,.55), 0 0 90px rgba(37,99,235,.30);
             animation: logoPulse 4s ease-in-out infinite;
         }}
@@ -818,27 +818,27 @@ if not st.session_state.get("logged_in_user"):
             50%     {{ transform: translateY(-7px); box-shadow: 0 0 62px rgba(249,115,22,.45), 0 0 110px rgba(124,58,237,.40); }}
         }}
         .hero-title {{
-            font-family:'Sora',sans-serif; font-size: 40px; line-height: 1.12; font-weight: 800;
-            letter-spacing: -1px; color: #fff; margin: 26px 0 12px;
+            font-family:'Sora',sans-serif; font-size: 31px; line-height: 1.14; font-weight: 800;
+            letter-spacing: -0.8px; color: #fff; margin: 16px 0 9px;
         }}
         .hero-title .g {{
             background: linear-gradient(110deg,#3b82f6,#a855f7,#f97316);
             -webkit-background-clip: text; background-clip: text; color: transparent;
         }}
-        .hero-sub {{ color:#a9b5d1; font-size: 16.5px; line-height:1.6; margin-bottom: 6px; }}
+        .hero-sub {{ color:#a9b5d1; font-size: 14.5px; line-height:1.55; margin-bottom: 4px; }}
         .hero-sub b {{ color:#e6c866; }}
 
         /* ===== Rotating feature cards ===== */
-        .rot-wrap {{ position: relative; height: 92px; margin-top: 26px; }}
+        .rot-wrap {{ position: relative; height: 80px; margin-top: 16px; }}
         .rot-card {{
             position: absolute; inset: 0; opacity: 0;
             background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.13);
             backdrop-filter: blur(14px); border-radius: 16px;
-            padding: 16px 20px; display: flex; align-items: center; gap: 15px;
+            padding: 13px 17px; display: flex; align-items: center; gap: 13px;
             animation: rotate8 32s infinite;
         }}
         .rot-card .ric {{
-            width: 46px; height: 46px; border-radius: 13px; flex-shrink: 0;
+            width: 40px; height: 40px; border-radius: 11px; flex-shrink: 0;
             background: linear-gradient(135deg, rgba(59,130,246,.30), rgba(168,85,247,.20));
             display: flex; align-items: center; justify-content: center; font-size: 22px;
         }}
@@ -867,14 +867,14 @@ if not st.session_state.get("logged_in_user"):
             border-radius: 24px !important;
             backdrop-filter: blur(22px);
             box-shadow: 0 26px 70px rgba(0,0,0,.42);
-            padding: 10px 8px !important;
+            padding: 4px 8px !important;
         }}
-        .glass-title {{ font-family:'Sora',sans-serif; font-size:24px; font-weight:800; color:#fff; text-align:center; }}
+        .glass-title {{ font-family:'Sora',sans-serif; font-size:21px; font-weight:800; color:#fff; text-align:center; }}
         .glass-sub {{ color:#a9b5d1; font-size:13.5px; text-align:center; margin-bottom:4px; }}
         .trial-chip {{
             background: linear-gradient(135deg, rgba(249,115,22,.20), rgba(168,85,247,.18));
             border: 1px solid rgba(249,115,22,.45); border-radius: 12px;
-            padding: 11px 14px; text-align: center; margin: 6px 0 4px;
+            padding: 9px 13px; text-align: center; margin: 5px 0 3px;
         }}
         .trial-chip b {{ color:#fbbf24; font-size:14.5px; }}
         .trial-chip span {{ color:#d8b4fe; font-size:12.5px; }}
@@ -894,7 +894,7 @@ if not st.session_state.get("logged_in_user"):
         /* ===== Footer ===== */
         .prem-foot {{
             position: relative; z-index: 2; text-align:center; color:#8a97b5; font-size:12.5px;
-            margin-top:44px; padding-top:22px; border-top:1px solid rgba(255,255,255,.10); line-height:1.8;
+            margin-top:22px; padding-top:14px; border-top:1px solid rgba(255,255,255,.10); line-height:1.7;
         }}
         .prem-foot .gst {{
             display:inline-block; background:rgba(168,85,247,.14); border:1px solid rgba(168,85,247,.35);
@@ -922,9 +922,29 @@ if not st.session_state.get("logged_in_user"):
 
     left_col, right_col = st.columns([1.18, 1], gap="large")
 
+    # Shared image loader
+    def _img_b64(paths):
+        for _p in paths:
+            if _os.path.exists(_p):
+                try:
+                    with open(_p, "rb") as _fh:
+                        return _b64_l.b64encode(_fh.read()).decode(), _p.rsplit(".", 1)[-1]
+                except Exception:
+                    return None, None
+        return None, None
+
     with left_col:
+        _iv64, _ivext = _img_b64(["inventor.png", "inventor.jpg", "inventor.jpeg", "inventor.webp"])
+        _inv_html = ""
+        if _iv64:
+            _inv_html = (f"<img src='data:image/{_ivext};base64,{_iv64}' "
+                         f"style='max-width:330px;width:100%;border-radius:12px;margin-bottom:14px;"
+                         f"border:1px solid rgba(255,255,255,.14);"
+                         f"box-shadow:0 10px 26px rgba(0,0,0,.36);'/>")
+
         st.markdown(f"""
-        <div style="position:relative; z-index:2; padding-top:6px;">
+        <div style="position:relative; z-index:2;">
+            {_inv_html}
             {_logo_img}
             <div class="hero-title">AI Powered<br><span class="g">Question Paper Generator</span></div>
             <div class="hero-sub">Generate professional question papers within <b>3 minutes</b> — built on the TN State Board pattern.</div>
@@ -942,53 +962,11 @@ if not st.session_state.get("logged_in_user"):
         """, unsafe_allow_html=True)
 
     with right_col:
-        # Banner on top of the right column
-        import os as _os_b
-        _bn = None
-        for _bf in ("banner.png", "banner.jpg", "banner.jpeg", "banner.webp"):
-            if _os_b.path.exists(_bf):
-                _bn = _bf
-                break
-        if _bn:
-            try:
-                with open(_bn, "rb") as _bfh:
-                    _bb64 = _b64_l.b64encode(_bfh.read()).decode()
-                _bext = _bn.rsplit(".", 1)[-1]
-                st.markdown(
-                    f"<div style='text-align:center;margin-bottom:14px;'>"
-                    f"<img src='data:image/{_bext};base64,{_bb64}' "
-                    f"style='max-width:100%;max-height:560px;width:auto;border-radius:18px;"
-                    f"border:1px solid rgba(255,255,255,.14);"
-                    f"box-shadow:0 18px 46px rgba(0,0,0,.42);'/></div>",
-                    unsafe_allow_html=True)
-            except Exception:
-                pass
-
-        # "Invented by" credibility strip, just above the login card
-        _inv = None
-        for _if_ in ("inventor.png", "inventor.jpg", "inventor.jpeg", "inventor.webp"):
-            if _os_b.path.exists(_if_):
-                _inv = _if_
-                break
-        if _inv:
-            try:
-                with open(_inv, "rb") as _ivh:
-                    _iv64 = _b64_l.b64encode(_ivh.read()).decode()
-                _ivext = _inv.rsplit(".", 1)[-1]
-                st.markdown(
-                    f"<div style='text-align:center;margin-bottom:12px;'>"
-                    f"<img src='data:image/{_ivext};base64,{_iv64}' "
-                    f"style='width:100%;border-radius:14px;"
-                    f"border:1px solid rgba(255,255,255,.14);"
-                    f"box-shadow:0 12px 32px rgba(0,0,0,.38);'/></div>",
-                    unsafe_allow_html=True)
-            except Exception:
-                pass
-
+        # 1) Login card first
         _card = st.container(border=True)
         with _card:
             st.markdown("""
-            <div style="padding:14px 6px 2px;">
+            <div style="padding:10px 6px 2px;">
                 <div class="glass-title">Welcome 👋</div>
                 <div class="glass-sub">Sign in to start creating question papers</div>
                 <div class="trial-chip">
@@ -1015,8 +993,19 @@ if not st.session_state.get("logged_in_user"):
                 <span>☁️ Cloud Based</span>
                 <span>🔄 Always Updated</span>
             </div>
-            <div style="height:8px;"></div>
+            <div style="height:6px;"></div>
             """, unsafe_allow_html=True)
+
+        # 2) Banner below the login card (compact)
+        _bb64, _bext = _img_b64(["banner.png", "banner.jpg", "banner.jpeg", "banner.webp"])
+        if _bb64:
+            st.markdown(
+                f"<div style='text-align:center;margin-top:14px;'>"
+                f"<img src='data:image/{_bext};base64,{_bb64}' "
+                f"style='max-width:100%;max-height:300px;width:auto;border-radius:14px;"
+                f"border:1px solid rgba(255,255,255,.14);"
+                f"box-shadow:0 14px 36px rgba(0,0,0,.40);'/></div>",
+                unsafe_allow_html=True)
 
     st.markdown("""
     <div class="prem-foot">
