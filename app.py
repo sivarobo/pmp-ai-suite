@@ -2226,12 +2226,10 @@ with tab1:
                             lab_map[lb] = it
 
                         _cap = target if (strict_bp and target) else None
-                        sel_k, all_k = f"{key_base}{mk}_sel", f"{key_base}{mk}_all"
+                        sel_k = f"{key_base}{mk}_sel"
 
                         # live count from session_state (updates on every tick)
-                        _prev = st.session_state.get(sel_k, [])
-                        _prev_all = st.session_state.get(all_k, False)
-                        _n_now = (min(len(items), _cap) if _cap else len(items)) if _prev_all else len(_prev)
+                        _n_now = len(st.session_state.get(sel_k, []))
                         live_total_q += _n_now
                         live_total_marks += _n_now * mval
 
@@ -2242,18 +2240,14 @@ with tab1:
                             head = f"• {label}  —  தேர்வு {_n_now}   ({len(items)} கிடைக்கும்)"
 
                         with st.expander(head, expanded=False):
-                            _all_lbl = (f"☑️ முதல் {target} கேள்விகளைச் சேர்" if _cap
-                                        else f"☑️ இந்தப் பகுதியில் அனைத்தையும் சேர் ({len(items)})")
-                            take_all = st.checkbox(_all_lbl, key=all_k)
                             picked = st.multiselect(
                                 "எண்ணைத் தேர்ந்தெடுக்கவும்" + (f"  (அதிகபட்சம் {target})" if _cap else ""),
                                 options=list(lab_map.keys()),
                                 key=sel_k,
                                 max_selections=_cap,
-                                disabled=take_all,
                                 placeholder="எ.கா. 1.1, 2.3 …",
                             )
-                            if target and not take_all:
+                            if target:
                                 _left = target - len(picked)
                                 if _left > 0:
                                     st.caption(f"⬇️ இன்னும் **{_left}** கேள்வி தேவை")
@@ -2267,7 +2261,7 @@ with tab1:
                                         st.caption(f"📌 {_rf}")
                                     st.markdown("<hr style='margin:4px 0;'>", unsafe_allow_html=True)
 
-                        sel_state[mk] = (lab_map, picked, take_all, mval, _cap)
+                        sel_state[mk] = (lab_map, picked, mval)
 
                     _ok_total = (live_total_marks == marks_val)
                     st.markdown(
@@ -2294,12 +2288,8 @@ with tab1:
                                 if target:
                                     audit.append((label, target, 0))
                                 continue
-                            lab_map, picked, take_all, mval, _cap = sel_state[mk]
-                            if take_all:
-                                _vals = list(lab_map.values())
-                                chosen = _vals[:_cap] if _cap else _vals
-                            else:
-                                chosen = [lab_map[l] for l in picked if l in lab_map]
+                            lab_map, picked, mval = sel_state[mk]
+                            chosen = [lab_map[l] for l in picked if l in lab_map]
                             if target or chosen:
                                 audit.append((label, target, len(chosen)))
                             if not chosen:
