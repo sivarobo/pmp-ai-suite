@@ -583,11 +583,17 @@ def create_paper_pdf(ai_response, school_name, class_val, subject_val, exam_type
     try:
         from fpdf import FPDF
     except ImportError:
+        st.warning("⚠️ PDF உருவாக்க முடியவில்லை: **fpdf2** நிறுவப்படவில்லை. "
+                   "`requirements.txt`-ல் `fpdf2` மற்றும் `uharfbuzz` சேர்த்து மீண்டும் deploy செய்யவும்.")
         return None
 
     latin, tamil = _pdf_fonts()
     if not latin:
+        st.warning("⚠️ PDF எழுத்துரு (DejaVuSans) கிடைக்கவில்லை.")
         return None
+    if not tamil:
+        st.info("ℹ️ PDF-ல் தமிழ் சரியாக வர **NotoSansTamil-Regular.ttf** கோப்பை "
+                "app.py உள்ள அதே folder-ல் சேர்க்கவும். (இப்போது ஆங்கிலம்/எண்கள் மட்டும் சரியாக வரும்.)")
 
     body = ai_response.split("=== ANSWER KEY ===")[0].strip()
     body = latex_to_normal(body)
@@ -664,8 +670,20 @@ def create_paper_pdf(ai_response, school_name, class_val, subject_val, exam_type
         if is_part:
             pdf.ln(1)
 
-    out = pdf.output()
-    return bytes(out)
+    try:
+        out = pdf.output()
+        return bytes(out)
+    except Exception as e:
+        st.warning(f"⚠️ PDF உருவாக்கத்தில் பிழை: {e}")
+        return None
+
+
+def _safe_pdf(*a, **k):
+    try:
+        return create_paper_pdf(*a, **k)
+    except Exception as e:
+        st.warning(f"⚠️ PDF உருவாக்கத்தில் பிழை: {e}")
+        return None
 
 
 def update_bank_question(qid, question_text, answer_text, qtype):
@@ -2214,7 +2232,7 @@ with tab1:
                             doc = create_professional_docx(_txt, school_name, class_val, subject_val, exam_type, time_val, marks_val)
                             doc_io = io.BytesIO(); doc.save(doc_io)
                             st.session_state['docx_bytes'] = doc_io.getvalue()
-                            st.session_state['pdf_bytes'] = create_paper_pdf(_txt, school_name, class_val, subject_val, exam_type, time_val, marks_val)
+                            st.session_state['pdf_bytes'] = _safe_pdf(_txt, school_name, class_val, subject_val, exam_type, time_val, marks_val)
                             st.success("✅ வினாத்தாள் தயாராகிவிட்டது!")
                 else:
                     st.warning(f"⚠️ மதிப்பெண்களை சமப்படுத்தவும் ({total_calculated} / {marks_val})")
@@ -2395,7 +2413,7 @@ with tab1:
                                 doc = create_professional_docx(assembled, school_name, class_val, subject_val, exam_type, time_val, total_marks_ticked)
                                 doc_io = io.BytesIO(); doc.save(doc_io)
                                 st.session_state['docx_bytes'] = doc_io.getvalue()
-                                st.session_state['pdf_bytes'] = create_paper_pdf(assembled, school_name, class_val, subject_val, exam_type, time_val, total_marks_ticked)
+                                st.session_state['pdf_bytes'] = _safe_pdf(assembled, school_name, class_val, subject_val, exam_type, time_val, total_marks_ticked)
                                 st.success(f"✅ வினாத்தாள் தயார்! ({total_ticked} கேள்விகள் · {total_marks_ticked} மதிப்பெண்)")
 
         # ==========================================
@@ -2405,6 +2423,9 @@ with tab1:
             st.markdown("<hr style='margin:8px 0;'>", unsafe_allow_html=True)
             d1, d2 = st.columns(2)
             with d1:
+                if not st.session_state.get('pdf_bytes'):
+                    st.info("📕 PDF தயாராகவில்லை — மேலே உள்ள செய்தியைப் பாருங்கள் "
+                            "(`fpdf2` + `NotoSansTamil-Regular.ttf` தேவை).")
                 if st.session_state.get('pdf_bytes'):
                     st.download_button(
                         "📕 Download PDF",
