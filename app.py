@@ -531,10 +531,12 @@ def fetch_bank_by_type(subject, lessons, qtype):
             return []
         cur = conn.cursor()
         lesson_ph = ', '.join(['LOWER(TRIM(%s))'] * len(lessons))
-        if qtype == "__ALL__":
-            where, params = "", list(lessons)
-        else:
-            where, params = "LOWER(TRIM(qtype)) = LOWER(TRIM(%s)) AND ", [qtype] + list(lessons)
+        where = "LOWER(TRIM(subject)) = LOWER(TRIM(%s)) AND "
+        params = [subject]
+        if qtype != "__ALL__":
+            where += "LOWER(TRIM(qtype)) = LOWER(TRIM(%s)) AND "
+            params.append(qtype)
+        params += list(lessons)
         cur.execute(
             f"SELECT id, subject, lesson, mark_type, qtype, question_text, answer_text, reference "
             f"FROM question_bank "
@@ -571,7 +573,11 @@ def _pdf_fonts():
                 latin = p
                 break
     tamil = None
-    for p in ("NotoSansTamil-Regular.ttf", "fonts/NotoSansTamil-Regular.ttf", "NotoSansTamil.ttf"):
+    _here = _o.path.dirname(_o.path.abspath(__file__))
+    _names = ("NotoSansTamil-Regular.ttf", "NotoSansTamil.ttf",
+              "fonts/NotoSansTamil-Regular.ttf", "NotoSansTamil[wdth,wght].ttf")
+    _cands = [n for n in _names] + [_o.path.join(_here, n) for n in _names]
+    for p in _cands:
         if _o.path.exists(p):
             tamil = p
             break
@@ -2318,6 +2324,21 @@ with tab1:
                         return base
 
                     key_base = f"qb_{subject_val}_{sel_qtype}_"
+
+                    _lt, _tm = _pdf_fonts()
+                    try:
+                        import fpdf as _fpdf_chk
+                        _fpdf_ok = True
+                    except ImportError:
+                        _fpdf_ok = False
+                    if not (_fpdf_ok and _lt):
+                        st.error("📕 **PDF தயாராக இல்லை** — "
+                                 + ("`fpdf2` நிறுவப்படவில்லை (requirements.txt-ல் சேர்க்கவும்). " if not _fpdf_ok else "")
+                                 + ("DejaVuSans எழுத்துரு கிடைக்கவில்லை. " if not _lt else "")
+                                 + "இப்போது Word (.docx) மட்டும் கிடைக்கும்.")
+                    elif not _tm:
+                        st.warning("📕 PDF கிடைக்கும், ஆனால் **NotoSansTamil-Regular.ttf** இல்லாததால் "
+                                   "தமிழ் எழுத்துகள் PDF-ல் சரியாக வராது. அந்தக் கோப்பை repo-வில் சேர்க்கவும்.")
 
                     strict_bp = st.checkbox(
                         "🔒 Blueprint வரம்பைக் கடைப்பிடி (வரம்பு தாண்டினால் உடனே தடுக்கும்)",
