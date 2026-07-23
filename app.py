@@ -2132,25 +2132,25 @@ with tab1:
             st.markdown("#### ⚙️ மதிப்பெண் விவரங்கள்")
 
             # Row 1: 1-mark (full width)
-            p1_ask = st.number_input("1-மார்க் வினாக்கள்", min_value=0, max_value=30,
+            p1_ask = st.number_input("1-மார்க் வினாக்கள்", min_value=0,
                                      value=int(bp["p1"]) if show_p1 else 0, step=1, disabled=not show_p1)
 
             # Row 2: 2-mark Given (left) + Answer (right)
             r2l, r2r = st.columns(2)
             with r2l:
-                p2_get = st.number_input("2-மார்க் கொடுக்க (Given)", min_value=0, max_value=30,
+                p2_get = st.number_input("2-மார்க் கொடுக்க (Given)", min_value=0,
                                          value=int(bp["p2g"]) if show_p2 else 0, step=1, disabled=not show_p2)
             with r2r:
-                p2_ask = st.number_input("2-மார்க் எழுத (Answer)", min_value=0, max_value=30,
+                p2_ask = st.number_input("2-மார்க் எழுத (Answer)", min_value=0,
                                          value=int(bp["p2a"]) if show_p2 else 0, step=1, disabled=not show_p2)
 
             # Row 3: 5-mark Given (left) + Answer (right)
             r3l, r3r = st.columns(2)
             with r3l:
-                p3_get = st.number_input("5-மார்க் கொடுக்க (Given)", min_value=0, max_value=30,
+                p3_get = st.number_input("5-மார்க் கொடுக்க (Given)", min_value=0,
                                          value=int(bp["p3g"]) if show_p3 else 0, step=1, disabled=not show_p3)
             with r3r:
-                p3_ask = st.number_input("5-மார்க் எழுத (Answer)", min_value=0, max_value=30,
+                p3_ask = st.number_input("5-மார்க் எழுத (Answer)", min_value=0,
                                          value=int(bp["p3a"]) if show_p3 else 0, step=1, disabled=not show_p3)
 
             # Row 4: நெடுவினா mark value + Given + Answer
@@ -2159,10 +2159,10 @@ with tab1:
                 p4_val = st.selectbox("நெடுவினா மதிப்பெண்", [5, 8, 10],
                                       index=1 if is_eng or is_soc or marks_val == 100 else 0, disabled=not show_p4)
             with r4b:
-                p4_get = st.number_input("நெடுவினா கொடுக்க", min_value=0, max_value=20,
+                p4_get = st.number_input("நெடுவினா கொடுக்க", min_value=0,
                                          value=int(bp["p4g"]) if show_p4 else 0, step=1, disabled=not show_p4)
             with r4c:
-                p4_ask = st.number_input("நெடுவினா எழுத", min_value=0, max_value=20,
+                p4_ask = st.number_input("நெடுவினா எழுத", min_value=0,
                                          value=int(bp["p4a"]) if show_p4 else 0, step=1, disabled=not show_p4)
 
         total_calculated = (p1_ask * 1) + (p2_ask * 2) + (p3_ask * 5) + (p4_ask * p4_val)
