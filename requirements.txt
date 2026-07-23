@@ -1,12 +1,13 @@
 streamlit
 pandas
+openpyxl
+psycopg2-binary
 google-genai
 python-docx
 matplotlib
 numpy
 pillow
-resend
-psycopg2-binary
-streamlit-oauth
 requests
-openpyxl
+streamlit-oauth
+fpdf2
+uharfbuzz
