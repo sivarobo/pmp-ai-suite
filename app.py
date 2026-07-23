@@ -514,6 +514,12 @@ def assemble_paper_from_bank(parts_cfg):
         a_lines.append("")
     return "\n".join(q_lines) + "\n=== ANSWER KEY ===\n" + "\n".join(a_lines)
 
+@st.cache_data(ttl=180, show_spinner=False)
+def fetch_bank_cached(subject, lessons_tuple, qtype):
+    """Cached view of the bank so live tick-updates don't hit the DB every rerun."""
+    return fetch_bank_by_type(subject, list(lessons_tuple), qtype)
+
+
 def fetch_bank_by_type(subject, lessons, qtype):
     """QB Mode: ஒரு பாடம்/பாடங்கள் + வினா வகைக்கான அனைத்து கேள்விகளும் (எல்லா மதிப்பெண்களும்)."""
     if not lessons:
@@ -2015,118 +2021,122 @@ with tab1:
 
         st.markdown("<hr style='margin:6px 0;'>", unsafe_allow_html=True)
 
+        # ==========================================
+        # BLUEPRINT (both modes)
+        # ==========================================
+        is_eng = "english" in subject_val.lower() or "ஆங்கிலம்" in subject_val.lower()
+        is_soc = "social"  in subject_val.lower() or "சமூக"     in subject_val.lower()
+        bp     = get_blueprint_defaults(marks_val, is_social=is_soc, is_english=is_eng)
+
+        # ===== Part selector cards =====
+        _pcard = st.container(border=True)
+        with _pcard:
+            st.markdown("""
+            <div style='display:flex;align-items:center;gap:10px;margin-bottom:4px;'>
+                <div style='width:34px;height:34px;border-radius:9px;background:#eef1fd;display:flex;
+                            align-items:center;justify-content:center;font-size:17px;'>📋</div>
+                <div><h3 style='margin:0;'>வினா வடிவமைப்பு பிரிவு</h3>
+                <span style='color:#5a6782;font-size:12px;'>Paper-ல் சேர்க்க வேண்டிய வினா வகைகளைத் தேர்ந்தெடுக்கவும்</span></div>
+            </div>
+            """, unsafe_allow_html=True)
+
+            pc1, pc2, pc3, pc4 = st.columns(4)
+            with pc1:
+                show_p1 = st.checkbox("பகுதி I · 1-Mark", value=True)
+            with pc2:
+                show_p2 = st.checkbox("பகுதி II · 2-Mark", value=True)
+            with pc3:
+                show_p3 = st.checkbox("பகுதி III · 5-Mark", value=True)
+            with pc4:
+                show_p4 = st.checkbox("பகுதி IV · நெடுவினா", value=True)
+
+        # ===== Marks details + live donut =====
+        _mcard = st.container(border=True)
+        with _mcard:
+            marks_col, donut_col = st.columns([2, 1])
+
+        with marks_col:
+            st.markdown("#### ⚙️ மதிப்பெண் விவரங்கள்")
+
+            # Row 1: 1-mark (full width)
+            p1_ask = st.number_input("1-மார்க் வினாக்கள்", min_value=0, max_value=30,
+                                     value=int(bp["p1"]) if show_p1 else 0, step=1, disabled=not show_p1)
+
+            # Row 2: 2-mark Given (left) + Answer (right)
+            r2l, r2r = st.columns(2)
+            with r2l:
+                p2_get = st.number_input("2-மார்க் கொடுக்க (Given)", min_value=0, max_value=30,
+                                         value=int(bp["p2g"]) if show_p2 else 0, step=1, disabled=not show_p2)
+            with r2r:
+                p2_ask = st.number_input("2-மார்க் எழுத (Answer)", min_value=0, max_value=30,
+                                         value=int(bp["p2a"]) if show_p2 else 0, step=1, disabled=not show_p2)
+
+            # Row 3: 5-mark Given (left) + Answer (right)
+            r3l, r3r = st.columns(2)
+            with r3l:
+                p3_get = st.number_input("5-மார்க் கொடுக்க (Given)", min_value=0, max_value=30,
+                                         value=int(bp["p3g"]) if show_p3 else 0, step=1, disabled=not show_p3)
+            with r3r:
+                p3_ask = st.number_input("5-மார்க் எழுத (Answer)", min_value=0, max_value=30,
+                                         value=int(bp["p3a"]) if show_p3 else 0, step=1, disabled=not show_p3)
+
+            # Row 4: நெடுவினா mark value + Given + Answer
+            r4a, r4b, r4c = st.columns(3)
+            with r4a:
+                p4_val = st.selectbox("நெடுவினா மதிப்பெண்", [5, 8, 10],
+                                      index=1 if is_eng or is_soc or marks_val == 100 else 0, disabled=not show_p4)
+            with r4b:
+                p4_get = st.number_input("நெடுவினா கொடுக்க", min_value=0, max_value=20,
+                                         value=int(bp["p4g"]) if show_p4 else 0, step=1, disabled=not show_p4)
+            with r4c:
+                p4_ask = st.number_input("நெடுவினா எழுத", min_value=0, max_value=20,
+                                         value=int(bp["p4a"]) if show_p4 else 0, step=1, disabled=not show_p4)
+
+        total_calculated = (p1_ask * 1) + (p2_ask * 2) + (p3_ask * 5) + (p4_ask * p4_val)
+        can_generate     = total_calculated == marks_val
+
+        # ===== Compact summary (no donut, saves space) =====
+        with donut_col:
+            st.markdown("##### 📊 Blueprint Summary")
+            _bal_color = "#1b9e5a" if can_generate else "#9a6b00"
+            _bal_bg    = "#e8f5ec" if can_generate else "#fff6df"
+            st.markdown(
+                f"<div style='background:{_bal_bg};border-radius:12px;padding:10px 14px;text-align:center;margin-bottom:8px;'>"
+                f"<span style='font-family:Sora,sans-serif;font-size:30px;font-weight:800;color:#0a1f44;'>{total_calculated}</span>"
+                f"<span style='font-size:15px;color:#5a6782;'> / {marks_val}</span></div>",
+                unsafe_allow_html=True)
+
+            rows = [
+                ("🟢", "1-மார்க்",        p1_ask,  "" ),
+                ("🔵", "2-மார்க் Given",  p2_get,  "" ),
+                ("🟣", "2-மார்க் Ans",    p2_ask,  "" ),
+                ("🟠", "5-மார்க் Given",  p3_get,  "" ),
+                ("🩷", "5-மார்க் Ans",    p3_ask,  "" ),
+                ("🟦", "நெடுவினா Given",  p4_get,  "" ),
+                ("🔴", "நெடுவினா Ans",    p4_ask,  "" ),
+            ]
+            html = "<div style='font-size:13px;line-height:1.5;'>"
+            for dot, lbl, cnt, _ in rows:
+                if cnt <= 0:
+                    continue
+                html += (f"<div style='display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid #f0f2f8;'>"
+                         f"<span style='color:#5a6782;'>{dot} {lbl}</span>"
+                         f"<b style='color:#0f1a30;'>{cnt}</b></div>")
+            html += "</div>"
+            st.markdown(html, unsafe_allow_html=True)
+
+            if can_generate:
+                st.markdown("<div style='background:#e8f5ec;border:1px solid #22c55e;border-radius:10px;padding:8px;margin-top:8px;text-align:center;'>"
+                            "<b style='color:#1b9e5a;'>✅ Balanced</b></div>", unsafe_allow_html=True)
+            else:
+                st.markdown(f"<div style='background:#fff6df;border:1px solid #c9a227;border-radius:10px;padding:8px;margin-top:8px;text-align:center;'>"
+                            f"<b style='color:#9a6b00;'>⚠️ சமப்படுத்தவும்</b></div>", unsafe_allow_html=True)
+
+
         if not bank_mode:
             # ======================================
-            # AI MODE — blueprint + AI generation
+            # AI MODE — generate with Gemini
             # ======================================
-            is_eng = "english" in subject_val.lower() or "ஆங்கிலம்" in subject_val.lower()
-            is_soc = "social"  in subject_val.lower() or "சமூக"     in subject_val.lower()
-            bp     = get_blueprint_defaults(marks_val, is_social=is_soc, is_english=is_eng)
-
-            # ===== Part selector cards =====
-            _pcard = st.container(border=True)
-            with _pcard:
-                st.markdown("""
-                <div style='display:flex;align-items:center;gap:10px;margin-bottom:4px;'>
-                    <div style='width:34px;height:34px;border-radius:9px;background:#eef1fd;display:flex;
-                                align-items:center;justify-content:center;font-size:17px;'>📋</div>
-                    <div><h3 style='margin:0;'>வினா வடிவமைப்பு பிரிவு</h3>
-                    <span style='color:#5a6782;font-size:12px;'>Paper-ல் சேர்க்க வேண்டிய வினா வகைகளைத் தேர்ந்தெடுக்கவும்</span></div>
-                </div>
-                """, unsafe_allow_html=True)
-
-                pc1, pc2, pc3, pc4 = st.columns(4)
-                with pc1:
-                    show_p1 = st.checkbox("பகுதி I · 1-Mark", value=True)
-                with pc2:
-                    show_p2 = st.checkbox("பகுதி II · 2-Mark", value=True)
-                with pc3:
-                    show_p3 = st.checkbox("பகுதி III · 5-Mark", value=True)
-                with pc4:
-                    show_p4 = st.checkbox("பகுதி IV · நெடுவினா", value=True)
-
-            # ===== Marks details + live donut =====
-            _mcard = st.container(border=True)
-            with _mcard:
-                marks_col, donut_col = st.columns([2, 1])
-
-            with marks_col:
-                st.markdown("#### ⚙️ மதிப்பெண் விவரங்கள்")
-
-                # Row 1: 1-mark (full width)
-                p1_ask = st.number_input("1-மார்க் வினாக்கள்", min_value=0, max_value=30,
-                                         value=int(bp["p1"]) if show_p1 else 0, step=1, disabled=not show_p1)
-
-                # Row 2: 2-mark Given (left) + Answer (right)
-                r2l, r2r = st.columns(2)
-                with r2l:
-                    p2_get = st.number_input("2-மார்க் கொடுக்க (Given)", min_value=0, max_value=30,
-                                             value=int(bp["p2g"]) if show_p2 else 0, step=1, disabled=not show_p2)
-                with r2r:
-                    p2_ask = st.number_input("2-மார்க் எழுத (Answer)", min_value=0, max_value=30,
-                                             value=int(bp["p2a"]) if show_p2 else 0, step=1, disabled=not show_p2)
-
-                # Row 3: 5-mark Given (left) + Answer (right)
-                r3l, r3r = st.columns(2)
-                with r3l:
-                    p3_get = st.number_input("5-மார்க் கொடுக்க (Given)", min_value=0, max_value=30,
-                                             value=int(bp["p3g"]) if show_p3 else 0, step=1, disabled=not show_p3)
-                with r3r:
-                    p3_ask = st.number_input("5-மார்க் எழுத (Answer)", min_value=0, max_value=30,
-                                             value=int(bp["p3a"]) if show_p3 else 0, step=1, disabled=not show_p3)
-
-                # Row 4: நெடுவினா mark value + Given + Answer
-                r4a, r4b, r4c = st.columns(3)
-                with r4a:
-                    p4_val = st.selectbox("நெடுவினா மதிப்பெண்", [5, 8, 10],
-                                          index=1 if is_eng or is_soc or marks_val == 100 else 0, disabled=not show_p4)
-                with r4b:
-                    p4_get = st.number_input("நெடுவினா கொடுக்க", min_value=0, max_value=20,
-                                             value=int(bp["p4g"]) if show_p4 else 0, step=1, disabled=not show_p4)
-                with r4c:
-                    p4_ask = st.number_input("நெடுவினா எழுத", min_value=0, max_value=20,
-                                             value=int(bp["p4a"]) if show_p4 else 0, step=1, disabled=not show_p4)
-
-            total_calculated = (p1_ask * 1) + (p2_ask * 2) + (p3_ask * 5) + (p4_ask * p4_val)
-            can_generate     = total_calculated == marks_val
-
-            # ===== Compact summary (no donut, saves space) =====
-            with donut_col:
-                st.markdown("##### 📊 Blueprint Summary")
-                _bal_color = "#1b9e5a" if can_generate else "#9a6b00"
-                _bal_bg    = "#e8f5ec" if can_generate else "#fff6df"
-                st.markdown(
-                    f"<div style='background:{_bal_bg};border-radius:12px;padding:10px 14px;text-align:center;margin-bottom:8px;'>"
-                    f"<span style='font-family:Sora,sans-serif;font-size:30px;font-weight:800;color:#0a1f44;'>{total_calculated}</span>"
-                    f"<span style='font-size:15px;color:#5a6782;'> / {marks_val}</span></div>",
-                    unsafe_allow_html=True)
-
-                rows = [
-                    ("🟢", "1-மார்க்",        p1_ask,  "" ),
-                    ("🔵", "2-மார்க் Given",  p2_get,  "" ),
-                    ("🟣", "2-மார்க் Ans",    p2_ask,  "" ),
-                    ("🟠", "5-மார்க் Given",  p3_get,  "" ),
-                    ("🩷", "5-மார்க் Ans",    p3_ask,  "" ),
-                    ("🟦", "நெடுவினா Given",  p4_get,  "" ),
-                    ("🔴", "நெடுவினா Ans",    p4_ask,  "" ),
-                ]
-                html = "<div style='font-size:13px;line-height:1.5;'>"
-                for dot, lbl, cnt, _ in rows:
-                    if cnt <= 0:
-                        continue
-                    html += (f"<div style='display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid #f0f2f8;'>"
-                             f"<span style='color:#5a6782;'>{dot} {lbl}</span>"
-                             f"<b style='color:#0f1a30;'>{cnt}</b></div>")
-                html += "</div>"
-                st.markdown(html, unsafe_allow_html=True)
-
-                if can_generate:
-                    st.markdown("<div style='background:#e8f5ec;border:1px solid #22c55e;border-radius:10px;padding:8px;margin-top:8px;text-align:center;'>"
-                                "<b style='color:#1b9e5a;'>✅ Balanced</b></div>", unsafe_allow_html=True)
-                else:
-                    st.markdown(f"<div style='background:#fff6df;border:1px solid #c9a227;border-radius:10px;padding:8px;margin-top:8px;text-align:center;'>"
-                                f"<b style='color:#9a6b00;'>⚠️ சமப்படுத்தவும்</b></div>", unsafe_allow_html=True)
-
             _gb1, _gb2, _gb3 = st.columns([1, 2, 1])
             with _gb2:
                 gen_clicked = st.button("🚀 Generate Question Paper", use_container_width=True, type="primary")
@@ -2170,17 +2180,17 @@ with tab1:
                 qt_label = st.radio("வினா வகையைத் தேர்ந்தெடுக்கவும்", list(QT_OPTIONS.keys()), horizontal=True)
                 sel_qtype = QT_OPTIONS[qt_label]
 
-                pool = fetch_bank_by_type(subject_val, selected_lessons, sel_qtype)
+                pool = fetch_bank_cached(subject_val, tuple(selected_lessons), sel_qtype)
 
                 if not pool:
                     st.warning(f"⚠️ '{sel_qtype}' வகையில் இந்தப் பாடத்திற்கு கேள்விகள் இல்லை. "
                                "'🛠️ கேள்வி வங்கி மேலாண்மை' Tab-ல் Import செய்யவும்.")
                 else:
                     MARK_META = [
-                        ("1M",   "பகுதி I · 1 மார்க்",   1),
-                        ("2M",   "பகுதி II · 2 மார்க்",  2),
-                        ("5M",   "பகுதி III · 5 மார்க்", 5),
-                        ("LONG", "பகுதி IV · நெடுவினா (8 மார்க்)", 8),
+                        ("1M",   "பகுதி I · 1 மார்க்",              1, int(p1_ask) if show_p1 else 0),
+                        ("2M",   "பகுதி II · 2 மார்க்",             2, int(p2_get) if show_p2 else 0),
+                        ("5M",   "பகுதி III · 5 மார்க்",            5, int(p3_get) if show_p3 else 0),
+                        ("LONG", "பகுதி IV · நெடுவினா (8 மார்க்)",  8, int(p4_get) if show_p4 else 0),
                     ]
 
                     def _short_label(it):
@@ -2194,15 +2204,19 @@ with tab1:
                         return f"#{it['id']}"
 
                     key_base = f"qb_{subject_val}_{sel_qtype}_"
-                    picked_all = {}          # mark_type -> list of items
-                    total_ticked, total_marks_ticked = 0, 0
 
-                    for mk, label, mval in MARK_META:
+                    strict_bp = st.checkbox(
+                        "🔒 Blueprint வரம்பைக் கடைப்பிடி (வரம்பு தாண்டினால் உடனே தடுக்கும்)",
+                        value=True, key=f"{key_base}strict")
+
+                    sel_state = {}
+                    live_total_q, live_total_marks = 0, 0
+
+                    for mk, label, mval, target in MARK_META:
                         items = [q for q in pool if (q.get("mark_type") or "").upper() == mk]
                         if not items:
                             continue
 
-                        # unique short labels
                         lab_map, used = {}, {}
                         for it in items:
                             lb = _short_label(it)
@@ -2211,65 +2225,87 @@ with tab1:
                                 lb = f"{lb} ({used[lb]})"
                             lab_map[lb] = it
 
-                        sel_key = f"{key_base}{mk}_sel"
-                        chosen_labels = st.session_state.get(sel_key, [])
-                        chosen_items = [lab_map[l] for l in chosen_labels if l in lab_map]
-                        picked_all[mk] = chosen_items
-                        total_ticked += len(chosen_items)
-                        total_marks_ticked += len(chosen_items) * mval
+                        _cap = target if (strict_bp and target) else None
+                        sel_k, all_k = f"{key_base}{mk}_sel", f"{key_base}{mk}_all"
 
-                        with st.expander(f"{label}  —  {len(items)} கேள்விகள்  (தேர்வு: {len(chosen_items)})",
-                                         expanded=False):
-                            bc1, bc2 = st.columns([1, 1])
-                            with bc1:
-                                if st.button("☑️ அனைத்தும்", key=f"all_{sel_key}"):
-                                    st.session_state[sel_key] = list(lab_map.keys())
-                                    st.rerun()
-                            with bc2:
-                                if st.button("⬜ நீக்கு", key=f"clr_{sel_key}"):
-                                    st.session_state[sel_key] = []
-                                    st.rerun()
+                        # live count from session_state (updates on every tick)
+                        _prev = st.session_state.get(sel_k, [])
+                        _prev_all = st.session_state.get(all_k, False)
+                        _n_now = (min(len(items), _cap) if _cap else len(items)) if _prev_all else len(_prev)
+                        live_total_q += _n_now
+                        live_total_marks += _n_now * mval
 
-                            st.multiselect(
-                                "எண்ணைத் தேர்ந்தெடுக்கவும்",
+                        if target:
+                            _ic = "✅" if _n_now == target else ("⬆️" if _n_now > target else "⬇️")
+                            head = f"{_ic} {label}  —  தேர்வு {_n_now} / தேவை {target}   ({len(items)} கிடைக்கும்)"
+                        else:
+                            head = f"• {label}  —  தேர்வு {_n_now}   ({len(items)} கிடைக்கும்)"
+
+                        with st.expander(head, expanded=False):
+                            _all_lbl = (f"☑️ முதல் {target} கேள்விகளைச் சேர்" if _cap
+                                        else f"☑️ இந்தப் பகுதியில் அனைத்தையும் சேர் ({len(items)})")
+                            take_all = st.checkbox(_all_lbl, key=all_k)
+                            picked = st.multiselect(
+                                "எண்ணைத் தேர்ந்தெடுக்கவும்" + (f"  (அதிகபட்சம் {target})" if _cap else ""),
                                 options=list(lab_map.keys()),
-                                key=sel_key,
+                                key=sel_k,
+                                max_selections=_cap,
+                                disabled=take_all,
                                 placeholder="எ.கா. 1.1, 2.3 …",
                             )
-
+                            if target and not take_all:
+                                _left = target - len(picked)
+                                if _left > 0:
+                                    st.caption(f"⬇️ இன்னும் **{_left}** கேள்வி தேவை")
+                                elif _left == 0:
+                                    st.caption("✅ இந்தப் பகுதி முழுமையானது")
                             with st.expander(f"📖 கேள்விகளைப் பார்க்க ({len(items)})", expanded=False):
                                 for lb, it in lab_map.items():
                                     st.markdown(f"**{lb}** — {it['question_text']}")
-                                    ref = it.get("reference") or ""
-                                    if ref:
-                                        st.caption(f"📌 {ref}")
+                                    _rf = it.get("reference") or ""
+                                    if _rf:
+                                        st.caption(f"📌 {_rf}")
                                     st.markdown("<hr style='margin:4px 0;'>", unsafe_allow_html=True)
 
-                            if chosen_items:
-                                st.caption("✅ தேர்ந்தெடுத்தவை:")
-                                for it in chosen_items:
-                                    q = it["question_text"]
-                                    st.markdown(f"- {q[:90]}{'…' if len(q) > 90 else ''}")
+                        sel_state[mk] = (lab_map, picked, take_all, mval, _cap)
 
+                    _ok_total = (live_total_marks == marks_val)
                     st.markdown(
-                        f"<div style='background:#e8f5ec;border:1px solid #22c55e;border-radius:10px;"
+                        f"<div style='background:{'#e8f5ec' if _ok_total else '#fff6df'};"
+                        f"border:1px solid {'#22c55e' if _ok_total else '#c9a227'};border-radius:10px;"
                         f"padding:10px 14px;margin:10px 0;text-align:center;'>"
-                        f"<b style='color:#1b9e5a;'>✅ தேர்ந்தெடுத்தவை: {total_ticked} கேள்விகள் · "
-                        f"மொத்த மதிப்பெண்: {total_marks_ticked}</b></div>",
+                        f"<b style='color:{'#1b9e5a' if _ok_total else '#9a6b00'};'>"
+                        f"{'✅' if _ok_total else '⚠️'} தேர்ந்தெடுத்தவை: {live_total_q} கேள்விகள் · "
+                        f"மொத்த மதிப்பெண்: {live_total_marks} / {marks_val}</b></div>",
                         unsafe_allow_html=True)
 
-                    _gb1, _gb2, _gb3 = st.columns([1, 2, 1])
-                    with _gb2:
-                        qb_clicked = st.button("🚀 Generate Question Paper", use_container_width=True, type="primary")
-
+                    _f1, _f2, _f3 = st.columns([1, 2, 1])
+                    with _f2:
+                        qb_clicked = st.button("🚀 Generate Question Paper",
+                                               use_container_width=True, type="primary")
                     if qb_clicked:
                         parts_cfg = []
                         roman = ["I", "II", "III", "IV", "V"]
                         pi = 0
-                        for mk, label, mval in MARK_META:
-                            chosen = picked_all.get(mk, [])
+                        total_ticked, total_marks_ticked = 0, 0
+                        audit = []          # (label, target, chosen)
+                        for mk, label, mval, target in MARK_META:
+                            if mk not in sel_state:
+                                if target:
+                                    audit.append((label, target, 0))
+                                continue
+                            lab_map, picked, take_all, mval, _cap = sel_state[mk]
+                            if take_all:
+                                _vals = list(lab_map.values())
+                                chosen = _vals[:_cap] if _cap else _vals
+                            else:
+                                chosen = [lab_map[l] for l in picked if l in lab_map]
+                            if target or chosen:
+                                audit.append((label, target, len(chosen)))
                             if not chosen:
                                 continue
+                            total_ticked += len(chosen)
+                            total_marks_ticked += len(chosen) * mval
                             parts_cfg.append({
                                 "label": f"பகுதி {roman[pi]}",
                                 "mark": mval,
@@ -2279,8 +2315,18 @@ with tab1:
                                 "items": chosen,
                             })
                             pi += 1
+
+                        # ---- Blueprint vs selection audit ----
+                        mismatches = [a for a in audit if a[1] and a[1] != a[2]]
+                        if mismatches:
+                            _msg = " · ".join(
+                                f"{l}: தேவை {t}, தேர்வு {c}" for l, t, c in mismatches)
+                            st.warning(f"⚠️ Blueprint-உடன் பொருந்தவில்லை → {_msg}\n\n"
+                                       "வினாத்தாள் இதே தேர்வுடன் உருவாக்கப்பட்டுள்ளது. "
+                                       "சரி செய்ய வேண்டுமெனில் மேலே மாற்றி மீண்டும் Generate அழுத்தவும்.")
+
                         if not parts_cfg:
-                            st.error("⚠️ குறைந்தது ஒரு கேள்வியையாவது tick செய்யவும்.")
+                            st.error("⚠️ குறைந்தது ஒரு கேள்வியையாவது தேர்ந்தெடுக்கவும்.")
                         else:
                             with st.spinner("⏳ வினாத்தாள் தயாராகிறது..."):
                                 assembled = assemble_paper_from_bank(parts_cfg)
