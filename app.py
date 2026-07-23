@@ -636,10 +636,31 @@ def create_paper_pdf(ai_response, school_name, class_val, subject_val, exam_type
         pdf.set_font_size(12 if is_part else 11)
         if is_part:
             pdf.ln(2)
-        try:
-            pdf.multi_cell(W, 6.5, line, align="L")
-        except Exception:
-            pdf.multi_cell(W, 6.5, line.encode("ascii", "ignore").decode(), align="L")
+
+        # split MCQ options onto their own line
+        _mo = re.search(r'\(1\)\s*.+?\(2\)\s*.+?\(3\)\s*.+?\(4\)', line, re.S)
+        _pdf_pat = r'\s*\((1|2|3|4)\)\s*'
+        if not _mo:
+            _mo = re.search(r'\(a\)\s*.+?\(b\)\s*.+?\(c\)\s*.+?\(d\)', line, re.S)
+            _pdf_pat = r'\s*\((a|b|c|d)\)\s*'
+        segments = [line]
+        if _mo and not is_part:
+            _stem = line[:_mo.start()].strip()
+            _opts = line[_mo.start():].strip()
+            _abcd = ["A", "B", "C", "D", "E", "F"]
+            _ci = [0]
+            def _relabel(_m):
+                _lb = _abcd[_ci[0]] if _ci[0] < len(_abcd) else _m.group(1)
+                _ci[0] += 1
+                return f"     {_lb}) "
+            _opts = re.sub(_pdf_pat, _relabel, _opts).strip()
+            segments = [x for x in (_stem, _opts) if x]
+
+        for _seg in segments:
+            try:
+                pdf.multi_cell(W, 6.5, _seg, align="L")
+            except Exception:
+                pdf.multi_cell(W, 6.5, _seg.encode("ascii", "ignore").decode(), align="L")
         if is_part:
             pdf.ln(1)
 
@@ -1866,6 +1887,35 @@ def write_markdown_to_word(doc, text):
                 set_cell_margins(c1, top=0, bottom=0, start=0, end=0)
                 set_cell_margins(c2, top=0, bottom=0, start=0, end=0)
                 continue
+        # --- MCQ options written as (1) (2) (3) (4) → split onto their own row ---
+        m_opt = re.search(r'\(1\)\s*.+?\(2\)\s*.+?\(3\)\s*.+?\(4\)', clean_line, re.S)
+        _opt_pat = r'\((1|2|3|4)\)'
+        if not m_opt:
+            m_opt = re.search(r'\(a\)\s*.+?\(b\)\s*.+?\(c\)\s*.+?\(d\)', clean_line, re.S)
+            _opt_pat = r'\((a|b|c|d)\)'
+        if m_opt:
+            stem = clean_line[:m_opt.start()].strip()
+            opts_txt = clean_line[m_opt.start():].strip()
+            if stem:
+                p_stem = doc.add_paragraph()
+                if re.match(r'^\d+\.', stem):
+                    p_stem.paragraph_format.left_indent = Inches(0.25)
+                    p_stem.paragraph_format.first_line_indent = Inches(-0.25)
+                p_stem.add_run(stem)
+            chunks = re.split(_opt_pat, opts_txt)
+            _ABCD = ["A", "B", "C", "D", "E", "F"]
+            opts = []
+            for i in range(1, len(chunks) - 1, 2):
+                val = chunks[i + 1].strip()
+                opts.append(f"{_ABCD[len(opts)]}) {val}")
+            if opts:
+                tbl = doc.add_table(rows=1, cols=len(opts))
+                for idx, o in enumerate(opts):
+                    cell = tbl.cell(0, idx)
+                    cell.paragraphs[0].add_run(o)
+                    set_cell_margins(cell, top=0, bottom=0, start=0, end=0)
+                continue
+
         option_markers = ["அ)", "ஆ)", "இ)", "ஈ)", "a)", "b)", "c)", "d)"]
         if any(marker in clean_line for marker in option_markers):
             raw_parts = re.split(r'(அ\)|ஆ\)|இ\)|ஈ\)|a\)|b\)|c\)|d\))', clean_line)
