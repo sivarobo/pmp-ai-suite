@@ -633,7 +633,7 @@ def create_paper_pdf(ai_response, school_name, class_val, subject_val, exam_type
     pdf.line(pdf.l_margin, pdf.get_y(), pdf.w - pdf.r_margin, pdf.get_y())
     pdf.ln(3)
 
-    for raw in body.split("\n"):
+    for raw in _merge_option_lines(body.split("\n")):
         line = raw.strip()
         if not line:
             pdf.ln(2)
@@ -1603,22 +1603,22 @@ def generate_prompt_v18(subject, lessons_list, exam_type, exam_time, total_marks
     if is_english:
         lang_instruction      = "5. Language: Pure ENGLISH only."
         header_format         = "PART [ROMAN_NUM] - [Section Description] (No_of_Qs x Marks = Total_Marks)"
-        option_format         = "Options marker: a) , b) , c) , d)"
+        option_format         = "Options marker: A) , B) , C) , D)"
         subject_blueprint_rules = f"[STRICT TN BOARD ENGLISH BLUEPRINT LOCK]\n{get_english_blueprint_rules()}"
     elif is_tamil:
         lang_instruction      = "5. Language: Pure TAMIL only."
         header_format         = "பகுதி [ROMAN_NUM] - [பிரிவின் விளக்கம்] (வினாக்கள் எண்ணிக்கை x மதிப்பெண் = மொத்த மதிப்பெண்கள்)"
-        option_format         = "Options marker: அ) , ஆ) , இ) , ஈ)"
+        option_format         = "Options marker: A) , B) , C) , D)"
         subject_blueprint_rules = "[அசல் தமிழ் பாடத்திட்ட ப்ளூபிரின்ட்] சொல்வளம், இலக்கணம் லாக்."
     elif is_social:
         lang_instruction      = "5. Language: Pure TAMIL only."
         header_format         = "பகுதி [ROMAN_NUM] - [பிரிவின் விளக்கம்]"
-        option_format         = "Options marker: அ) , ஆ) , இ) , ஈ)"
+        option_format         = "Options marker: A) , B) , C) , D)"
         subject_blueprint_rules = "[MANDATORY CRITICAL SOCIAL SCIENCE BLUEPRINT] Assertion-Reason, Map locked."
     elif is_math:
         lang_instruction      = "5. Language: Pure TAMIL only."
         header_format         = "பகுதி [ROMAN_NUM] - [பிரிவின் விளக்கம்] (No_of_Qs x Marks = Total_Marks)"
-        option_format         = "Options marker: அ) , ஆ) , இ) , ஈ)"
+        option_format         = "Options marker: A) , B) , C) , D)"
         subject_blueprint_rules = f"""[MANDATORY CRITICAL MATHEMATICS CORE EMBEDDED LOCK]
 1. ABSOLUTE BAN ON AI DISCLAIMERS.
 2. GEOMETRY DIAGRAM TAGS - STRICT RULES:
@@ -1646,8 +1646,20 @@ def generate_prompt_v18(subject, lessons_list, exam_type, exam_time, total_marks
     else:
         lang_instruction      = "5. Language: Pure TAMIL language only."
         header_format         = "பகுதி [ROMAN_NUM]"
-        option_format         = "Options marker: அ) , ஆ) , இ) , ஈ)"
+        option_format         = "Options marker: A) , B) , C) , D)"
         subject_blueprint_rules = ""
+
+    mcq_rule = """
+[PART I MCQ RULE - ABSOLUTELY MANDATORY]
+- EVERY question in PART I (1-mark section) MUST be a multiple-choice question.
+- Each Part I question MUST have EXACTLY 4 options labelled  A)  B)  C)  D)
+- Write the question text and its 4 options on the SAME single line, e.g.:
+  1. ஒரு அணியின் வரிசை 3 x 4 எனில், உறுப்புகளின் எண்ணிக்கை யாது?  A) 7   B) 12   C) 34   D) 4
+- NEVER write a 1-mark question without options. NEVER use (1)(2)(3)(4) or அ)ஆ)இ)ஈ) - only A) B) C) D).
+- Do NOT write the word "(MCQ)" inside the question text.
+- Exactly one option must be correct; the other three must be plausible distractors.
+- 2-mark, 5-mark and long-answer questions must NOT have options.
+"""
 
     no_latex_rule = """
 [STRICT NO-LATEX OUTPUT RULE - CRITICAL]
@@ -1808,7 +1820,7 @@ def generate_prompt_v18(subject, lessons_list, exam_type, exam_time, total_marks
                          "instruction, part heading and option — MUST be written in PURE TAMIL only "
                          "(கணித சின்னங்கள்/எண்கள் தவிர). Do NOT write questions in English.")
 
-    return f"Subject: {subject}\nLessons: {lessons_str}\nExam Type: {exam_type}\nTotal Marks: {total_marks}\nTime: {exam_time}\nMode: {exam_mode}\n{difficulty_directive}\n{blueprint_desc}\n{header_format}\n{option_format}\n{lang_instruction}{lang_override}\n{subject_blueprint_rules}\n{no_latex_rule}\n{quality_rules}\n{theorem_proof_rule}\n{pyq_tagging_rule}\n{no_latex_rule}\n=== ANSWER KEY ==="
+    return f"Subject: {subject}\nLessons: {lessons_str}\nExam Type: {exam_type}\nTotal Marks: {total_marks}\nTime: {exam_time}\nMode: {exam_mode}\n{difficulty_directive}\n{blueprint_desc}\n{header_format}\n{option_format}\n{mcq_rule}\n{lang_instruction}{lang_override}\n{subject_blueprint_rules}\n{no_latex_rule}\n{quality_rules}\n{theorem_proof_rule}\n{pyq_tagging_rule}\n{no_latex_rule}\n=== ANSWER KEY ==="
 
 
 # ==========================================
@@ -1873,9 +1885,26 @@ def add_solid_line(doc):
     pBdr.append(bottom)
     p.paragraph_format.element.get_or_add_pPr().append(pBdr)
 
+OPT_START = re.compile(r'^\s*(?:\(?\s*(?:[A-Da-d]|[1-4]|அ|ஆ|இ|ஈ)\s*[\)\.])\s+')
+
+def _merge_option_lines(raw_lines):
+    """AI/bank sometimes puts each option on its own line — join them onto the question line."""
+    out = []
+    for ln in raw_lines:
+        t = ln.strip()
+        if not t:
+            out.append("")
+            continue
+        if out and out[-1].strip() and OPT_START.match(t) and not re.match(r'^\s*\d{1,3}\s*[\.\)]\s', t):
+            out[-1] = out[-1].rstrip() + "   " + t
+        else:
+            out.append(t)
+    return out
+
+
 def write_markdown_to_word(doc, text):
     text = latex_to_normal(text)
-    for line in text.split('\n'):
+    for line in _merge_option_lines(text.split('\n')):
         line = line.strip()
         if not line:
             continue
@@ -1934,9 +1963,9 @@ def write_markdown_to_word(doc, text):
                     set_cell_margins(cell, top=0, bottom=0, start=0, end=0)
                 continue
 
-        option_markers = ["அ)", "ஆ)", "இ)", "ஈ)", "a)", "b)", "c)", "d)"]
-        if any(marker in clean_line for marker in option_markers):
-            raw_parts = re.split(r'(அ\)|ஆ\)|இ\)|ஈ\)|a\)|b\)|c\)|d\))', clean_line)
+        option_markers = ["அ)", "ஆ)", "இ)", "ஈ)", "a)", "b)", "c)", "d)", "A)", "B)", "C)", "D)"]
+        if sum(1 for marker in option_markers if marker in clean_line) >= 3:
+            raw_parts = re.split(r'(அ\)|ஆ\)|இ\)|ஈ\)|a\)|b\)|c\)|d\)|A\)|B\)|C\)|D\))', clean_line)
             parts = []
             current = ""
             for chunk in raw_parts:
@@ -2091,6 +2120,11 @@ with tab1:
             horizontal=True,
         )
         bank_mode = gen_mode.startswith("📚")
+        if st.session_state.get('_last_mode') != gen_mode:
+            st.session_state['_last_mode'] = gen_mode
+            st.session_state.pop('docx_bytes', None)
+            st.session_state.pop('pdf_bytes', None)
+            st.session_state.pop('paper_source', None)
 
         st.markdown("<hr style='margin:6px 0;'>", unsafe_allow_html=True)
 
@@ -2233,7 +2267,8 @@ with tab1:
                             doc_io = io.BytesIO(); doc.save(doc_io)
                             st.session_state['docx_bytes'] = doc_io.getvalue()
                             st.session_state['pdf_bytes'] = _safe_pdf(_txt, school_name, class_val, subject_val, exam_type, time_val, marks_val)
-                            st.success("✅ வினாத்தாள் தயாராகிவிட்டது!")
+                            st.session_state['paper_source'] = "🤖 AI MODE (Gemini உருவாக்கியது)"
+                            st.success("✅ வினாத்தாள் தயாராகிவிட்டது! — 🤖 **AI MODE**")
                 else:
                     st.warning(f"⚠️ மதிப்பெண்களை சமப்படுத்தவும் ({total_calculated} / {marks_val})")
 
@@ -2414,13 +2449,18 @@ with tab1:
                                 doc_io = io.BytesIO(); doc.save(doc_io)
                                 st.session_state['docx_bytes'] = doc_io.getvalue()
                                 st.session_state['pdf_bytes'] = _safe_pdf(assembled, school_name, class_val, subject_val, exam_type, time_val, total_marks_ticked)
-                                st.success(f"✅ வினாத்தாள் தயார்! ({total_ticked} கேள்விகள் · {total_marks_ticked} மதிப்பெண்)")
+                                st.session_state['paper_source'] = "📚 QB MODE (கேள்வி வங்கி)"
+                                st.success(f"✅ வினாத்தாள் தயார்! — 📚 **QB MODE** "
+                                           f"({total_ticked} கேள்விகள் · {total_marks_ticked} மதிப்பெண்)")
 
         # ==========================================
         # DOWNLOAD — PDF + Word
         # ==========================================
         if st.session_state.get('pdf_bytes') or st.session_state.get('docx_bytes'):
             st.markdown("<hr style='margin:8px 0;'>", unsafe_allow_html=True)
+            _src = st.session_state.get('paper_source', '')
+            if _src:
+                st.caption(f"📄 தற்போதைய வினாத்தாள் உருவான முறை: **{_src}**")
             d1, d2 = st.columns(2)
             with d1:
                 if not st.session_state.get('pdf_bytes'):
