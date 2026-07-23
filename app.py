@@ -584,6 +584,68 @@ def _pdf_fonts():
     return latin, tamil
 
 
+_TAMIL_RE = re.compile(r'[\u0B80-\u0BFF\u200C\u200D]')
+
+def _split_script(text):
+    """Split text into (chunk, is_tamil) runs so each can use the right font."""
+    runs, buf, cur = [], "", None
+    for ch in text:
+        is_t = bool(_TAMIL_RE.match(ch))
+        if cur is None:
+            cur = is_t
+        if is_t != cur:
+            if buf:
+                runs.append((buf, cur))
+            buf, cur = "", is_t
+        buf += ch
+    if buf:
+        runs.append((buf, bool(cur)))
+    return runs
+
+
+def _pdf_write_chunk_safe(pdf, h, chunk, size, preferred, has_tamil_font):
+    """Write one script-run. Never lose content: try preferred font, then the
+       other font, then char-by-char (skipping only glyphs missing from both)."""
+    fonts_to_try = [preferred]
+    other = "base" if preferred == "tam" else "tam"
+    if has_tamil_font or other == "base":
+        fonts_to_try.append(other)
+    for fname in fonts_to_try:
+        try:
+            pdf.set_font(fname, size=size)
+            pdf.write(h, chunk)
+            return
+        except Exception:
+            continue
+    for ch in chunk:
+        for fname in fonts_to_try:
+            try:
+                pdf.set_font(fname, size=size)
+                pdf.write(h, ch)
+                break
+            except Exception:
+                continue
+
+
+def _pdf_write_mixed(pdf, h, text, size=11, has_tamil_font=True, align_right=False, width=None):
+    """Write a line, switching fonts per script run. A missing glyph never
+       wipes out the rest of the line (only that glyph is skipped)."""
+    pdf.set_font_size(size)
+    if align_right and width:
+        w = 0
+        for chunk, is_t in _split_script(text):
+            try:
+                pdf.set_font("tam" if (is_t and has_tamil_font) else "base", size=size)
+                w += pdf.get_string_width(chunk)
+            except Exception:
+                pass
+        pdf.set_x(pdf.l_margin + width - w)
+    for chunk, is_t in _split_script(text):
+        preferred = "tam" if (is_t and has_tamil_font) else "base"
+        _pdf_write_chunk_safe(pdf, h, chunk, size, preferred, has_tamil_font)
+    pdf.ln(h)
+
+
 def create_paper_pdf(ai_response, school_name, class_val, subject_val, exam_type, time_val, marks_val):
     """வினாத்தாளை PDF ஆக உருவாக்குதல். தமிழ் + கணித சின்னங்கள் ஆதரிக்கப்படுகிறது."""
     try:
@@ -611,30 +673,29 @@ def create_paper_pdf(ai_response, school_name, class_val, subject_val, exam_type
     pdf.set_auto_page_break(auto=True, margin=14)
     pdf.add_page()
     pdf.add_font("base", "", latin)
-    fonts = ["base"]
     if tamil:
         pdf.add_font("tam", "", tamil)
-        fonts.append("tam")
     pdf.set_font("base", size=11)
-    if tamil:
-        pdf.set_fallback_fonts(["tam"])
     try:
         pdf.set_text_shaping(True)
     except Exception:
         pass
 
     W = pdf.w - pdf.l_margin - pdf.r_margin
+    _ht = bool(tamil)
 
     # Header
-    pdf.set_font_size(15)
-    pdf.multi_cell(W, 8, str(school_name).upper(), align="C")
-    pdf.set_font_size(11)
-    y = pdf.get_y() + 1
-    pdf.set_xy(pdf.l_margin, y)
+    _pdf_write_mixed(pdf, 8, str(school_name).upper(), size=14, has_tamil_font=_ht)
+    _y = pdf.get_y()
+    pdf.set_xy(pdf.l_margin, _y)
+    pdf.set_font("base", size=11)
     pdf.cell(W / 2, 6, f"Class : {class_val}", align="L")
     pdf.cell(W / 2, 6, f"Time : {time_val}", align="R", new_x="LMARGIN", new_y="NEXT")
-    pdf.cell(W / 2, 6, f"Subject : {subject_val}", align="L")
-    pdf.cell(W / 2, 6, f"Marks : {marks_val}", align="R", new_x="LMARGIN", new_y="NEXT")
+    pdf.set_x(pdf.l_margin)
+    pdf.cell(W / 2, 6, "Subject : ", align="L")
+    _pdf_write_mixed(pdf, 6, str(subject_val), size=11, has_tamil_font=_ht)
+    pdf.set_x(pdf.l_margin)
+    pdf.cell(W, 6, f"Marks : {marks_val}", align="R", new_x="LMARGIN", new_y="NEXT")
     pdf.ln(1)
     pdf.line(pdf.l_margin, pdf.get_y(), pdf.w - pdf.r_margin, pdf.get_y())
     pdf.ln(3)
@@ -670,8 +731,9 @@ def create_paper_pdf(ai_response, school_name, class_val, subject_val, exam_type
 
         for _seg in segments:
             try:
-                pdf.multi_cell(W, 6.5, _seg, align="L")
+                _pdf_write_mixed(pdf, 6.5, _seg, size=(12 if is_part else 11), has_tamil_font=_ht)
             except Exception:
+                pdf.set_font("base", size=11)
                 pdf.multi_cell(W, 6.5, _seg.encode("ascii", "ignore").decode(), align="L")
         if is_part:
             pdf.ln(1)
