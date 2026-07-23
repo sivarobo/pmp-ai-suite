@@ -521,7 +521,8 @@ def fetch_bank_cached(subject, lessons_tuple, qtype):
 
 
 def fetch_bank_by_type(subject, lessons, qtype):
-    """QB Mode: ஒரு பாடம்/பாடங்கள் + வினா வகைக்கான அனைத்து கேள்விகளும் (எல்லா மதிப்பெண்களும்)."""
+    """QB Mode: ஒரு பாடம்/பாடங்கள் + வினா வகைக்கான அனைத்து கேள்விகளும் (எல்லா மதிப்பெண்களும்).
+       qtype == '__ALL__' எனில் அனைத்து வகைகளும்."""
     if not lessons:
         return []
     try:
@@ -529,14 +530,18 @@ def fetch_bank_by_type(subject, lessons, qtype):
         if not conn:
             return []
         cur = conn.cursor()
-        ph = ", ".join(["%s"] * len(lessons))
+        lesson_ph = ', '.join(['LOWER(TRIM(%s))'] * len(lessons))
+        if qtype == "__ALL__":
+            where, params = "", list(lessons)
+        else:
+            where, params = "LOWER(TRIM(qtype)) = LOWER(TRIM(%s)) AND ", [qtype] + list(lessons)
         cur.execute(
             f"SELECT id, subject, lesson, mark_type, qtype, question_text, answer_text, reference "
             f"FROM question_bank "
-            f"WHERE LOWER(TRIM(qtype)) = LOWER(TRIM(%s)) "
-            f"AND LOWER(TRIM(lesson)) IN ({', '.join(['LOWER(TRIM(%s))'] * len(lessons))}) "
+            f"WHERE {where}"
+            f"LOWER(TRIM(lesson)) IN ({lesson_ph}) "
             f"ORDER BY mark_type, id",
-            tuple([qtype] + list(lessons))
+            tuple(params)
         )
         rows = cur.fetchall()
         conn.close()
@@ -2176,6 +2181,7 @@ with tab1:
                     "✏️ பயிற்சி கணக்குகள்": "பயிற்சி",
                     "📗 புத்தக பின்புற வினா": "பின்புற வினா",
                     "💡 Creative வினாக்கள்": "Creative",
+                    "🔀 அனைத்து வகைகளும்": "__ALL__",
                 }
                 qt_label = st.radio("வினா வகையைத் தேர்ந்தெடுக்கவும்", list(QT_OPTIONS.keys()), horizontal=True)
                 sel_qtype = QT_OPTIONS[qt_label]
@@ -2193,15 +2199,20 @@ with tab1:
                         ("LONG", "பகுதி IV · நெடுவினா (8 மார்க்)",  8, int(p4_get) if show_p4 else 0),
                     ]
 
+                    _QT_ICON = {"எடுத்துக்காட்டு": "📘", "பயிற்சி": "✏️",
+                                "பின்புற வினா": "📗", "Creative": "💡"}
+
                     def _short_label(it):
                         ref = (it.get("reference") or "").strip()
                         m = re.search(r'(\d+\.\d+)', ref)
                         if m:
-                            return m.group(1)
-                        m = re.search(r'கணக்கு\s*(\d+)', ref)
-                        if m:
-                            return f"#{m.group(1)}"
-                        return f"#{it['id']}"
+                            base = m.group(1)
+                        else:
+                            m = re.search(r'கணக்கு\s*(\d+)', ref)
+                            base = f"#{m.group(1)}" if m else f"#{it['id']}"
+                        if sel_qtype == "__ALL__":
+                            base = f"{_QT_ICON.get((it.get('qtype') or '').strip(), '•')} {base}"
+                        return base
 
                     key_base = f"qb_{subject_val}_{sel_qtype}_"
 
@@ -2214,7 +2225,17 @@ with tab1:
 
                     for mk, label, mval, target in MARK_META:
                         items = [q for q in pool if (q.get("mark_type") or "").upper() == mk]
+
                         if not items:
+                            if target:      # blueprint wants this part but bank has nothing
+                                with st.expander(f"🚫 {label}  —  தேர்வு 0 / தேவை {target}   (0 கிடைக்கும்)",
+                                                 expanded=False):
+                                    st.warning(
+                                        f"இந்தப் பாடத்தில் **'{sel_qtype if sel_qtype != '__ALL__' else 'எந்த வகையிலும்'}'** "
+                                        f"வகையில் {label.split('·')[-1].strip()} கேள்விகள் இல்லை.\n\n"
+                                        "👉 மேலே வேறு **வினா வகையை** (உ.தா. ✏️ பயிற்சி / 🔀 அனைத்து வகைகளும்) "
+                                        "தேர்ந்தெடுத்துப் பாருங்கள். 1-மார்க் MCQ-கள் பொதுவாக 'பயிற்சி' வகையில் இருக்கும்."
+                                    )
                             continue
 
                         lab_map, used = {}, {}
