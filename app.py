@@ -2182,33 +2182,74 @@ with tab1:
                         ("5M",   "பகுதி III · 5 மார்க்", 5),
                         ("LONG", "பகுதி IV · நெடுவினா (8 மார்க்)", 8),
                     ]
-                    tick_prefix = f"qb_{subject_val}_{sel_qtype}_"
+
+                    def _short_label(it):
+                        ref = (it.get("reference") or "").strip()
+                        m = re.search(r'(\d+\.\d+)', ref)
+                        if m:
+                            return m.group(1)
+                        m = re.search(r'கணக்கு\s*(\d+)', ref)
+                        if m:
+                            return f"#{m.group(1)}"
+                        return f"#{it['id']}"
+
+                    key_base = f"qb_{subject_val}_{sel_qtype}_"
+                    picked_all = {}          # mark_type -> list of items
                     total_ticked, total_marks_ticked = 0, 0
 
                     for mk, label, mval in MARK_META:
                         items = [q for q in pool if (q.get("mark_type") or "").upper() == mk]
                         if not items:
                             continue
-                        picked_here = sum(1 for it in items if st.session_state.get(f"{tick_prefix}{it['id']}"))
-                        total_ticked += picked_here
-                        total_marks_ticked += picked_here * mval
-                        with st.expander(f"{label}  —  {len(items)} கேள்விகள்  (தேர்வு: {picked_here})", expanded=False):
-                            bs1, bs2, _bs3 = st.columns([1, 1, 3])
-                            with bs1:
-                                if st.button("☑️ அனைத்தும்", key=f"all_{tick_prefix}{mk}"):
-                                    for it in items:
-                                        st.session_state[f"{tick_prefix}{it['id']}"] = True
+
+                        # unique short labels
+                        lab_map, used = {}, {}
+                        for it in items:
+                            lb = _short_label(it)
+                            used[lb] = used.get(lb, 0) + 1
+                            if used[lb] > 1:
+                                lb = f"{lb} ({used[lb]})"
+                            lab_map[lb] = it
+
+                        sel_key = f"{key_base}{mk}_sel"
+                        chosen_labels = st.session_state.get(sel_key, [])
+                        chosen_items = [lab_map[l] for l in chosen_labels if l in lab_map]
+                        picked_all[mk] = chosen_items
+                        total_ticked += len(chosen_items)
+                        total_marks_ticked += len(chosen_items) * mval
+
+                        with st.expander(f"{label}  —  {len(items)} கேள்விகள்  (தேர்வு: {len(chosen_items)})",
+                                         expanded=False):
+                            bc1, bc2 = st.columns([1, 1])
+                            with bc1:
+                                if st.button("☑️ அனைத்தும்", key=f"all_{sel_key}"):
+                                    st.session_state[sel_key] = list(lab_map.keys())
                                     st.rerun()
-                            with bs2:
-                                if st.button("⬜ நீக்கு", key=f"none_{tick_prefix}{mk}"):
-                                    for it in items:
-                                        st.session_state[f"{tick_prefix}{it['id']}"] = False
+                            with bc2:
+                                if st.button("⬜ நீக்கு", key=f"clr_{sel_key}"):
+                                    st.session_state[sel_key] = []
                                     st.rerun()
-                            for it in items:
-                                st.checkbox(it["question_text"], key=f"{tick_prefix}{it['id']}")
-                                ref = it.get("reference") or ""
-                                if ref:
-                                    st.caption(f"📌 {ref}")
+
+                            st.multiselect(
+                                "எண்ணைத் தேர்ந்தெடுக்கவும்",
+                                options=list(lab_map.keys()),
+                                key=sel_key,
+                                placeholder="எ.கா. 1.1, 2.3 …",
+                            )
+
+                            with st.expander(f"📖 கேள்விகளைப் பார்க்க ({len(items)})", expanded=False):
+                                for lb, it in lab_map.items():
+                                    st.markdown(f"**{lb}** — {it['question_text']}")
+                                    ref = it.get("reference") or ""
+                                    if ref:
+                                        st.caption(f"📌 {ref}")
+                                    st.markdown("<hr style='margin:4px 0;'>", unsafe_allow_html=True)
+
+                            if chosen_items:
+                                st.caption("✅ தேர்ந்தெடுத்தவை:")
+                                for it in chosen_items:
+                                    q = it["question_text"]
+                                    st.markdown(f"- {q[:90]}{'…' if len(q) > 90 else ''}")
 
                     st.markdown(
                         f"<div style='background:#e8f5ec;border:1px solid #22c55e;border-radius:10px;"
@@ -2226,9 +2267,7 @@ with tab1:
                         roman = ["I", "II", "III", "IV", "V"]
                         pi = 0
                         for mk, label, mval in MARK_META:
-                            chosen = [q for q in pool
-                                      if (q.get("mark_type") or "").upper() == mk
-                                      and st.session_state.get(f"{tick_prefix}{q['id']}")]
+                            chosen = picked_all.get(mk, [])
                             if not chosen:
                                 continue
                             parts_cfg.append({
