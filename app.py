@@ -405,6 +405,26 @@ def _fmt_question_with_options(row):
             q = f"{q.rstrip()}   {tail}"
     return q
 
+def _fmt_question_with_options_latex(row):
+    """On-screen preview only (NOT used for Word/PDF export): same as
+       _fmt_question_with_options but prefers the *_latex columns so
+       st.markdown() can render fractions/roots/exponents via KaTeX.
+       Falls back to the plain columns when a _latex column is empty
+       (e.g. rows added before the LaTeX columns existed)."""
+    q = row.get("question_text_latex") or row.get("question_text") or ""
+    opts = [
+        row.get("option_a_latex") or row.get("option_a"),
+        row.get("option_b_latex") or row.get("option_b"),
+        row.get("option_c_latex") or row.get("option_c"),
+        row.get("option_d_latex") or row.get("option_d"),
+    ]
+    if any((o or "").strip() for o in opts):
+        labels = ["A", "B", "C", "D"]
+        tail = "   ".join(f"{lbl}) {(val or '').strip()}" for lbl, val in zip(labels, opts) if (val or "").strip())
+        if tail and not re.search(r'\bA\)\s.+\bB\)\s', q):
+            q = f"{q.rstrip()}   {tail}"
+    return q
+
 def fetch_bank_questions(subject, lesson, mark_type):
     try:
         conn = get_db()
@@ -413,13 +433,16 @@ def fetch_bank_questions(subject, lesson, mark_type):
         cur = conn.cursor()
         cur.execute(
             "SELECT id, qtype, question_text, answer_text, reference, "
-            "option_a, option_b, option_c, option_d, correct_option FROM question_bank "
+            "option_a, option_b, option_c, option_d, correct_option, "
+            "question_text_latex, option_a_latex, option_b_latex, option_c_latex, option_d_latex "
+            "FROM question_bank "
             "WHERE subject=%s AND lesson=%s AND mark_type=%s ORDER BY id",
             (subject, lesson, mark_type)
         )
         rows = [dict(r) for r in cur.fetchall()]
         conn.close()
         for r in rows:
+            r["question_text_preview"] = _fmt_question_with_options_latex(r)
             r["question_text"] = _fmt_question_with_options(r)
         return rows
     except Exception as e:
@@ -561,7 +584,8 @@ def fetch_bank_by_type(subject, lessons, qtype):
         params += list(lessons)
         cur.execute(
             f"SELECT id, subject, lesson, mark_type, qtype, question_text, answer_text, reference, "
-            f"option_a, option_b, option_c, option_d, correct_option "
+            f"option_a, option_b, option_c, option_d, correct_option, "
+            f"question_text_latex, option_a_latex, option_b_latex, option_c_latex, option_d_latex "
             f"FROM question_bank "
             f"WHERE {where}"
             f"LOWER(TRIM(lesson)) IN ({lesson_ph}) "
@@ -571,6 +595,7 @@ def fetch_bank_by_type(subject, lessons, qtype):
         rows = [dict(r) for r in cur.fetchall()]
         conn.close()
         for r in rows:
+            r["question_text_preview"] = _fmt_question_with_options_latex(r)
             r["question_text"] = _fmt_question_with_options(r)
         return rows
     except Exception as e:
@@ -2545,7 +2570,7 @@ with tab1:
                                     st.caption("✅ இந்தப் பகுதி முழுமையானது")
                             with st.expander(f"📖 கேள்விகளைப் பார்க்க ({len(items)})", expanded=False):
                                 for lb, it in lab_map.items():
-                                    st.markdown(f"**{lb}** — {it['question_text']}")
+                                    st.markdown(f"**{lb}** — {it.get('question_text_preview') or it['question_text']}")
                                     _rf = it.get("reference") or ""
                                     if _rf:
                                         st.caption(f"📌 {_rf}")
