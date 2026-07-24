@@ -545,8 +545,11 @@ def assemble_paper_from_bank(parts_cfg):
         items = part["items"]
         if not items:
             continue
-        total_marks = part["given"] * part["mark"]
-        header = f'{part["label"]} ( {part["given"]} x {part["mark"]} = {total_marks} )'
+        total_marks = part["answer"] * part["mark"]
+        if part["given"] != part["answer"]:
+            header = f'{part["label"]} ( ஏதேனும் {part["answer"]}-ஐ {part["given"]}-ல் இருந்து தேர்ந்தெடுத்து பதிலளிக்கவும் ) ( {part["answer"]} x {part["mark"]} = {total_marks} )'
+        else:
+            header = f'{part["label"]} ( {part["answer"]} x {part["mark"]} = {total_marks} )'
         if part.get("note"):
             header += f'  [{part["note"]}]'
         q_lines.append(header)
@@ -1996,7 +1999,22 @@ def generate_prompt_v18(subject, lessons_list, exam_type, exam_time, total_marks
                          "instruction, part heading and option — MUST be written in PURE TAMIL only "
                          "(கணித சின்னங்கள்/எண்கள் தவிர). Do NOT write questions in English.")
 
-    return f"Subject: {subject}\nLessons: {lessons_str}\nExam Type: {exam_type}\nTotal Marks: {total_marks}\nTime: {exam_time}\nMode: {exam_mode}\n{difficulty_directive}\n{blueprint_desc}\n{header_format}\n{option_format}\n{mcq_rule}\n{lang_instruction}{lang_override}\n{subject_blueprint_rules}\n{no_latex_rule}\n{quality_rules}\n{theorem_proof_rule}\n{pyq_tagging_rule}\n{no_latex_rule}\n=== ANSWER KEY ==="
+    marks_math_rule = """
+[HEADER MARKS-MATH RULE - ABSOLUTELY MANDATORY, NO EXCEPTIONS]
+The blueprint above gives each choice-based part as "Given N, Answer M" (N = total questions
+printed in that section for the student to choose from; M = how many the student must actually
+answer — this is the number that counts for marks).
+- WRITE exactly N full questions in that section (the student needs a real choice).
+- The section header's "(No_of_Qs x Marks = Total_Marks)" formula MUST use M (the Answer count),
+  NEVER N (the Given count). Total_Marks = M x Marks_per_question.
+- The header must ALSO state the choice clearly, e.g. "(ஏதேனும் M-ஐ N-ல் இருந்து தேர்ந்தெடுத்து
+  பதிலளிக்கவும்) ( M x Marks = Total_Marks )" — both numbers appear, but only M feeds the multiplication.
+- Example: Given 12, Answer 10, Marks 2 → header shows "(ஏதேனும் 10-ஐ 12-ல் இருந்து தேர்ந்தெடுத்து
+  பதிலளிக்கவும்) ( 10 x 2 = 20 )" — NEVER "( 12 x 2 = 24 )".
+- Double-check every part's Total_Marks against its own Answer count before finalizing the paper.
+"""
+
+    return f"Subject: {subject}\nLessons: {lessons_str}\nExam Type: {exam_type}\nTotal Marks: {total_marks}\nTime: {exam_time}\nMode: {exam_mode}\n{difficulty_directive}\n{blueprint_desc}\n{header_format}\n{marks_math_rule}\n{option_format}\n{mcq_rule}\n{lang_instruction}{lang_override}\n{subject_blueprint_rules}\n{no_latex_rule}\n{quality_rules}\n{theorem_proof_rule}\n{pyq_tagging_rule}\n{no_latex_rule}\n=== ANSWER KEY ==="
 
 
 # ==========================================
