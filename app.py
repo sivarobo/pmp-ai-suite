@@ -374,17 +374,36 @@ def ensure_question_bank_table():
                 question_text TEXT,
                 answer_text   TEXT,
                 reference     TEXT,
+                option_a      TEXT,
+                option_b      TEXT,
+                option_c      TEXT,
+                option_d      TEXT,
+                correct_option TEXT,
                 created_at    TIMESTAMP DEFAULT NOW()
             )
         """)
-        try:
-            cur.execute("ALTER TABLE question_bank ADD COLUMN IF NOT EXISTS reference TEXT")
-        except Exception:
-            pass
+        for col in ["reference TEXT", "option_a TEXT", "option_b TEXT",
+                    "option_c TEXT", "option_d TEXT", "correct_option TEXT"]:
+            try:
+                cur.execute(f"ALTER TABLE question_bank ADD COLUMN IF NOT EXISTS {col}")
+            except Exception:
+                pass
         conn.commit()
         conn.close()
     except Exception as e:
         st.error(f"Question Bank Table Error: {e}")
+
+def _fmt_question_with_options(row):
+    """Row dict-ல் option_a..d இருந்தால், அவற்றை 'A) .. B) .. C) .. D) ..' வடிவில்
+       கேள்வி வரியிலேயே இணைத்துத் தரும் (Word/PDF-ஓட existing option-splitter இதை recognize செய்யும்)."""
+    q = row.get("question_text") or ""
+    opts = [row.get("option_a"), row.get("option_b"), row.get("option_c"), row.get("option_d")]
+    if any((o or "").strip() for o in opts):
+        labels = ["A", "B", "C", "D"]
+        tail = "   ".join(f"{lbl}) {(val or '').strip()}" for lbl, val in zip(labels, opts) if (val or "").strip())
+        if tail and not re.search(r'\bA\)\s.+\bB\)\s', q):   # avoid double-append if already inline
+            q = f"{q.rstrip()}   {tail}"
+    return q
 
 def fetch_bank_questions(subject, lesson, mark_type):
     try:
@@ -393,13 +412,16 @@ def fetch_bank_questions(subject, lesson, mark_type):
             return []
         cur = conn.cursor()
         cur.execute(
-            "SELECT id, qtype, question_text, answer_text, reference FROM question_bank "
+            "SELECT id, qtype, question_text, answer_text, reference, "
+            "option_a, option_b, option_c, option_d, correct_option FROM question_bank "
             "WHERE subject=%s AND lesson=%s AND mark_type=%s ORDER BY id",
             (subject, lesson, mark_type)
         )
-        rows = cur.fetchall()
+        rows = [dict(r) for r in cur.fetchall()]
         conn.close()
-        return [dict(r) for r in rows]
+        for r in rows:
+            r["question_text"] = _fmt_question_with_options(r)
+        return rows
     except Exception as e:
         st.error(f"Bank Fetch Error: {e}")
         return []
@@ -538,16 +560,19 @@ def fetch_bank_by_type(subject, lessons, qtype):
             params.append(qtype)
         params += list(lessons)
         cur.execute(
-            f"SELECT id, subject, lesson, mark_type, qtype, question_text, answer_text, reference "
+            f"SELECT id, subject, lesson, mark_type, qtype, question_text, answer_text, reference, "
+            f"option_a, option_b, option_c, option_d, correct_option "
             f"FROM question_bank "
             f"WHERE {where}"
             f"LOWER(TRIM(lesson)) IN ({lesson_ph}) "
             f"ORDER BY mark_type, id",
             tuple(params)
         )
-        rows = cur.fetchall()
+        rows = [dict(r) for r in cur.fetchall()]
         conn.close()
-        return [dict(r) for r in rows]
+        for r in rows:
+            r["question_text"] = _fmt_question_with_options(r)
+        return rows
     except Exception as e:
         st.error(f"Bank Fetch Error: {e}")
         return []
@@ -754,15 +779,17 @@ def _safe_pdf(*a, **k):
         return None
 
 
-def update_bank_question(qid, question_text, answer_text, qtype):
+def update_bank_question(qid, question_text, answer_text, qtype,
+                          option_a=None, option_b=None, option_c=None, option_d=None, correct_option=None):
     try:
         conn = get_db()
         if not conn:
             return False
         cur = conn.cursor()
         cur.execute(
-            "UPDATE question_bank SET question_text=%s, answer_text=%s, qtype=%s WHERE id=%s",
-            (question_text, answer_text, qtype, qid)
+            "UPDATE question_bank SET question_text=%s, answer_text=%s, qtype=%s, "
+            "option_a=%s, option_b=%s, option_c=%s, option_d=%s, correct_option=%s WHERE id=%s",
+            (question_text, answer_text, qtype, option_a, option_b, option_c, option_d, correct_option, qid)
         )
         conn.commit()
         conn.close()
@@ -817,7 +844,8 @@ def fetch_bank_filtered(subject=None, lesson=None, mark_type=None):
         if not conn:
             return []
         cur = conn.cursor()
-        query = "SELECT id, subject, lesson, mark_type, qtype, question_text, answer_text FROM question_bank WHERE 1=1"
+        query = ("SELECT id, subject, lesson, mark_type, qtype, question_text, answer_text, reference, "
+                  "option_a, option_b, option_c, option_d, correct_option FROM question_bank WHERE 1=1")
         params = []
         if subject:
             query += " AND subject=%s"; params.append(subject)
@@ -834,49 +862,104 @@ def fetch_bank_filtered(subject=None, lesson=None, mark_type=None):
         st.error(f"Fetch Error: {e}")
         return []
 
-def bulk_import_bank_from_df(df_import):
-    """
-    Excel template columns: Subject, Lesson, Mark_Type, QType, Question, Answer
-    ஏற்கனவே DB-ல் இல்லாத (Subject+Lesson+Mark_Type+Question) rows-ஐ மட்டும் insert பண்ணும்.
-    """
-    required_cols = {"Subject", "Lesson", "Mark_Type", "QType", "Question", "Answer"}
-    if not required_cols.issubset(set(df_import.columns)):
-        return 0, 0, f"தேவையான Columns இல்லை. Template-ல் இருக்கும் columns: {', '.join(sorted(required_cols))}"
+SHEET_MARK_MAP = {
+    "1M": "1M", "1MARK": "1M", "1-MARK": "1M",
+    "2M": "2M", "2MARK": "2M", "2-MARK": "2M",
+    "5M": "5M", "5MARK": "5M", "5-MARK": "5M",
+    "8M": "LONG", "8MARK": "LONG", "8-MARK": "LONG", "LONG": "LONG",
+}
+
+def _import_one_sheet(cur, df_import, sheet_mark_override=None):
+    """ஒரு sheet-ஐ import பண்ணுவது. sheet_mark_override இருந்தால் Mark_Type column-ஐ
+       புறக்கணித்து, sheet பெயரின் அடிப்படையிலான மதிப்பெண் வகையையே பயன்படுத்தும்."""
     inserted, skipped = 0, 0
+    has_options = {"Option_A", "Option_B", "Option_C", "Option_D"}.issubset(set(df_import.columns))
+    for _, row in df_import.iterrows():
+        subject = str(row.get("Subject", "")).strip()
+        lesson  = str(row.get("Lesson", "")).strip()
+        mtype   = sheet_mark_override or str(row.get("Mark_Type", "")).strip().upper()
+        qtype   = str(row.get("QType", "பயிற்சி")).strip()
+        qtext   = str(row.get("Question", "")).strip()
+        atext   = str(row["Answer"]).strip() if ("Answer" in df_import.columns and not pd.isna(row.get("Answer"))) else ""
+        ref     = str(row["Reference"]).strip() if ("Reference" in df_import.columns and not pd.isna(row.get("Reference"))) else ""
+        if not subject or not lesson or not qtext or subject == "nan" or qtext == "nan" or not mtype:
+            skipped += 1
+            continue
+        opt_a = str(row["Option_A"]).strip() if (has_options and not pd.isna(row.get("Option_A"))) else None
+        opt_b = str(row["Option_B"]).strip() if (has_options and not pd.isna(row.get("Option_B"))) else None
+        opt_c = str(row["Option_C"]).strip() if (has_options and not pd.isna(row.get("Option_C"))) else None
+        opt_d = str(row["Option_D"]).strip() if (has_options and not pd.isna(row.get("Option_D"))) else None
+        correct = str(row["Correct_Option"]).strip() if ("Correct_Option" in df_import.columns and not pd.isna(row.get("Correct_Option"))) else None
+
+        cur.execute(
+            "SELECT id FROM question_bank WHERE subject=%s AND lesson=%s AND mark_type=%s AND question_text=%s",
+            (subject, lesson, mtype, qtext)
+        )
+        if cur.fetchone():
+            skipped += 1
+            continue
+        cur.execute(
+            "INSERT INTO question_bank (subject, lesson, mark_type, qtype, question_text, answer_text, "
+            "reference, option_a, option_b, option_c, option_d, correct_option) "
+            "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
+            (subject, lesson, mtype, qtype, qtext, atext, ref, opt_a, opt_b, opt_c, opt_d, correct)
+        )
+        inserted += 1
+    return inserted, skipped
+
+def bulk_import_bank_from_sheets(sheets_dict):
+    """
+    sheets_dict: {sheet_name: DataFrame} — pd.read_excel(file, sheet_name=None)-ஓட output.
+    - Sheet பெயர் 1M/2M/5M/8M(LONG) match ஆனால், அந்த sheet-ஓட ஒவ்வொரு row-க்கும்
+      அதே மதிப்பெண் வகை apply ஆகும் (Mark_Type column தேவையில்லை).
+    - இல்லையெனில் (உ.தா. பழைய single-sheet "Question_Bank" template), row-ஓட
+      Mark_Type column-ஐயே பயன்படுத்தும்.
+    - 1M sheet-ல் Option_A/B/C/D (+ Correct_Option) columns இருந்தால் அவையும் சேமிக்கப்படும்.
+    """
+    inserted_total, skipped_total = 0, 0
     try:
         conn = get_db()
         if not conn:
             return 0, 0, "DB Connection தோல்வி"
         cur = conn.cursor()
-        for _, row in df_import.iterrows():
-            subject = str(row["Subject"]).strip()
-            lesson  = str(row["Lesson"]).strip()
-            mtype   = str(row["Mark_Type"]).strip().upper()
-            qtype   = str(row["QType"]).strip()
-            qtext   = str(row["Question"]).strip()
-            atext   = str(row["Answer"]).strip() if not pd.isna(row["Answer"]) else ""
-            ref     = str(row["Reference"]).strip() if ("Reference" in df_import.columns and not pd.isna(row.get("Reference"))) else ""
-            if not subject or not lesson or not qtext or subject == "nan" or qtext == "nan":
-                skipped += 1
+        any_valid_sheet = False
+        for sheet_name, df in sheets_dict.items():
+            need = {"Subject", "Lesson", "QType", "Question"}
+            if not need.issubset(set(df.columns)):
                 continue
-            cur.execute(
-                "SELECT id FROM question_bank WHERE subject=%s AND lesson=%s AND mark_type=%s AND question_text=%s",
-                (subject, lesson, mtype, qtext)
-            )
-            if cur.fetchone():
-                skipped += 1
+            any_valid_sheet = True
+            mark_override = SHEET_MARK_MAP.get(re.sub(r'[\s_-]', '', sheet_name.strip().upper()))
+            if not mark_override and "Mark_Type" not in df.columns:
                 continue
-            cur.execute(
-                "INSERT INTO question_bank (subject, lesson, mark_type, qtype, question_text, answer_text, reference) "
-                "VALUES (%s, %s, %s, %s, %s, %s, %s)",
-                (subject, lesson, mtype, qtype, qtext, atext, ref)
-            )
-            inserted += 1
+            ins, skp = _import_one_sheet(cur, df, sheet_mark_override=mark_override)
+            inserted_total += ins
+            skipped_total += skp
+        conn.commit()
+        conn.close()
+        if not any_valid_sheet:
+            return 0, 0, ("தேவையான Columns கொண்ட எந்த sheet-உம் கிடைக்கவில்லை. "
+                          "Sheet-ஓட பெயர் 1M/2M/5M/8M ஆகவோ, அல்லது Mark_Type column "
+                          "இருக்கவோ வேண்டும் (Subject, Lesson, QType, Question கட்டாயம்).")
+        return inserted_total, skipped_total, None
+    except Exception as e:
+        return inserted_total, skipped_total, str(e)
+
+def bulk_import_bank_from_df(df_import):
+    """Backward-compat wrapper: ஒரே DataFrame (பழைய single-sheet template) import."""
+    required_cols = {"Subject", "Lesson", "Mark_Type", "QType", "Question", "Answer"}
+    if not required_cols.issubset(set(df_import.columns)):
+        return 0, 0, f"தேவையான Columns இல்லை. Template-ல் இருக்கும் columns: {', '.join(sorted(required_cols))}"
+    try:
+        conn = get_db()
+        if not conn:
+            return 0, 0, "DB Connection தோல்வி"
+        cur = conn.cursor()
+        inserted, skipped = _import_one_sheet(cur, df_import, sheet_mark_override=None)
         conn.commit()
         conn.close()
         return inserted, skipped, None
     except Exception as e:
-        return inserted, skipped, str(e)
+        return 0, 0, str(e)
 
 def fetch_bank_missing_answers(subject=None, lesson=None, mark_type=None, limit=500):
     try:
@@ -2627,25 +2710,14 @@ with tab3:
             if st.button("🚀 DB-ல் Import பண்ணு", use_container_width=True):
                 with st.spinner("⏳ Import ஆகிறது..."):
                     try:
-                        xls = pd.ExcelFile(import_file)
-                        # Prefer "Question_Bank" sheet; else use the first sheet
-                        sheet = "Question_Bank" if "Question_Bank" in xls.sheet_names else xls.sheet_names[0]
-                        df_import = pd.read_excel(xls, sheet_name=sheet)
-                        # Validate expected columns
-                        need = {"Subject", "Lesson", "Mark_Type", "QType", "Question", "Answer"}
-                        if not need.issubset(set(df_import.columns)):
-                            st.error(
-                                f"⚠️ இந்த Excel-ல் தேவையான columns இல்லை. "
-                                f"Claude கொடுத்த converted file (chapterXX_TNpattern.xlsx) upload செய்யவும் — "
-                                f"original PMP EduAI file (Questions/Answers/Metadata sheets) அல்ல.\n\n"
-                                f"கிடைத்த columns: {list(df_import.columns)[:8]}"
-                            )
+                        sheets_dict = pd.read_excel(import_file, sheet_name=None)  # {name: df} for ALL sheets
+                        inserted, skipped, err = bulk_import_bank_from_sheets(sheets_dict)
+                        if err:
+                            st.error(f"⚠️ {err}")
                         else:
-                            inserted, skipped, err = bulk_import_bank_from_df(df_import)
-                            if err:
-                                st.error(f"பிழை: {err}")
-                            else:
-                                st.success(f"✅ {inserted} கேள்விகள் புதிதாக சேர்க்கப்பட்டது. {skipped} ஏற்கனவே இருந்ததால் தவிர்க்கப்பட்டது.")
+                            st.success(f"✅ {inserted} கேள்விகள் புதிதாக சேர்க்கப்பட்டது "
+                                       f"({len(sheets_dict)} sheet(s) பரிசோதிக்கப்பட்டது). "
+                                       f"{skipped} ஏற்கனவே இருந்ததால்/தகவல் குறைவால் தவிர்க்கப்பட்டது.")
                     except Exception as e:
                         st.error(f"⚠️ Import பிழை: {e}")
 
@@ -2708,11 +2780,33 @@ with tab3:
                                           index=_QTS.index(r["qtype"]) if r["qtype"] in _QTS else 1,
                                           key=f'qtype_{r["id"]}')
                 new_q = st.text_area("கேள்வி", value=r["question_text"], key=f'q_{r["id"]}', height=90)
-                new_a = st.text_area("விடை", value=r["answer_text"], key=f'a_{r["id"]}', height=90)
+
+                _show_opts = (r["mark_type"] == "1M") or any((r.get(k) or "").strip() for k in
+                                                              ["option_a", "option_b", "option_c", "option_d"])
+                new_oa = new_ob = new_oc = new_od = new_correct = None
+                if _show_opts:
+                    st.caption("🔘 MCQ Options (1-மார்க் கேள்விகளுக்கு) — தனித்தனி boxes-ல் நிரப்பவும்")
+                    oc1, oc2 = st.columns(2)
+                    with oc1:
+                        new_oa = st.text_input("A)", value=r.get("option_a") or "", key=f'oa_{r["id"]}')
+                        new_oc = st.text_input("C)", value=r.get("option_c") or "", key=f'oc_{r["id"]}')
+                    with oc2:
+                        new_ob = st.text_input("B)", value=r.get("option_b") or "", key=f'ob_{r["id"]}')
+                        new_od = st.text_input("D)", value=r.get("option_d") or "", key=f'od_{r["id"]}')
+                    new_correct = st.selectbox(
+                        "✅ சரியான விடை", ["", "A", "B", "C", "D"],
+                        index=(["", "A", "B", "C", "D"].index(r["correct_option"])
+                               if r.get("correct_option") in ["A", "B", "C", "D"] else 0),
+                        key=f'co_{r["id"]}')
+
+                new_a = st.text_area("விடை / விளக்கம்", value=r["answer_text"], key=f'a_{r["id"]}', height=90)
                 bc1, bc2 = st.columns(2)
                 with bc1:
                     if st.button("💾 Save", key=f'save_{r["id"]}', use_container_width=True):
-                        if update_bank_question(r["id"], new_q, new_a, new_qtype):
+                        if update_bank_question(r["id"], new_q, new_a, new_qtype,
+                                                option_a=new_oa, option_b=new_ob,
+                                                option_c=new_oc, option_d=new_od,
+                                                correct_option=(new_correct or None)):
                             st.success("✅ Save ஆனது!")
                 with bc2:
                     if st.button("🗑️ Delete", key=f'del_{r["id"]}', use_container_width=True):
