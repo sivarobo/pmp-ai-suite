@@ -2490,11 +2490,13 @@ with tab1:
                                "'🛠️ கேள்வி வங்கி மேலாண்மை' Tab-ல் Import செய்யவும்.")
                 else:
                     MARK_META = [
-                        ("1M",   "பகுதி I · 1 மார்க்",              1, int(p1_ask) if show_p1 else 0),
-                        ("2M",   "பகுதி II · 2 மார்க்",             2, int(p2_get) if show_p2 else 0),
-                        ("5M",   "பகுதி III · 5 மார்க்",            5, int(p3_get) if show_p3 else 0),
-                        ("LONG", "பகுதி IV · நெடுவினா (8 மார்க்)",  8, int(p4_get) if show_p4 else 0),
+                        ("1M",   "பகுதி I · 1 மார்க்",              1, int(p1_ask) if show_p1 else 0, int(p1_ask) if show_p1 else 0),
+                        ("2M",   "பகுதி II · 2 மார்க்",             2, int(p2_get) if show_p2 else 0, int(p2_ask) if show_p2 else 0),
+                        ("5M",   "பகுதி III · 5 மார்க்",            5, int(p3_get) if show_p3 else 0, int(p3_ask) if show_p3 else 0),
+                        ("LONG", "பகுதி IV · நெடுவினா (8 மார்க்)",  8, int(p4_get) if show_p4 else 0, int(p4_ask) if show_p4 else 0),
                     ]
+                    # target = எத்தனை கேள்வி TICK பண்ணணும் (Given/printed count)
+                    # ans_target = எத்தனைக்கு மதிப்பெண் கணக்கிடணும் (Answer/scored count)
 
                     _QT_ICON = {"எடுத்துக்காட்டு": "📘", "பயிற்சி": "✏️",
                                 "பின்புற வினா": "📗", "Creative": "💡"}
@@ -2535,7 +2537,7 @@ with tab1:
                     sel_state = {}
                     live_total_q, live_total_marks = 0, 0
 
-                    for mk, label, mval, target in MARK_META:
+                    for mk, label, mval, target, ans_target in MARK_META:
                         items = [q for q in pool if (q.get("mark_type") or "").upper() == mk]
 
                         if not items:
@@ -2564,7 +2566,13 @@ with tab1:
                         # live count from session_state (updates on every tick)
                         _n_now = len(st.session_state.get(sel_k, []))
                         live_total_q += _n_now
-                        live_total_marks += _n_now * mval
+                        # marks math uses the ANSWER count (ans_target), not the Given/printed
+                        # count (target) — a "Given 12, Answer 10" part is always worth
+                        # ans_target x mval marks once fully ticked, scaled by progress meanwhile.
+                        if target:
+                            live_total_marks += round((min(_n_now, target) / target) * ans_target * mval)
+                        else:
+                            live_total_marks += _n_now * mval
 
                         if target:
                             _ic = "✅" if _n_now == target else ("⬆️" if _n_now > target else "⬇️")
@@ -2616,7 +2624,7 @@ with tab1:
                         pi = 0
                         total_ticked, total_marks_ticked = 0, 0
                         audit = []          # (label, target, chosen)
-                        for mk, label, mval, target in MARK_META:
+                        for mk, label, mval, target, ans_target in MARK_META:
                             if mk not in sel_state:
                                 if target:
                                     audit.append((label, target, 0))
@@ -2627,13 +2635,14 @@ with tab1:
                                 audit.append((label, target, len(chosen)))
                             if not chosen:
                                 continue
+                            _ans_n = ans_target if ans_target else len(chosen)
                             total_ticked += len(chosen)
-                            total_marks_ticked += len(chosen) * mval
+                            total_marks_ticked += _ans_n * mval
                             parts_cfg.append({
                                 "label": f"பகுதி {roman[pi]}",
                                 "mark": mval,
                                 "given": len(chosen),
-                                "answer": len(chosen),
+                                "answer": _ans_n,
                                 "note": "",
                                 "items": chosen,
                             })
