@@ -1628,8 +1628,10 @@ def _clean_diagram_label(label_text):
     safe = ''.join(c for c in cleaned if ord(c) < 0x0B80 or ord(c) > 0x0BFF)
     return safe.strip()
 
-def generate_geometry_image(shape_type, label_text=""):
-    fig, ax = plt.subplots(figsize=(2.8, 2.8))
+def _draw_shape_on_ax(ax, shape_type, label_text=""):
+    """Draws one geometry shape onto an existing matplotlib Axes. Shared by both
+       generate_geometry_image (single diagram) and generate_multi_geometry_image
+       (side-by-side diagrams for (i)/(ii) sub-parts)."""
     shape_upper = shape_type.upper()
     clean_label = _clean_diagram_label(label_text)
 
@@ -1641,6 +1643,22 @@ def generate_geometry_image(shape_type, label_text=""):
         t = 0.45
         D = A + t * (B - A)
         E = A + t * (C - A)
+
+        # Optional custom point names + side-length labels, e.g.
+        # "points=P,Q,R,S,T; PS=2,ST=4,SQ=1,TR=2"
+        names = ['A', 'B', 'C', 'D', 'E']
+        seg_labels = {}
+        if label_text:
+            pts_match = re.search(r'points\s*=\s*([A-Za-z,\s]+)', label_text)
+            if pts_match:
+                custom = [p.strip() for p in re.split(r'[,\s]+', pts_match.group(1)) if p.strip()]
+                if len(custom) == 5:
+                    names = custom
+            for lm in re.finditer(r'\b([A-Za-z]{2})\s*=\s*([0-9.]+)', label_text):
+                seg_labels[lm.group(1).upper()] = lm.group(2)
+
+        coords = {names[0]: A, names[1]: B, names[2]: C, names[3]: D, names[4]: E}
+
         # Main triangle
         tri = np.array([A, B, C, A])
         ax.plot(tri[:, 0], tri[:, 1], 'k-', lw=2)
@@ -1650,14 +1668,32 @@ def generate_geometry_image(shape_type, label_text=""):
         for seg_p1, seg_p2 in [(D, E), (B, C)]:
             mid = (seg_p1 + seg_p2) / 2
             ax.annotate('▸', xy=mid, fontsize=8, ha='center', va='center')
-        # Labels
-        ax.text(A[0], A[1]+0.15, 'A', fontsize=12, fontweight='bold', ha='center')
-        ax.text(B[0]-0.2, B[1]-0.1, 'B', fontsize=12, fontweight='bold')
-        ax.text(C[0]+0.1, C[1]-0.1, 'C', fontsize=12, fontweight='bold')
-        ax.text(D[0]-0.25, D[1], 'D', fontsize=12, fontweight='bold')
-        ax.text(E[0]+0.12, E[1], 'E', fontsize=12, fontweight='bold')
-        # DE ∥ BC annotation
-        ax.text(2.0, -0.35, 'DE ∥ BC', fontsize=11, ha='center', fontweight='bold')
+        # Point labels (custom names if given)
+        ax.text(A[0], A[1]+0.15, names[0], fontsize=12, fontweight='bold', ha='center')
+        ax.text(B[0]-0.2, B[1]-0.1, names[1], fontsize=12, fontweight='bold')
+        ax.text(C[0]+0.1, C[1]-0.1, names[2], fontsize=12, fontweight='bold')
+        ax.text(D[0]-0.25, D[1], names[3], fontsize=12, fontweight='bold')
+        ax.text(E[0]+0.12, E[1], names[4], fontsize=12, fontweight='bold')
+
+        # Side-length numbers on the 4 relevant segments (top-left, mid, left-lower, right-upper/lower)
+        seg_defs = [
+            (names[0], names[3]), (names[3], names[4]),
+            (names[3], names[1]), (names[0], names[4]), (names[4], names[2]),
+        ]
+        for p1n, p2n in seg_defs:
+            val = seg_labels.get((p1n + p2n).upper()) or seg_labels.get((p2n + p1n).upper())
+            if val:
+                p1c, p2c = coords[p1n], coords[p2n]
+                mid = (p1c + p2c) / 2
+                direction = p2c - p1c
+                perp = np.array([-direction[1], direction[0]])
+                nrm = np.linalg.norm(perp)
+                if nrm > 0:
+                    perp = perp / nrm * 0.18
+                ax.text(mid[0] + perp[0], mid[1] + perp[1], val, fontsize=10, ha='center', va='center')
+
+        if not seg_labels:
+            ax.text(2.0, -0.35, f'{names[3]}{names[4]} ∥ {names[1]}{names[2]}', fontsize=11, ha='center', fontweight='bold')
         ax.set_xlim(-0.5, 4.4); ax.set_ylim(-0.7, 4.1)
 
     elif "EXT_BISECTOR" in shape_upper or "EXTERNAL_BISECTOR" in shape_upper:
@@ -1798,8 +1834,37 @@ def generate_geometry_image(shape_type, label_text=""):
 
     ax.set_aspect('equal')
     ax.axis('off')
+
+
+def generate_geometry_image(shape_type, label_text=""):
+    """Single diagram, as before — returns a PNG buffer."""
+    fig, ax = plt.subplots(figsize=(2.8, 2.8))
+    _draw_shape_on_ax(ax, shape_type, label_text)
     img_buf = io.BytesIO()
-    plt.savefig(img_buf, format='png', bbox_inches='tight', dpi=110)
+    fig.savefig(img_buf, format='png', bbox_inches='tight', dpi=110)
+    img_buf.seek(0)
+    plt.close(fig)
+    return img_buf
+
+
+def generate_multi_geometry_image(specs):
+    """specs: list of (shape_type, label_text, sub_caption) tuples, e.g.
+       [("THALES", "points=P,Q,R,S,T; PS=2,ST=4,SQ=1,TR=2", "(i)"),
+        ("THALES", "points=P,Q,R,S,T; PS=2,SQ=3,TR=3", "(ii)")]
+       Renders them SIDE BY SIDE in one image (one row, N columns) — used when a
+       question has multiple (i)/(ii)/(iii) sub-diagrams instead of stacking them
+       one below another."""
+    n = max(1, len(specs))
+    fig, axes = plt.subplots(1, n, figsize=(2.8 * n, 2.8))
+    if n == 1:
+        axes = [axes]
+    for ax, (shape_type, label_text, sub_caption) in zip(axes, specs):
+        _draw_shape_on_ax(ax, shape_type, label_text)
+        if sub_caption:
+            ax.text(0.5, -0.06, sub_caption, fontsize=11, fontweight='bold',
+                     ha='center', transform=ax.transAxes)
+    img_buf = io.BytesIO()
+    fig.savefig(img_buf, format='png', bbox_inches='tight', dpi=110)
     img_buf.seek(0)
     plt.close(fig)
     return img_buf
@@ -1853,9 +1918,22 @@ def generate_prompt_v18(subject, lessons_list, exam_type, exam_time, total_marks
    - NEVER draw diagrams using text characters (/, \\, -, |). ASCII art is ABSOLUTELY BANNED.
    - Instead, write the FULL question text first, then on the NEXT separate line add ONE diagram tag.
    - The question text must always be complete. NEVER replace question text with a tag.
+   - MULTI-PART QUESTIONS with (i)/(ii)/(iii) each needing their OWN small diagram
+     (e.g. "Show that ΔPST~ΔPQR (i) ... (ii) ...") are a SPECIAL CASE: put the
+     question stem AND all the tags together on ONE SINGLE line, in this exact
+     shape, so the diagrams render side by side instead of stacked:
+       Show that ΔPST ~ ΔPQR (i) [DRAW_THALES: points=P,Q,R,S,T; PS=2,ST=4,SQ=1,TR=2] (ii) [DRAW_THALES: points=P,Q,R,S,T; PS=2,SQ=3,TR=3]
+     Do NOT put (i) and (ii) diagrams on separate lines — that stacks them instead
+     of showing them side by side.
    - TAG SELECTION MATRIX (match question content EXACTLY - wrong diagram = INVALID paper):
      * Question mentions "DE" and "BC" or "DE ∥ BC" or "மிகைவிகித"/"விகிதசம" → [DRAW_THALES] (NEVER plain TRIANGLE)
      * தேல்ஸ் தேற்றம் / Thales / BPT → [DRAW_THALES]
+     * If the question uses custom point names (not A,B,C,D,E) and/or gives numeric
+       side lengths (e.g. "Show that ΔPST ~ ΔPQR" with PS=2, ST=4, SQ=1, TR=2),
+       use: [DRAW_THALES: points=P,Q,R,S,T; PS=2,ST=4,SQ=1,TR=2] — points= lists the
+       5 names in role order (apex, base-left, base-right, mid-left, mid-right); each
+       KEY=VALUE after the semicolon labels one side with its given length. Only
+       include the sides the question actually gives numbers for.
      * உட்புற கோண இருசமவெட்டி / internal angle bisector / "AD bisects ∠A" → [DRAW_ANGLE_BISECTOR]
      * வெளிப்புற கோண இருசமவெட்டி / external bisector / "D on BC extension"/"BC-ன் நீட்டிப்பு" → [DRAW_EXT_BISECTOR]
      * ஒரு தொடுகோடு / single tangent → [DRAW_TANGENT]
@@ -2162,6 +2240,37 @@ def write_markdown_to_word(doc, text):
         line = line.strip()
         if not line:
             continue
+        _draw_pat = r'\[DRAW_(THALES|BPT|EXT_BISECTOR|EXTERNAL_BISECTOR|ANGLE_BISECTOR|BISECTOR|TWO_TANGENTS|TWO_TANGENT|PYTHAGORAS|RIGHT_TRIANGLE|TANGENT|TRIANGLE|SQUARE|RECTANGLE|CIRCLE|SEMICIRCLE)[:\s]*(.*?)\]'
+        _all_draw = list(re.finditer(_draw_pat, line, re.IGNORECASE))
+        if len(_all_draw) >= 2:
+            # Multiple sub-diagrams on one line, e.g. "STEM (i) [DRAW_THALES:...] (ii) [DRAW_THALES:...]"
+            # -> render side by side instead of stacking one below another.
+            bounds = [0] + [m.end() for m in _all_draw[:-1]] + [len(line)]
+            seg0 = line[bounds[0]:_all_draw[0].start()].strip()
+            cap_match = re.search(r'(\([ivxIVX]+\))\s*$', seg0)
+            stem, first_cap = (seg0[:cap_match.start()].strip(), cap_match.group(1)) if cap_match else (seg0, "")
+            if stem:
+                p_stem = doc.add_paragraph()
+                if re.match(r'^\d+\.', stem):
+                    p_stem.paragraph_format.left_indent = Inches(0.25)
+                    p_stem.paragraph_format.first_line_indent = Inches(-0.25)
+                p_stem.add_run(stem)
+            specs = [(_all_draw[0].group(1), _all_draw[0].group(2), first_cap)]
+            for i in range(1, len(_all_draw)):
+                cap = line[bounds[i]:_all_draw[i].start()].strip()
+                specs.append((_all_draw[i].group(1), _all_draw[i].group(2), cap))
+            trailing = line[bounds[-1]:].strip()
+            try:
+                img_buf = generate_multi_geometry_image(specs)
+                p_img = doc.add_paragraph()
+                p_img.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                p_img.add_run().add_picture(img_buf, width=Inches(min(2.5 * len(specs), 6.5)))
+            except Exception as e:
+                doc.add_paragraph(f"[Error loading diagram: {e}]")
+            if trailing:
+                doc.add_paragraph(trailing)
+            continue
+
         draw_match = re.search(r'\[DRAW_(THALES|BPT|EXT_BISECTOR|EXTERNAL_BISECTOR|ANGLE_BISECTOR|BISECTOR|TWO_TANGENTS|TWO_TANGENT|PYTHAGORAS|RIGHT_TRIANGLE|TANGENT|TRIANGLE|SQUARE|RECTANGLE|CIRCLE|SEMICIRCLE)[:\s]*(.*?)\]', line, re.IGNORECASE)
         if draw_match:
             shape_type = draw_match.group(1)
