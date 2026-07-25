@@ -2157,20 +2157,34 @@ def write_markdown_to_word(doc, text):
                     set_cell_margins(cell, top=0, bottom=0, start=0, end=0)
                 continue
 
-        option_markers = ["அ)", "ஆ)", "இ)", "ஈ)", "a)", "b)", "c)", "d)", "A)", "B)", "C)", "D)"]
-        if sum(1 for marker in option_markers if marker in clean_line) >= 3:
-            raw_parts = re.split(r'(அ\)|ஆ\)|இ\)|ஈ\)|a\)|b\)|c\)|d\)|A\)|B\)|C\)|D\))', clean_line)
+        # --- MCQ options written as A) B) C) D) (or Tamil/lowercase equivalents) ---
+        # A real option marker is preceded by start-of-line or whitespace and followed
+        # by whitespace. Anchoring this way stops math like n(A×B), f(x) or
+        # (A×C)⊂(B×D) from being mistaken for option markers and shredding the row.
+        _marker_alt = r'அ|ஆ|இ|ஈ|[a-dA-D]'
+        _marker_re = re.compile(r'(?:(?<=\s)|^)((?:%s)\))(?=\s)' % _marker_alt)
+        _found = list(_marker_re.finditer(clean_line))
+        if len(_found) >= 4:
+            # split the stem off first, then carve only the options tail
+            _first = _found[0]
+            stem = clean_line[:_first.start()].strip()
+            opts_txt = clean_line[_first.start():]
+
+            if stem:
+                p_stem = doc.add_paragraph()
+                if re.match(r'^\d+\.', stem):
+                    p_stem.paragraph_format.left_indent = Inches(0.25)
+                    p_stem.paragraph_format.first_line_indent = Inches(-0.25)
+                p_stem.add_run(stem)
+
+            _starts = [m.start() - _first.start() for m in _found]
             parts = []
-            current = ""
-            for chunk in raw_parts:
-                if chunk in option_markers:
-                    if current.strip():
-                        parts.append(current.strip())
-                    current = chunk + " "
-                else:
-                    current += chunk
-            if current.strip():
-                parts.append(current.strip())
+            for _i, _s in enumerate(_starts):
+                _e = _starts[_i + 1] if _i + 1 < len(_starts) else len(opts_txt)
+                _piece = opts_txt[_s:_e].strip()
+                if _piece:
+                    parts.append(_piece)
+
             if parts:
                 table = doc.add_table(rows=1, cols=len(parts))
                 for idx, opt in enumerate(parts):
