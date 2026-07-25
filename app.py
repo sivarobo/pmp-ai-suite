@@ -719,6 +719,7 @@ def create_paper_pdf(ai_response, school_name, class_val, subject_val, exam_type
     body = ai_response.split("=== ANSWER KEY ===")[0].strip()
     body = latex_to_normal(body)
     body = re.sub(r"\[DRAW_[^\]]*\]", "", body)          # diagram tags are Word-only
+    body = re.sub(r"\[MATRIX:[^\]]*\]", "[matrix]", body)  # matrix images are Word-only
     body = re.sub(r"\*\*(.*?)\*\*", r"\1", body)
     body = body.replace("*", "").replace("$", "")
 
@@ -1571,6 +1572,54 @@ def get_blueprint_defaults(total_marks, is_social=False, is_english=False):
         defaults = {"p1": 5, "p2g": 6, "p2a": 5, "p3g": 3, "p3a": 2, "p4v": 8, "p4g": 0, "p4a": 0}
     return defaults
 
+def generate_matrix_image(matrix_text):
+    """'[MATRIX: 8,9,4,3;-1,√7,√3/2,5;1,4,3,0;6,8,-11,1]' -> bracketed matrix image.
+       Rows separated by ';', elements by ','. Renders proper tall [ ] brackets
+       like a textbook, using matplotlib (no external LaTeX install needed)."""
+    rows = [r.strip() for r in matrix_text.strip().strip(',;').split(';') if r.strip()]
+    grid = [[c.strip() for c in row.split(',')] for row in rows]
+    n_rows = len(grid)
+    n_cols = max(len(r) for r in grid) if grid else 1
+
+    cell_w, cell_h = 1.0, 0.85
+    pad = 0.35
+    width = n_cols * cell_w + 2 * pad + 0.5
+    height = n_rows * cell_h + 0.6
+
+    fig, ax = plt.subplots(figsize=(width * 0.62, height * 0.62))
+    ax.axis('off')
+    ax.set_xlim(0, width)
+    ax.set_ylim(0, height)
+
+    left_x = pad
+    right_x = pad + n_cols * cell_w + 0.25
+    top_y = height - 0.3
+    bot_y = 0.3
+    tick = 0.18
+
+    # left bracket [
+    ax.plot([left_x, left_x], [bot_y, top_y], 'k-', lw=1.6)
+    ax.plot([left_x, left_x + tick], [top_y, top_y], 'k-', lw=1.6)
+    ax.plot([left_x, left_x + tick], [bot_y, bot_y], 'k-', lw=1.6)
+    # right bracket ]
+    ax.plot([right_x, right_x], [bot_y, top_y], 'k-', lw=1.6)
+    ax.plot([right_x - tick, right_x], [top_y, top_y], 'k-', lw=1.6)
+    ax.plot([right_x - tick, right_x], [bot_y, bot_y], 'k-', lw=1.6)
+
+    for ri, row in enumerate(grid):
+        y = top_y - 0.45 - ri * cell_h
+        for ci in range(n_cols):
+            val = row[ci] if ci < len(row) else ""
+            val = val.replace('sqrt(', '√(').replace('SQRT(', '√(')
+            x = left_x + 0.35 + ci * cell_w + cell_w / 2
+            ax.text(x, y, val, fontsize=13, ha='center', va='center')
+
+    buf = io.BytesIO()
+    fig.savefig(buf, format='png', dpi=200, bbox_inches='tight', transparent=True)
+    plt.close(fig)
+    buf.seek(0)
+    return buf
+
 def _clean_diagram_label(label_text):
     """matplotlib Tamil render பண்ணாது - ASCII மட்டும் வைக்கிறோம்"""
     import unicodedata
@@ -1821,6 +1870,17 @@ def generate_prompt_v18(subject, lessons_list, exam_type, exam_time, total_marks
      35. தேல்ஸ் தேற்றத்தை எழுதி நிரூபிக்கவும்.
      [DRAW_THALES]
 3. GRAPH PAPER COORDINATES.
+4. MATRIX QUESTIONS (Algebra unit): whenever a question shows an actual matrix
+   (e.g. "In the matrix A = ..." / "find the order of A" / a grid of numbers in
+   brackets), NEVER type the matrix as inline text or [[..],[..]] — insert the tag
+   [MATRIX: row1;row2;row3] where each row is comma-separated elements and rows
+   are separated by semicolons. Use √( ) for square roots inside cells (never LaTeX
+   \\sqrt or $ signs). Keep the tag on the SAME line as the question stem, at the
+   exact point the matrix should appear; any trailing instruction ("write (i)...")
+   continues right after the closing bracket ].
+   Example CORRECT:
+     1. In the matrix A = [MATRIX: 8,9,4,3;-1,√7,√3/2,5;1,4,3,0;6,8,-11,1], write
+        (i) the number of elements (ii) the order of the matrix
 {math_weightage_directive}"""
     else:
         lang_instruction      = "5. Language: Pure TAMIL language only."
@@ -2113,6 +2173,27 @@ def write_markdown_to_word(doc, text):
                 p_img.add_run().add_picture(img_buf, width=Inches(2.5))
             except Exception as e:
                 doc.add_paragraph(f"[Error loading diagram: {e}]")
+            continue
+
+        matrix_match = re.search(r'\[MATRIX:\s*(.*?)\]', line, re.IGNORECASE | re.DOTALL)
+        if matrix_match:
+            before = line[:matrix_match.start()].strip()
+            after = line[matrix_match.end():].strip()
+            if before:
+                p_before = doc.add_paragraph()
+                if re.match(r'^\d+\.', before):
+                    p_before.paragraph_format.left_indent = Inches(0.25)
+                    p_before.paragraph_format.first_line_indent = Inches(-0.25)
+                p_before.add_run(before)
+            try:
+                img_buf = generate_matrix_image(matrix_match.group(1))
+                p_img = doc.add_paragraph()
+                p_img.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                p_img.add_run().add_picture(img_buf, width=Inches(1.8))
+            except Exception as e:
+                doc.add_paragraph(f"[Error loading matrix: {e}]")
+            if after:
+                doc.add_paragraph(after)
             continue
         clean_line = line.replace('*', '').replace('$', '').strip()
         if "பகுதி" in clean_line or "PART" in clean_line.upper():
