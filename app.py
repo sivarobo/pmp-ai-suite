@@ -405,26 +405,6 @@ def _fmt_question_with_options(row):
             q = f"{q.rstrip()}   {tail}"
     return q
 
-def _fmt_question_with_options_latex(row):
-    """On-screen preview only (NOT used for Word/PDF export): same as
-       _fmt_question_with_options but prefers the *_latex columns so
-       st.markdown() can render fractions/roots/exponents via KaTeX.
-       Falls back to the plain columns when a _latex column is empty
-       (e.g. rows added before the LaTeX columns existed)."""
-    q = row.get("question_text_latex") or row.get("question_text") or ""
-    opts = [
-        row.get("option_a_latex") or row.get("option_a"),
-        row.get("option_b_latex") or row.get("option_b"),
-        row.get("option_c_latex") or row.get("option_c"),
-        row.get("option_d_latex") or row.get("option_d"),
-    ]
-    if any((o or "").strip() for o in opts):
-        labels = ["A", "B", "C", "D"]
-        tail = "   ".join(f"{lbl}) {(val or '').strip()}" for lbl, val in zip(labels, opts) if (val or "").strip())
-        if tail and not re.search(r'\bA\)\s.+\bB\)\s', q):
-            q = f"{q.rstrip()}   {tail}"
-    return q
-
 def fetch_bank_questions(subject, lesson, mark_type):
     try:
         conn = get_db()
@@ -433,16 +413,13 @@ def fetch_bank_questions(subject, lesson, mark_type):
         cur = conn.cursor()
         cur.execute(
             "SELECT id, qtype, question_text, answer_text, reference, "
-            "option_a, option_b, option_c, option_d, correct_option, "
-            "question_text_latex, option_a_latex, option_b_latex, option_c_latex, option_d_latex "
-            "FROM question_bank "
+            "option_a, option_b, option_c, option_d, correct_option FROM question_bank "
             "WHERE subject=%s AND lesson=%s AND mark_type=%s ORDER BY id",
             (subject, lesson, mark_type)
         )
         rows = [dict(r) for r in cur.fetchall()]
         conn.close()
         for r in rows:
-            r["question_text_preview"] = _fmt_question_with_options_latex(r)
             r["question_text"] = _fmt_question_with_options(r)
         return rows
     except Exception as e:
@@ -545,11 +522,8 @@ def assemble_paper_from_bank(parts_cfg):
         items = part["items"]
         if not items:
             continue
-        total_marks = part["answer"] * part["mark"]
-        if part["given"] != part["answer"]:
-            header = f'{part["label"]} ( ஏதேனும் {part["answer"]}-ஐ {part["given"]}-ல் இருந்து தேர்ந்தெடுத்து பதிலளிக்கவும் ) ( {part["answer"]} x {part["mark"]} = {total_marks} )'
-        else:
-            header = f'{part["label"]} ( {part["answer"]} x {part["mark"]} = {total_marks} )'
+        total_marks = part["given"] * part["mark"]
+        header = f'{part["label"]} ( {part["given"]} x {part["mark"]} = {total_marks} )'
         if part.get("note"):
             header += f'  [{part["note"]}]'
         q_lines.append(header)
@@ -587,8 +561,7 @@ def fetch_bank_by_type(subject, lessons, qtype):
         params += list(lessons)
         cur.execute(
             f"SELECT id, subject, lesson, mark_type, qtype, question_text, answer_text, reference, "
-            f"option_a, option_b, option_c, option_d, correct_option, "
-            f"question_text_latex, option_a_latex, option_b_latex, option_c_latex, option_d_latex "
+            f"option_a, option_b, option_c, option_d, correct_option "
             f"FROM question_bank "
             f"WHERE {where}"
             f"LOWER(TRIM(lesson)) IN ({lesson_ph}) "
@@ -598,7 +571,6 @@ def fetch_bank_by_type(subject, lessons, qtype):
         rows = [dict(r) for r in cur.fetchall()]
         conn.close()
         for r in rows:
-            r["question_text_preview"] = _fmt_question_with_options_latex(r)
             r["question_text"] = _fmt_question_with_options(r)
         return rows
     except Exception as e:
@@ -719,7 +691,6 @@ def create_paper_pdf(ai_response, school_name, class_val, subject_val, exam_type
     body = ai_response.split("=== ANSWER KEY ===")[0].strip()
     body = latex_to_normal(body)
     body = re.sub(r"\[DRAW_[^\]]*\]", "", body)          # diagram tags are Word-only
-    body = re.sub(r"\[MATRIX:[^\]]*\]", "[matrix]", body)  # matrix images are Word-only
     body = re.sub(r"\*\*(.*?)\*\*", r"\1", body)
     body = body.replace("*", "").replace("$", "")
 
@@ -1572,54 +1543,6 @@ def get_blueprint_defaults(total_marks, is_social=False, is_english=False):
         defaults = {"p1": 5, "p2g": 6, "p2a": 5, "p3g": 3, "p3a": 2, "p4v": 8, "p4g": 0, "p4a": 0}
     return defaults
 
-def generate_matrix_image(matrix_text):
-    """'[MATRIX: 8,9,4,3;-1,√7,√3/2,5;1,4,3,0;6,8,-11,1]' -> bracketed matrix image.
-       Rows separated by ';', elements by ','. Renders proper tall [ ] brackets
-       like a textbook, using matplotlib (no external LaTeX install needed)."""
-    rows = [r.strip() for r in matrix_text.strip().strip(',;').split(';') if r.strip()]
-    grid = [[c.strip() for c in row.split(',')] for row in rows]
-    n_rows = len(grid)
-    n_cols = max(len(r) for r in grid) if grid else 1
-
-    cell_w, cell_h = 1.0, 0.85
-    pad = 0.35
-    width = n_cols * cell_w + 2 * pad + 0.5
-    height = n_rows * cell_h + 0.6
-
-    fig, ax = plt.subplots(figsize=(width * 0.62, height * 0.62))
-    ax.axis('off')
-    ax.set_xlim(0, width)
-    ax.set_ylim(0, height)
-
-    left_x = pad
-    right_x = pad + n_cols * cell_w + 0.25
-    top_y = height - 0.3
-    bot_y = 0.3
-    tick = 0.18
-
-    # left bracket [
-    ax.plot([left_x, left_x], [bot_y, top_y], 'k-', lw=1.6)
-    ax.plot([left_x, left_x + tick], [top_y, top_y], 'k-', lw=1.6)
-    ax.plot([left_x, left_x + tick], [bot_y, bot_y], 'k-', lw=1.6)
-    # right bracket ]
-    ax.plot([right_x, right_x], [bot_y, top_y], 'k-', lw=1.6)
-    ax.plot([right_x - tick, right_x], [top_y, top_y], 'k-', lw=1.6)
-    ax.plot([right_x - tick, right_x], [bot_y, bot_y], 'k-', lw=1.6)
-
-    for ri, row in enumerate(grid):
-        y = top_y - 0.45 - ri * cell_h
-        for ci in range(n_cols):
-            val = row[ci] if ci < len(row) else ""
-            val = val.replace('sqrt(', '√(').replace('SQRT(', '√(')
-            x = left_x + 0.35 + ci * cell_w + cell_w / 2
-            ax.text(x, y, val, fontsize=13, ha='center', va='center')
-
-    buf = io.BytesIO()
-    fig.savefig(buf, format='png', dpi=200, bbox_inches='tight', transparent=True)
-    plt.close(fig)
-    buf.seek(0)
-    return buf
-
 def _clean_diagram_label(label_text):
     """matplotlib Tamil render பண்ணாது - ASCII மட்டும் வைக்கிறோம்"""
     import unicodedata
@@ -1628,10 +1551,8 @@ def _clean_diagram_label(label_text):
     safe = ''.join(c for c in cleaned if ord(c) < 0x0B80 or ord(c) > 0x0BFF)
     return safe.strip()
 
-def _draw_shape_on_ax(ax, shape_type, label_text=""):
-    """Draws one geometry shape onto an existing matplotlib Axes. Shared by both
-       generate_geometry_image (single diagram) and generate_multi_geometry_image
-       (side-by-side diagrams for (i)/(ii) sub-parts)."""
+def generate_geometry_image(shape_type, label_text=""):
+    fig, ax = plt.subplots(figsize=(2.8, 2.8))
     shape_upper = shape_type.upper()
     clean_label = _clean_diagram_label(label_text)
 
@@ -1643,22 +1564,6 @@ def _draw_shape_on_ax(ax, shape_type, label_text=""):
         t = 0.45
         D = A + t * (B - A)
         E = A + t * (C - A)
-
-        # Optional custom point names + side-length labels, e.g.
-        # "points=P,Q,R,S,T; PS=2,ST=4,SQ=1,TR=2"
-        names = ['A', 'B', 'C', 'D', 'E']
-        seg_labels = {}
-        if label_text:
-            pts_match = re.search(r'points\s*=\s*([A-Za-z,\s]+)', label_text)
-            if pts_match:
-                custom = [p.strip() for p in re.split(r'[,\s]+', pts_match.group(1)) if p.strip()]
-                if len(custom) == 5:
-                    names = custom
-            for lm in re.finditer(r'\b([A-Za-z]{2})\s*=\s*([0-9.]+)', label_text):
-                seg_labels[lm.group(1).upper()] = lm.group(2)
-
-        coords = {names[0]: A, names[1]: B, names[2]: C, names[3]: D, names[4]: E}
-
         # Main triangle
         tri = np.array([A, B, C, A])
         ax.plot(tri[:, 0], tri[:, 1], 'k-', lw=2)
@@ -1668,32 +1573,14 @@ def _draw_shape_on_ax(ax, shape_type, label_text=""):
         for seg_p1, seg_p2 in [(D, E), (B, C)]:
             mid = (seg_p1 + seg_p2) / 2
             ax.annotate('▸', xy=mid, fontsize=8, ha='center', va='center')
-        # Point labels (custom names if given)
-        ax.text(A[0], A[1]+0.15, names[0], fontsize=12, fontweight='bold', ha='center')
-        ax.text(B[0]-0.2, B[1]-0.1, names[1], fontsize=12, fontweight='bold')
-        ax.text(C[0]+0.1, C[1]-0.1, names[2], fontsize=12, fontweight='bold')
-        ax.text(D[0]-0.25, D[1], names[3], fontsize=12, fontweight='bold')
-        ax.text(E[0]+0.12, E[1], names[4], fontsize=12, fontweight='bold')
-
-        # Side-length numbers on the 4 relevant segments (top-left, mid, left-lower, right-upper/lower)
-        seg_defs = [
-            (names[0], names[3]), (names[3], names[4]),
-            (names[3], names[1]), (names[0], names[4]), (names[4], names[2]),
-        ]
-        for p1n, p2n in seg_defs:
-            val = seg_labels.get((p1n + p2n).upper()) or seg_labels.get((p2n + p1n).upper())
-            if val:
-                p1c, p2c = coords[p1n], coords[p2n]
-                mid = (p1c + p2c) / 2
-                direction = p2c - p1c
-                perp = np.array([-direction[1], direction[0]])
-                nrm = np.linalg.norm(perp)
-                if nrm > 0:
-                    perp = perp / nrm * 0.18
-                ax.text(mid[0] + perp[0], mid[1] + perp[1], val, fontsize=10, ha='center', va='center')
-
-        if not seg_labels:
-            ax.text(2.0, -0.35, f'{names[3]}{names[4]} ∥ {names[1]}{names[2]}', fontsize=11, ha='center', fontweight='bold')
+        # Labels
+        ax.text(A[0], A[1]+0.15, 'A', fontsize=12, fontweight='bold', ha='center')
+        ax.text(B[0]-0.2, B[1]-0.1, 'B', fontsize=12, fontweight='bold')
+        ax.text(C[0]+0.1, C[1]-0.1, 'C', fontsize=12, fontweight='bold')
+        ax.text(D[0]-0.25, D[1], 'D', fontsize=12, fontweight='bold')
+        ax.text(E[0]+0.12, E[1], 'E', fontsize=12, fontweight='bold')
+        # DE ∥ BC annotation
+        ax.text(2.0, -0.35, 'DE ∥ BC', fontsize=11, ha='center', fontweight='bold')
         ax.set_xlim(-0.5, 4.4); ax.set_ylim(-0.7, 4.1)
 
     elif "EXT_BISECTOR" in shape_upper or "EXTERNAL_BISECTOR" in shape_upper:
@@ -1834,37 +1721,8 @@ def _draw_shape_on_ax(ax, shape_type, label_text=""):
 
     ax.set_aspect('equal')
     ax.axis('off')
-
-
-def generate_geometry_image(shape_type, label_text=""):
-    """Single diagram, as before — returns a PNG buffer."""
-    fig, ax = plt.subplots(figsize=(2.8, 2.8))
-    _draw_shape_on_ax(ax, shape_type, label_text)
     img_buf = io.BytesIO()
-    fig.savefig(img_buf, format='png', bbox_inches='tight', dpi=110)
-    img_buf.seek(0)
-    plt.close(fig)
-    return img_buf
-
-
-def generate_multi_geometry_image(specs):
-    """specs: list of (shape_type, label_text, sub_caption) tuples, e.g.
-       [("THALES", "points=P,Q,R,S,T; PS=2,ST=4,SQ=1,TR=2", "(i)"),
-        ("THALES", "points=P,Q,R,S,T; PS=2,SQ=3,TR=3", "(ii)")]
-       Renders them SIDE BY SIDE in one image (one row, N columns) — used when a
-       question has multiple (i)/(ii)/(iii) sub-diagrams instead of stacking them
-       one below another."""
-    n = max(1, len(specs))
-    fig, axes = plt.subplots(1, n, figsize=(2.8 * n, 2.8))
-    if n == 1:
-        axes = [axes]
-    for ax, (shape_type, label_text, sub_caption) in zip(axes, specs):
-        _draw_shape_on_ax(ax, shape_type, label_text)
-        if sub_caption:
-            ax.text(0.5, -0.06, sub_caption, fontsize=11, fontweight='bold',
-                     ha='center', transform=ax.transAxes)
-    img_buf = io.BytesIO()
-    fig.savefig(img_buf, format='png', bbox_inches='tight', dpi=110)
+    plt.savefig(img_buf, format='png', bbox_inches='tight', dpi=110)
     img_buf.seek(0)
     plt.close(fig)
     return img_buf
@@ -1918,22 +1776,9 @@ def generate_prompt_v18(subject, lessons_list, exam_type, exam_time, total_marks
    - NEVER draw diagrams using text characters (/, \\, -, |). ASCII art is ABSOLUTELY BANNED.
    - Instead, write the FULL question text first, then on the NEXT separate line add ONE diagram tag.
    - The question text must always be complete. NEVER replace question text with a tag.
-   - MULTI-PART QUESTIONS with (i)/(ii)/(iii) each needing their OWN small diagram
-     (e.g. "Show that ΔPST~ΔPQR (i) ... (ii) ...") are a SPECIAL CASE: put the
-     question stem AND all the tags together on ONE SINGLE line, in this exact
-     shape, so the diagrams render side by side instead of stacked:
-       Show that ΔPST ~ ΔPQR (i) [DRAW_THALES: points=P,Q,R,S,T; PS=2,ST=4,SQ=1,TR=2] (ii) [DRAW_THALES: points=P,Q,R,S,T; PS=2,SQ=3,TR=3]
-     Do NOT put (i) and (ii) diagrams on separate lines — that stacks them instead
-     of showing them side by side.
    - TAG SELECTION MATRIX (match question content EXACTLY - wrong diagram = INVALID paper):
      * Question mentions "DE" and "BC" or "DE ∥ BC" or "மிகைவிகித"/"விகிதசம" → [DRAW_THALES] (NEVER plain TRIANGLE)
      * தேல்ஸ் தேற்றம் / Thales / BPT → [DRAW_THALES]
-     * If the question uses custom point names (not A,B,C,D,E) and/or gives numeric
-       side lengths (e.g. "Show that ΔPST ~ ΔPQR" with PS=2, ST=4, SQ=1, TR=2),
-       use: [DRAW_THALES: points=P,Q,R,S,T; PS=2,ST=4,SQ=1,TR=2] — points= lists the
-       5 names in role order (apex, base-left, base-right, mid-left, mid-right); each
-       KEY=VALUE after the semicolon labels one side with its given length. Only
-       include the sides the question actually gives numbers for.
      * உட்புற கோண இருசமவெட்டி / internal angle bisector / "AD bisects ∠A" → [DRAW_ANGLE_BISECTOR]
      * வெளிப்புற கோண இருசமவெட்டி / external bisector / "D on BC extension"/"BC-ன் நீட்டிப்பு" → [DRAW_EXT_BISECTOR]
      * ஒரு தொடுகோடு / single tangent → [DRAW_TANGENT]
@@ -1948,17 +1793,6 @@ def generate_prompt_v18(subject, lessons_list, exam_type, exam_time, total_marks
      35. தேல்ஸ் தேற்றத்தை எழுதி நிரூபிக்கவும்.
      [DRAW_THALES]
 3. GRAPH PAPER COORDINATES.
-4. MATRIX QUESTIONS (Algebra unit): whenever a question shows an actual matrix
-   (e.g. "In the matrix A = ..." / "find the order of A" / a grid of numbers in
-   brackets), NEVER type the matrix as inline text or [[..],[..]] — insert the tag
-   [MATRIX: row1;row2;row3] where each row is comma-separated elements and rows
-   are separated by semicolons. Use √( ) for square roots inside cells (never LaTeX
-   \\sqrt or $ signs). Keep the tag on the SAME line as the question stem, at the
-   exact point the matrix should appear; any trailing instruction ("write (i)...")
-   continues right after the closing bracket ].
-   Example CORRECT:
-     1. In the matrix A = [MATRIX: 8,9,4,3;-1,√7,√3/2,5;1,4,3,0;6,8,-11,1], write
-        (i) the number of elements (ii) the order of the matrix
 {math_weightage_directive}"""
     else:
         lang_instruction      = "5. Language: Pure TAMIL language only."
@@ -2137,22 +1971,7 @@ def generate_prompt_v18(subject, lessons_list, exam_type, exam_time, total_marks
                          "instruction, part heading and option — MUST be written in PURE TAMIL only "
                          "(கணித சின்னங்கள்/எண்கள் தவிர). Do NOT write questions in English.")
 
-    marks_math_rule = """
-[HEADER MARKS-MATH RULE - ABSOLUTELY MANDATORY, NO EXCEPTIONS]
-The blueprint above gives each choice-based part as "Given N, Answer M" (N = total questions
-printed in that section for the student to choose from; M = how many the student must actually
-answer — this is the number that counts for marks).
-- WRITE exactly N full questions in that section (the student needs a real choice).
-- The section header's "(No_of_Qs x Marks = Total_Marks)" formula MUST use M (the Answer count),
-  NEVER N (the Given count). Total_Marks = M x Marks_per_question.
-- The header must ALSO state the choice clearly, e.g. "(ஏதேனும் M-ஐ N-ல் இருந்து தேர்ந்தெடுத்து
-  பதிலளிக்கவும்) ( M x Marks = Total_Marks )" — both numbers appear, but only M feeds the multiplication.
-- Example: Given 12, Answer 10, Marks 2 → header shows "(ஏதேனும் 10-ஐ 12-ல் இருந்து தேர்ந்தெடுத்து
-  பதிலளிக்கவும்) ( 10 x 2 = 20 )" — NEVER "( 12 x 2 = 24 )".
-- Double-check every part's Total_Marks against its own Answer count before finalizing the paper.
-"""
-
-    return f"Subject: {subject}\nLessons: {lessons_str}\nExam Type: {exam_type}\nTotal Marks: {total_marks}\nTime: {exam_time}\nMode: {exam_mode}\n{difficulty_directive}\n{blueprint_desc}\n{header_format}\n{marks_math_rule}\n{option_format}\n{mcq_rule}\n{lang_instruction}{lang_override}\n{subject_blueprint_rules}\n{no_latex_rule}\n{quality_rules}\n{theorem_proof_rule}\n{pyq_tagging_rule}\n{no_latex_rule}\n=== ANSWER KEY ==="
+    return f"Subject: {subject}\nLessons: {lessons_str}\nExam Type: {exam_type}\nTotal Marks: {total_marks}\nTime: {exam_time}\nMode: {exam_mode}\n{difficulty_directive}\n{blueprint_desc}\n{header_format}\n{option_format}\n{mcq_rule}\n{lang_instruction}{lang_override}\n{subject_blueprint_rules}\n{no_latex_rule}\n{quality_rules}\n{theorem_proof_rule}\n{pyq_tagging_rule}\n{no_latex_rule}\n=== ANSWER KEY ==="
 
 
 # ==========================================
@@ -2240,37 +2059,6 @@ def write_markdown_to_word(doc, text):
         line = line.strip()
         if not line:
             continue
-        _draw_pat = r'\[DRAW_(THALES|BPT|EXT_BISECTOR|EXTERNAL_BISECTOR|ANGLE_BISECTOR|BISECTOR|TWO_TANGENTS|TWO_TANGENT|PYTHAGORAS|RIGHT_TRIANGLE|TANGENT|TRIANGLE|SQUARE|RECTANGLE|CIRCLE|SEMICIRCLE)[:\s]*(.*?)\]'
-        _all_draw = list(re.finditer(_draw_pat, line, re.IGNORECASE))
-        if len(_all_draw) >= 2:
-            # Multiple sub-diagrams on one line, e.g. "STEM (i) [DRAW_THALES:...] (ii) [DRAW_THALES:...]"
-            # -> render side by side instead of stacking one below another.
-            bounds = [0] + [m.end() for m in _all_draw[:-1]] + [len(line)]
-            seg0 = line[bounds[0]:_all_draw[0].start()].strip()
-            cap_match = re.search(r'(\([ivxIVX]+\))\s*$', seg0)
-            stem, first_cap = (seg0[:cap_match.start()].strip(), cap_match.group(1)) if cap_match else (seg0, "")
-            if stem:
-                p_stem = doc.add_paragraph()
-                if re.match(r'^\d+\.', stem):
-                    p_stem.paragraph_format.left_indent = Inches(0.25)
-                    p_stem.paragraph_format.first_line_indent = Inches(-0.25)
-                p_stem.add_run(stem)
-            specs = [(_all_draw[0].group(1), _all_draw[0].group(2), first_cap)]
-            for i in range(1, len(_all_draw)):
-                cap = line[bounds[i]:_all_draw[i].start()].strip()
-                specs.append((_all_draw[i].group(1), _all_draw[i].group(2), cap))
-            trailing = line[bounds[-1]:].strip()
-            try:
-                img_buf = generate_multi_geometry_image(specs)
-                p_img = doc.add_paragraph()
-                p_img.alignment = WD_ALIGN_PARAGRAPH.CENTER
-                p_img.add_run().add_picture(img_buf, width=Inches(min(2.5 * len(specs), 6.5)))
-            except Exception as e:
-                doc.add_paragraph(f"[Error loading diagram: {e}]")
-            if trailing:
-                doc.add_paragraph(trailing)
-            continue
-
         draw_match = re.search(r'\[DRAW_(THALES|BPT|EXT_BISECTOR|EXTERNAL_BISECTOR|ANGLE_BISECTOR|BISECTOR|TWO_TANGENTS|TWO_TANGENT|PYTHAGORAS|RIGHT_TRIANGLE|TANGENT|TRIANGLE|SQUARE|RECTANGLE|CIRCLE|SEMICIRCLE)[:\s]*(.*?)\]', line, re.IGNORECASE)
         if draw_match:
             shape_type = draw_match.group(1)
@@ -2282,27 +2070,6 @@ def write_markdown_to_word(doc, text):
                 p_img.add_run().add_picture(img_buf, width=Inches(2.5))
             except Exception as e:
                 doc.add_paragraph(f"[Error loading diagram: {e}]")
-            continue
-
-        matrix_match = re.search(r'\[MATRIX:\s*(.*?)\]', line, re.IGNORECASE | re.DOTALL)
-        if matrix_match:
-            before = line[:matrix_match.start()].strip()
-            after = line[matrix_match.end():].strip()
-            if before:
-                p_before = doc.add_paragraph()
-                if re.match(r'^\d+\.', before):
-                    p_before.paragraph_format.left_indent = Inches(0.25)
-                    p_before.paragraph_format.first_line_indent = Inches(-0.25)
-                p_before.add_run(before)
-            try:
-                img_buf = generate_matrix_image(matrix_match.group(1))
-                p_img = doc.add_paragraph()
-                p_img.alignment = WD_ALIGN_PARAGRAPH.CENTER
-                p_img.add_run().add_picture(img_buf, width=Inches(1.8))
-            except Exception as e:
-                doc.add_paragraph(f"[Error loading matrix: {e}]")
-            if after:
-                doc.add_paragraph(after)
             continue
         clean_line = line.replace('*', '').replace('$', '').strip()
         if "பகுதி" in clean_line or "PART" in clean_line.upper():
@@ -2347,34 +2114,20 @@ def write_markdown_to_word(doc, text):
                     set_cell_margins(cell, top=0, bottom=0, start=0, end=0)
                 continue
 
-        # --- MCQ options written as A) B) C) D) (or Tamil/lowercase equivalents) ---
-        # A real option marker is preceded by start-of-line or whitespace and followed
-        # by whitespace. Anchoring this way stops math like n(A×B), f(x) or
-        # (A×C)⊂(B×D) from being mistaken for option markers and shredding the row.
-        _marker_alt = r'அ|ஆ|இ|ஈ|[a-dA-D]'
-        _marker_re = re.compile(r'(?:(?<=\s)|^)((?:%s)\))(?=\s)' % _marker_alt)
-        _found = list(_marker_re.finditer(clean_line))
-        if len(_found) >= 4:
-            # split the stem off first, then carve only the options tail
-            _first = _found[0]
-            stem = clean_line[:_first.start()].strip()
-            opts_txt = clean_line[_first.start():]
-
-            if stem:
-                p_stem = doc.add_paragraph()
-                if re.match(r'^\d+\.', stem):
-                    p_stem.paragraph_format.left_indent = Inches(0.25)
-                    p_stem.paragraph_format.first_line_indent = Inches(-0.25)
-                p_stem.add_run(stem)
-
-            _starts = [m.start() - _first.start() for m in _found]
+        option_markers = ["அ)", "ஆ)", "இ)", "ஈ)", "a)", "b)", "c)", "d)", "A)", "B)", "C)", "D)"]
+        if sum(1 for marker in option_markers if marker in clean_line) >= 3:
+            raw_parts = re.split(r'(அ\)|ஆ\)|இ\)|ஈ\)|a\)|b\)|c\)|d\)|A\)|B\)|C\)|D\))', clean_line)
             parts = []
-            for _i, _s in enumerate(_starts):
-                _e = _starts[_i + 1] if _i + 1 < len(_starts) else len(opts_txt)
-                _piece = opts_txt[_s:_e].strip()
-                if _piece:
-                    parts.append(_piece)
-
+            current = ""
+            for chunk in raw_parts:
+                if chunk in option_markers:
+                    if current.strip():
+                        parts.append(current.strip())
+                    current = chunk + " "
+                else:
+                    current += chunk
+            if current.strip():
+                parts.append(current.strip())
             if parts:
                 table = doc.add_table(rows=1, cols=len(parts))
                 for idx, opt in enumerate(parts):
@@ -2555,13 +2308,21 @@ with tab1:
             with pc4:
                 show_p4 = st.checkbox("பகுதி IV · நெடுவினா", value=True)
 
+        st.markdown("""
+        <style>
+          div[data-testid="stVerticalBlockBorderWrapper"] div[data-testid="stVerticalBlock"]{ gap:.28rem; }
+          div[data-testid="stVerticalBlockBorderWrapper"] div[data-testid="stWidgetLabel"] p{ font-size:.76rem; margin-bottom:1px; line-height:1.15; }
+          div[data-testid="stVerticalBlockBorderWrapper"] div[data-testid="stNumberInput"] input{ padding:3px 8px; }
+          div[data-testid="stVerticalBlockBorderWrapper"] div[data-baseweb="select"]>div{ min-height:0; padding-top:1px; padding-bottom:1px; }
+        </style>
+        """, unsafe_allow_html=True)
         # ===== Marks details + live donut =====
         _mcard = st.container(border=True)
         with _mcard:
             marks_col, donut_col = st.columns([2, 1])
 
         with marks_col:
-            st.markdown("#### ⚙️ மதிப்பெண் விவரங்கள்")
+            st.markdown("<div style='font-size:15px;font-weight:700;margin:0 0 4px;'>⚙️ மதிப்பெண் விவரங்கள்</div>", unsafe_allow_html=True)
 
             # Row 1: 1-mark (full width)
             p1_ask = st.number_input("1-மார்க் வினாக்கள்", min_value=0,
@@ -2602,13 +2363,13 @@ with tab1:
 
         # ===== Compact summary (no donut, saves space) =====
         with donut_col:
-            st.markdown("##### 📊 Blueprint Summary")
+            st.markdown("<div style='font-size:14px;font-weight:700;margin:0 0 4px;'>📊 Blueprint Summary</div>", unsafe_allow_html=True)
             _bal_color = "#1b9e5a" if can_generate else "#9a6b00"
             _bal_bg    = "#e8f5ec" if can_generate else "#fff6df"
             st.markdown(
-                f"<div style='background:{_bal_bg};border-radius:12px;padding:10px 14px;text-align:center;margin-bottom:8px;'>"
-                f"<span style='font-family:Sora,sans-serif;font-size:30px;font-weight:800;color:#0a1f44;'>{total_calculated}</span>"
-                f"<span style='font-size:15px;color:#5a6782;'> / {marks_val}</span></div>",
+                f"<div style='background:{_bal_bg};border-radius:12px;padding:7px 12px;text-align:center;margin-bottom:6px;'>"
+                f"<span style='font-family:Sora,sans-serif;font-size:22px;font-weight:800;color:#0a1f44;'>{total_calculated}</span>"
+                f"<span style='font-size:12px;color:#5a6782;'> / {marks_val}</span></div>",
                 unsafe_allow_html=True)
 
             rows = [
@@ -2694,13 +2455,11 @@ with tab1:
                                "'🛠️ கேள்வி வங்கி மேலாண்மை' Tab-ல் Import செய்யவும்.")
                 else:
                     MARK_META = [
-                        ("1M",   "பகுதி I · 1 மார்க்",              1, int(p1_ask) if show_p1 else 0, int(p1_ask) if show_p1 else 0),
-                        ("2M",   "பகுதி II · 2 மார்க்",             2, int(p2_get) if show_p2 else 0, int(p2_ask) if show_p2 else 0),
-                        ("5M",   "பகுதி III · 5 மார்க்",            5, int(p3_get) if show_p3 else 0, int(p3_ask) if show_p3 else 0),
-                        ("LONG", "பகுதி IV · நெடுவினா (8 மார்க்)",  8, int(p4_get) if show_p4 else 0, int(p4_ask) if show_p4 else 0),
+                        ("1M",   "பகுதி I · 1 மார்க்",              1, int(p1_ask) if show_p1 else 0),
+                        ("2M",   "பகுதி II · 2 மார்க்",             2, int(p2_get) if show_p2 else 0),
+                        ("5M",   "பகுதி III · 5 மார்க்",            5, int(p3_get) if show_p3 else 0),
+                        ("LONG", "பகுதி IV · நெடுவினா (8 மார்க்)",  8, int(p4_get) if show_p4 else 0),
                     ]
-                    # target = எத்தனை கேள்வி TICK பண்ணணும் (Given/printed count)
-                    # ans_target = எத்தனைக்கு மதிப்பெண் கணக்கிடணும் (Answer/scored count)
 
                     _QT_ICON = {"எடுத்துக்காட்டு": "📘", "பயிற்சி": "✏️",
                                 "பின்புற வினா": "📗", "Creative": "💡"}
@@ -2741,7 +2500,7 @@ with tab1:
                     sel_state = {}
                     live_total_q, live_total_marks = 0, 0
 
-                    for mk, label, mval, target, ans_target in MARK_META:
+                    for mk, label, mval, target in MARK_META:
                         items = [q for q in pool if (q.get("mark_type") or "").upper() == mk]
 
                         if not items:
@@ -2770,13 +2529,7 @@ with tab1:
                         # live count from session_state (updates on every tick)
                         _n_now = len(st.session_state.get(sel_k, []))
                         live_total_q += _n_now
-                        # marks math uses the ANSWER count (ans_target), not the Given/printed
-                        # count (target) — a "Given 12, Answer 10" part is always worth
-                        # ans_target x mval marks once fully ticked, scaled by progress meanwhile.
-                        if target:
-                            live_total_marks += round((min(_n_now, target) / target) * ans_target * mval)
-                        else:
-                            live_total_marks += _n_now * mval
+                        live_total_marks += _n_now * mval
 
                         if target:
                             _ic = "✅" if _n_now == target else ("⬆️" if _n_now > target else "⬇️")
@@ -2800,7 +2553,7 @@ with tab1:
                                     st.caption("✅ இந்தப் பகுதி முழுமையானது")
                             with st.expander(f"📖 கேள்விகளைப் பார்க்க ({len(items)})", expanded=False):
                                 for lb, it in lab_map.items():
-                                    st.markdown(f"**{lb}** — {it.get('question_text_preview') or it['question_text']}")
+                                    st.markdown(f"**{lb}** — {it['question_text']}")
                                     _rf = it.get("reference") or ""
                                     if _rf:
                                         st.caption(f"📌 {_rf}")
@@ -2828,7 +2581,7 @@ with tab1:
                         pi = 0
                         total_ticked, total_marks_ticked = 0, 0
                         audit = []          # (label, target, chosen)
-                        for mk, label, mval, target, ans_target in MARK_META:
+                        for mk, label, mval, target in MARK_META:
                             if mk not in sel_state:
                                 if target:
                                     audit.append((label, target, 0))
@@ -2839,14 +2592,13 @@ with tab1:
                                 audit.append((label, target, len(chosen)))
                             if not chosen:
                                 continue
-                            _ans_n = ans_target if ans_target else len(chosen)
                             total_ticked += len(chosen)
-                            total_marks_ticked += _ans_n * mval
+                            total_marks_ticked += len(chosen) * mval
                             parts_cfg.append({
                                 "label": f"பகுதி {roman[pi]}",
                                 "mark": mval,
                                 "given": len(chosen),
-                                "answer": _ans_n,
+                                "answer": len(chosen),
                                 "note": "",
                                 "items": chosen,
                             })
