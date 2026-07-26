@@ -2310,10 +2310,15 @@ with tab1:
 
         st.markdown("""
         <style>
-          div[data-testid="stVerticalBlockBorderWrapper"] div[data-testid="stVerticalBlock"]{ gap:.28rem; }
-          div[data-testid="stVerticalBlockBorderWrapper"] div[data-testid="stWidgetLabel"] p{ font-size:.76rem; margin-bottom:1px; line-height:1.15; }
-          div[data-testid="stVerticalBlockBorderWrapper"] div[data-testid="stNumberInput"] input{ padding:3px 8px; }
-          div[data-testid="stVerticalBlockBorderWrapper"] div[data-baseweb="select"]>div{ min-height:0; padding-top:1px; padding-bottom:1px; }
+          /* compact ONLY the mark-details bordered card — beats global !important via higher specificity + !important */
+          div[data-testid="stVerticalBlockBorderWrapper"] [data-testid="stVerticalBlock"]{ gap:.12rem !important; }
+          div[data-testid="stVerticalBlockBorderWrapper"] .stNumberInput input,
+          div[data-testid="stVerticalBlockBorderWrapper"] .stSelectbox div[data-baseweb="select"]>div{
+              min-height:30px !important; padding-top:2px !important; padding-bottom:2px !important; font-size:13px !important; }
+          div[data-testid="stVerticalBlockBorderWrapper"] .stNumberInput button{ min-height:30px !important; height:30px !important; }
+          div[data-testid="stVerticalBlockBorderWrapper"] .stSelectbox label,
+          div[data-testid="stVerticalBlockBorderWrapper"] .stNumberInput label{ font-size:11.5px !important; margin-bottom:0 !important; padding-bottom:0 !important; }
+          div[data-testid="stVerticalBlockBorderWrapper"] [data-testid="stMarkdownContainer"] p{ margin-bottom:0 !important; }
         </style>
         """, unsafe_allow_html=True)
         # ===== Marks details + live donut =====
